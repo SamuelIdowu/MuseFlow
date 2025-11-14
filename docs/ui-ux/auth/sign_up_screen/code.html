@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sign Up - AI Content Platform</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#13a4ec",
+              "background-light": "#f6f7f8",
+              "background-dark": "#101c22",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            font-family: 'Manrope', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
+<div class="relative flex min-h-screen w-full flex-col group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<main class="flex-1">
+<div class="flex flex-col md:flex-row min-h-screen">
+<!-- Left Panel -->
+<div class="w-full md:w-1/2 lg:w-5/12 bg-[#111c22] p-8 sm:p-12 flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-3 mb-10">
+<span class="material-symbols-outlined text-primary text-4xl">auto_awesome</span>
+<span class="text-white text-xl font-bold">ContentAI</span>
+</div>
+</div>
+<div class="my-auto">
+<div class="layout-content-container flex flex-col max-w-[960px] flex-1">
+<h1 class="text-white tracking-light text-4xl font-bold leading-tight pb-3">The Future of Content Creation Starts Here.</h1>
+<p class="text-gray-300 text-lg font-normal leading-normal pb-3 pt-1">Generate, refine, and publish compelling content in minutes.</p>
+</div>
+</div>
+<div class="flex w-full grow @container pt-8">
+<div class="w-full gap-2 overflow-hidden aspect-[16/9] flex rounded-xl">
+<div class="w-full bg-center bg-no-repeat bg-cover aspect-auto flex-1" data-alt="Abstract vibrant waves of light in blue and purple hues, symbolizing AI creativity." style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDI531-Vle0fO3brB5k-QeO-YvfudVhxbZmpxzZwCu5ZgcsZJwykl_QgHeLCUYoep7K3lNF7pNo7AdCE5uawqLGQWoAUK-hirK1-Ngtnlpi--Kct9ChN1Xo2StR5RupJd5WOAQN-LEp7pJttcW6fg1uShTkfh0xtpzOpRJpskOdoKvTmYwtr5fhGP0zaBtySR0n1_B0I71zyWOE-VeLVLDfPoh3GuINteRpSINuVjtmIiRPXUhQpdcot1e6Wz8YP0tKVu3RFxvgpA");'></div>
+</div>
+</div>
+</div>
+<!-- Right Panel -->
+<div class="w-full md:w-1/2 lg:w-7/12 flex items-center justify-center p-8 sm:p-12 bg-background-light dark:bg-background-dark">
+<div class="w-full max-w-md mx-auto">
+<div class="layout-content-container flex flex-col flex-1">
+<div class="flex flex-wrap justify-between gap-3 mb-6">
+<div class="flex flex-col gap-1">
+<p class="text-gray-900 dark:text-white text-3xl font-black leading-tight tracking-[-0.033em]">Create Your Account</p>
+<p class="text-gray-500 dark:text-[#92b7c9] text-base font-normal leading-normal">Get started for free</p>
+</div>
+</div>
+<div class="flex flex-col gap-3 items-stretch">
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-gray-200 dark:bg-[#233c48] text-gray-800 dark:text-white text-base font-bold leading-normal tracking-[0.015em] w-full gap-2 transition-colors hover:bg-gray-300 dark:hover:bg-[#2b4958]">
+<svg class="w-5 h-5" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><g clip-path="url(#clip0_105_233)"><path d="M22.5002 12.2727C22.5002 11.4545 22.4275 10.6591 22.282 9.88636H12.2729V14.25H18.0684C17.8184 15.8636 17.0002 17.2955 15.6593 18.25V21.1023H19.5002C21.4547 19.3409 22.5002 16.0909 22.5002 12.2727Z" fill="#4285F4"></path><path d="M12.2727 22.5C15.1136 22.5 17.5682 21.5682 19.5 20.1023L15.6591 18.25C14.6818 18.9091 13.5682 19.2955 12.2727 19.2955C9.76136 19.2955 7.61364 17.6591 6.85227 15.3409H2.86364V18.2955C4.77273 20.8182 8.25 22.5 12.2727 22.5Z" fill="#34A853"></path><path d="M6.85227 15.3409C6.61364 14.6818 6.47727 13.9773 6.47727 13.2273C6.47727 12.4773 6.61364 11.7727 6.85227 11.1136V8.15909H2.86364C2.07273 9.68182 1.59091 11.4091 1.59091 13.2273C1.59091 15.0455 2.07273 16.7727 2.86364 18.2955L6.85227 15.3409Z" fill="#FBBC05"></path><path d="M12.2727 7.15909C13.75 7.15909 15.2045 7.68182 16.3182 8.75L19.5909 5.47727C17.5568 3.61364 15.1136 2.5 12.2727 2.5C8.25 2.5 4.77273 4.18182 2.86364 6.70455L6.85227 9.65909C7.61364 7.34091 9.76136 5.70455 12.2727 7.15909V7.15909Z" fill="#EA4335"></path></g><defs><clippath id="clip0_105_233"><rect fill="white" height="21" transform="translate(1.59091 1.5)" width="21"></rect></clippath></defs></svg>
+<span class="truncate">Continue with Google</span>
+</button>
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-gray-200 dark:bg-[#233c48] text-gray-800 dark:text-white text-base font-bold leading-normal tracking-[0.015em] w-full gap-2 transition-colors hover:bg-gray-300 dark:hover:bg-[#2b4958]">
+<svg class="w-5 h-5" fill="currentColor" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path clip-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12C2 16.417 4.86 20.164 9.008 21.491C9.66 21.604 9.892 21.19 9.892 20.835C9.892 20.514 9.882 19.663 9.875 18.59C7.162 19.204 6.545 17.512 6.545 17.512C6.012 16.148 5.25 15.82 5.25 15.82C4.19 15.068 5.334 15.08 5.334 15.08C6.494 15.16 7.111 16.273 7.111 16.273C8.14 18.03 9.882 17.508 10.512 17.21C10.615 16.485 10.906 15.98 11.234 15.694C8.614 15.391 5.854 14.398 5.854 10.291C5.854 9.035 6.308 8.01 7.007 7.202C6.892 6.9 6.441 5.613 7.123 4.253C7.123 4.253 8.084 3.949 9.845 5.148C10.76 4.904 11.734 4.782 12.709 4.779C13.682 4.782 14.657 4.904 15.571 5.148C17.332 3.949 18.293 4.253 18.293 4.253C18.975 5.613 18.524 6.9 18.409 7.202C19.108 8.01 19.562 9.035 19.562 10.291C19.562 14.407 16.8 15.39 14.173 15.694C14.566 16.035 14.908 16.66 14.908 17.618C14.908 18.981 14.894 20.088 14.894 20.48C14.894 20.838 15.122 21.248 15.789 21.134C19.932 19.852 22.784 16.177 22.784 12C22.784 6.477 18.307 2 12.784 2H12Z" fill-rule="evenodd"></path></svg>
+<span class="truncate">Continue with GitHub</span>
+</button>
+</div>
+<div class="flex items-center my-4">
+<hr class="flex-grow border-gray-300 dark:border-gray-600"/>
+<span class="mx-4 text-sm font-semibold text-gray-500 dark:text-gray-400">OR</span>
+<hr class="flex-grow border-gray-300 dark:border-gray-600"/>
+</div>
+<form class="flex flex-col gap-4">
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-gray-700 dark:text-gray-300" for="email">Email Address</label>
+<input class="w-full h-12 px-4 rounded-lg bg-gray-200 dark:bg-[#233c48] border border-transparent focus:ring-2 focus:ring-primary focus:border-primary dark:text-white placeholder-gray-500 dark:placeholder-gray-400" id="email" placeholder="you@example.com" type="email"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-gray-700 dark:text-gray-300" for="password">Password</label>
+<input class="w-full h-12 px-4 rounded-lg bg-gray-200 dark:bg-[#233c48] border border-transparent focus:ring-2 focus:ring-primary focus:border-primary dark:text-white placeholder-gray-500 dark:placeholder-gray-400" id="password" placeholder="Enter your password" type="password"/>
+</div>
+<div class="flex flex-col gap-2">
+<label class="text-sm font-semibold text-gray-700 dark:text-gray-300" for="confirm-password">Confirm Password</label>
+<input class="w-full h-12 px-4 rounded-lg bg-gray-200 dark:bg-[#233c48] border border-transparent focus:ring-2 focus:ring-primary focus:border-primary dark:text-white placeholder-gray-500 dark:placeholder-gray-400" id="confirm-password" placeholder="Confirm your password" type="password"/>
+</div>
+<div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400 mt-1">
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-green-500">check_circle</span> 8+ characters</span>
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-red-500">cancel</span> 1 uppercase</span>
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-green-500">check_circle</span> 1 number</span>
+<span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-sm text-red-500">cancel</span> 1 special character</span>
+</div>
+<div class="flex items-center gap-3 mt-4">
+<input class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary" id="terms" type="checkbox"/>
+<label class="text-sm text-gray-600 dark:text-gray-400" for="terms">I agree to the <a class="font-semibold text-primary hover:underline" href="#">Terms of Service</a> and <a class="font-semibold text-primary hover:underline" href="#">Privacy Policy</a>.</label>
+</div>
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary text-white text-base font-bold leading-normal tracking-[0.015em] w-full mt-4 hover:bg-primary/90 transition-colors disabled:opacity-50" type="submit">
+<span class="truncate">Create Free Account</span>
+</button>
+</form>
+<p class="text-center text-sm text-gray-600 dark:text-gray-400 mt-8">
+                                    Already have an account? <a class="font-semibold text-primary hover:underline" href="#">Sign In</a>
+</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</div>
+</body></html>

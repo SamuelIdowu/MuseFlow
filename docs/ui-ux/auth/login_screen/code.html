@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Login - AI Content Platform</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#4A47A3",
+              "accent": "#00C49A",
+              "background-light": "#F8F9FA",
+              "background-dark": "#101c22",
+              "text-light-primary": "#1f2937",
+              "text-light-secondary": "#6C757D",
+              "text-dark-primary": "#f8f9fa",
+              "text-dark-secondary": "#92b7c9",
+              "border-light": "#e5e7eb",
+              "border-dark": "#325567",
+              "surface-light": "#ffffff",
+              "surface-dark": "#192b33",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24
+      }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="relative flex min-h-screen w-full flex-col">
+<div class="flex h-full grow flex-col">
+<div class="flex flex-1">
+<div class="flex w-full flex-col items-center justify-center md:flex-row">
+<!-- Left Column: Image and Branding -->
+<div class="relative hidden h-full flex-1 items-center justify-center bg-gray-900 md:flex">
+<div class="absolute inset-0 bg-cover bg-center bg-no-repeat" data-alt="Abstract blue and purple neural network visualization, representing AI and creativity." style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuADm0Rm5-97J0RWGJRaf0kaJzifpxkl8pR_DHsClJz68dh6O7gxu7yLvHA5qWomZsvXLNju_oKxdrKOzJct7zNCR7XVL1xFshlzbLiq87RG8QjY7rtxHQMkVAdAgODXYZDv2jAaOf5lFuZs22mWi_CilHKLMOVMrB8kgxHMyN2OIglVw5yfZbmM90k8MYxL2_t1tibmtOTqBhPfMFm8hKe3uf8TWd2F3ch8Uoc774MDxp6UP4JKJXWM6-Y595IIivKfzzvJuW54Wg");'></div>
+<div class="relative z-10 flex flex-col items-start gap-6 p-12 text-white">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-4xl text-accent">auto_awesome</span>
+<p class="text-2xl font-bold">ContentAI</p>
+</div>
+<h1 class="font-display text-5xl font-black leading-tight tracking-tight">Where Ideas<br/>Take Flight.</h1>
+<p class="max-w-md text-lg font-light text-gray-300">Your AI content co-pilot, designed to amplify your creative process from ideation to publication.</p>
+</div>
+</div>
+<!-- Right Column: Login Form -->
+<div class="flex w-full flex-1 items-center justify-center p-6 sm:p-8 lg:p-12">
+<div class="flex w-full max-w-md flex-col gap-8">
+<!-- Header -->
+<div class="flex flex-col gap-2 text-center md:text-left">
+<h2 class="text-text-light-primary dark:text-text-dark-primary text-3xl font-black leading-tight tracking-[-0.033em]">Welcome Back</h2>
+<p class="text-text-light-secondary dark:text-text-dark-secondary text-base font-normal leading-normal">Log in to access your AI content co-pilot.</p>
+</div>
+<!-- OAuth Buttons -->
+<div class="flex w-full flex-col gap-3">
+<button class="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border-light bg-surface-light px-4 text-sm font-medium text-text-light-primary transition-colors hover:bg-gray-50 dark:border-border-dark dark:bg-surface-dark dark:text-text-dark-primary dark:hover:bg-white/5">
+<svg class="h-5 w-5" fill="none" viewbox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.578 12.282c0-.72-.065-1.42-.186-2.103H12v3.978h5.937c-.266 1.286-.96 2.378-2.046 3.132v2.58h3.313c1.933-1.782 3.044-4.385 3.044-7.587z" fill="#4285F4"></path><path d="M12 23c3.24 0 5.956-1.074 7.94-2.91l-3.313-2.58c-1.074.72-2.44 1.15-4.627 1.15-3.565 0-6.582-2.4-7.66-5.61H1.047v2.662C3.063 20.355 7.15 23 12 23z" fill="#34A853"></path><path d="M4.34 14.053a8.21 8.21 0 010-5.106V6.285H1.047a11.95 11.95 0 000 10.43L4.34 14.053z" fill="#FBBC05"></path><path d="M12 3.34c1.75 0 3.334.604 4.586 1.795l2.94-2.94C17.95.996 15.24 0 12 0 7.15 0 3.063 2.645 1.047 6.285l3.293 2.662C5.418 5.74 8.435 3.34 12 3.34z" fill="#EA4335"></path></svg>
+                                    Continue with Google
+                                </button>
+<button class="flex h-12 w-full items-center justify-center gap-3 rounded-lg border border-border-light bg-surface-light px-4 text-sm font-medium text-text-light-primary transition-colors hover:bg-gray-50 dark:border-border-dark dark:bg-surface-dark dark:text-text-dark-primary dark:hover:bg-white/5">
+<svg class="h-5 w-5" fill="currentColor" viewbox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" fill-rule="evenodd"></path></svg>
+                                    Continue with GitHub
+                                </button>
+</div>
+<!-- Divider -->
+<div class="flex items-center gap-4">
+<hr class="w-full border-border-light dark:border-border-dark"/>
+<p class="text-xs font-medium text-text-light-secondary dark:text-text-dark-secondary">OR</p>
+<hr class="w-full border-border-light dark:border-border-dark"/>
+</div>
+<!-- Login Form -->
+<form class="flex w-full flex-col gap-4">
+<label class="flex flex-col flex-1">
+<p class="text-text-light-primary dark:text-text-dark-primary text-sm font-medium leading-normal pb-2">Email Address</p>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg border border-border-light bg-surface-light text-text-light-primary placeholder:text-text-light-secondary focus:border-primary focus:outline-0 focus:ring-2 focus:ring-primary/20 dark:border-border-dark dark:bg-surface-dark dark:text-text-dark-primary dark:placeholder:text-text-dark-secondary dark:focus:border-primary h-12 p-[15px] text-base font-normal leading-normal" placeholder="Enter your email address" type="email"/>
+</label>
+<label class="flex flex-col flex-1">
+<p class="text-text-light-primary dark:text-text-dark-primary text-sm font-medium leading-normal pb-2">Password</p>
+<div class="flex w-full flex-1 items-stretch">
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-l-lg border border-border-light bg-surface-light pr-2 text-text-light-primary placeholder:text-text-light-secondary focus:border-primary focus:outline-0 focus:ring-2 focus:ring-primary/20 dark:border-border-dark dark:bg-surface-dark dark:text-text-dark-primary dark:placeholder:text-text-dark-secondary dark:focus:border-primary h-12 rounded-r-none border-r-0 p-[15px] text-base font-normal leading-normal" placeholder="Enter your password" type="password"/>
+<button class="flex items-center justify-center rounded-r-lg border border-l-0 border-border-light bg-surface-light pr-4 text-text-light-secondary transition-colors hover:bg-gray-50 focus:outline-none dark:border-border-dark dark:bg-surface-dark dark:text-text-dark-secondary dark:hover:bg-white/5" type="button">
+<span class="material-symbols-outlined text-xl">visibility</span>
+</button>
+</div>
+</label>
+<a class="text-right text-sm font-medium text-primary underline-offset-4 hover:underline" href="#">Forgot Password?</a>
+<button class="flex h-12 w-full items-center justify-center rounded-lg bg-primary px-6 text-base font-semibold text-white transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2 dark:focus:ring-offset-background-dark" type="submit">Log In</button>
+</form>
+<!-- Sign-up Link -->
+<p class="text-center text-sm text-text-light-secondary dark:text-text-dark-secondary">
+                                Don't have an account? <a class="font-medium text-primary underline-offset-4 hover:underline" href="#">Sign Up</a>
+</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</body></html>

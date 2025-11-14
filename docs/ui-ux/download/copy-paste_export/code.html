@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Export Content Modal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#13a4ec",
+              "background-light": "#f6f7f8",
+              "background-dark": "#101c22",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {
+              "DEFAULT": "0.25rem",
+              "lg": "0.5rem",
+              "xl": "0.75rem",
+              "full": "9999px"
+            },
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+        }
+    </style>
+</head>
+<body class="font-display">
+<div class="relative flex min-h-screen w-full flex-col items-center justify-center bg-background-light dark:bg-background-dark p-4 sm:p-6 lg:p-8">
+<!-- Modal Container -->
+<div class="relative flex w-full max-w-2xl flex-col gap-4 rounded-xl border border-white/10 bg-[#192730] p-6 sm:p-8 shadow-2xl">
+<!-- Close Button -->
+<button class="absolute top-4 right-4 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-white/5 text-[#92b7c9] transition-colors hover:bg-white/10 hover:text-white">
+<span class="material-symbols-outlined !text-2xl">close</span>
+</button>
+<!-- PageHeading -->
+<div class="flex flex-wrap justify-between gap-3">
+<div class="flex flex-col gap-2">
+<p class="text-white text-2xl font-bold leading-tight tracking-tight sm:text-3xl">Export Your Content</p>
+<p class="text-[#92b7c9] text-sm font-normal leading-normal">Choose your preferred export format below.</p>
+</div>
+</div>
+<!-- Content Preview with BodyText -->
+<div class="flex flex-col gap-2 pt-4">
+<p class="text-white text-sm font-medium px-1">Content Preview</p>
+<div class="max-h-32 overflow-y-auto rounded-lg border border-white/10 bg-[#101c22] p-4">
+<p class="text-[#c1d6e1] text-sm font-normal leading-relaxed">
+                        Title: Unlocking Creativity with AI
+                        <br/><br/>
+                        Introduction: In an era where digital content is king, the demand for high-quality, engaging material has never been greater. Artificial Intelligence is stepping up to the challenge, transforming the landscape of content creation by offering tools that assist in brainstorming, drafting, and refining ideas. This article explores how AI...
+                    </p>
+</div>
+</div>
+<!-- SingleButton for Primary Action -->
+<div class="flex pt-4 justify-center">
+<button class="flex min-w-[84px] w-full max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary text-white gap-2.5 text-base font-bold leading-normal tracking-[0.015em] transition-transform active:scale-[0.98]">
+<span class="material-symbols-outlined">content_paste</span>
+<span class="truncate">Copy to Clipboard</span>
+</button>
+</div>
+<!-- Download Options (ButtonGroup) and MetaText -->
+<div class="flex flex-col items-center gap-4 pt-4">
+<div class="flex w-full flex-col sm:flex-row gap-4">
+<button class="flex flex-1 min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#233c48] text-white gap-2 text-sm font-bold leading-normal tracking-[0.015em] transition-colors hover:bg-[#2c4a59]">
+<span class="material-symbols-outlined">download</span>
+<span class="truncate">Download as Markdown</span>
+</button>
+<button class="flex flex-1 min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-[#233c48] text-white gap-2 text-sm font-bold leading-normal tracking-[0.015em] transition-colors hover:bg-[#2c4a59]">
+<span class="material-symbols-outlined">download</span>
+<span class="truncate">Download as CSV</span>
+</button>
+</div>
+<!-- MetaText -->
+<p class="text-[#92b7c9] text-xs sm:text-sm font-normal leading-normal text-center pt-2">
+                    Use Markdown for blogs and formatted text, or CSV for spreadsheets and data tables.
+                </p>
+</div>
+</div>
+</div>
+</body></html>

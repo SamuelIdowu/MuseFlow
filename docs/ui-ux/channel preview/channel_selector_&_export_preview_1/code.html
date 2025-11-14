@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Preview and Publish</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13a4ec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101c22",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        body {
+            @apply font-display bg-background-light dark:bg-background-dark;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 20px;
+        }
+        .radio-custom:checked {
+            background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='%2313a4ec' xmlns='http://www.w3.org/2000/svg'%3e%3ccircle cx='8' cy='8' r='3'/%3e%3c/svg%3e");
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark">
+<div class="relative flex min-h-screen w-full flex-col p-4 sm:p-6 lg:p-8">
+<div class="mx-auto flex w-full max-w-7xl flex-col items-center">
+<header class="w-full max-w-6xl py-6">
+<div class="flex flex-wrap justify-between gap-4">
+<div class="flex flex-col gap-2">
+<h1 class="text-3xl font-bold tracking-tight text-slate-900 dark:text-white font-display">Preview and Publish</h1>
+<p class="text-sm font-normal text-slate-500 dark:text-slate-400 font-display">Choose your channels and see how your content will look on each platform.</p>
+</div>
+</div>
+</header>
+<main class="grid w-full max-w-6xl grid-cols-1 gap-8 md:grid-cols-12">
+<aside class="space-y-6 md:col-span-4 lg:col-span-3">
+<h2 class="text-base font-bold text-slate-900 dark:text-white font-display">CHOOSE CHANNELS</h2>
+<div class="flex flex-col gap-3">
+<label class="flex cursor-pointer items-center gap-4 rounded-lg border border-slate-300 bg-background-light p-4 ring-2 ring-transparent transition-all hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:ring-primary/20 dark:border-slate-700 dark:bg-background-dark dark:hover:border-primary/50 dark:has-[:checked]:border-primary dark:has-[:checked]:bg-primary/10">
+<input checked="" class="radio-custom h-5 w-5 appearance-none rounded-full border-2 border-slate-400 bg-transparent text-transparent transition-colors checked:border-primary focus:outline-none focus:ring-0 focus:ring-offset-0 dark:border-slate-600 dark:checked:border-primary" name="publishing-platform" type="radio"/>
+<div class="flex grow flex-col">
+<p class="text-sm font-medium text-slate-800 dark:text-white font-display">X (formerly Twitter)</p>
+</div>
+</label>
+<label class="flex cursor-pointer items-center gap-4 rounded-lg border border-slate-300 bg-background-light p-4 ring-2 ring-transparent transition-all hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:ring-primary/20 dark:border-slate-700 dark:bg-background-dark dark:hover:border-primary/50 dark:has-[:checked]:border-primary dark:has-[:checked]:bg-primary/10">
+<input class="radio-custom h-5 w-5 appearance-none rounded-full border-2 border-slate-400 bg-transparent text-transparent transition-colors checked:border-primary focus:outline-none focus:ring-0 focus:ring-offset-0 dark:border-slate-600 dark:checked:border-primary" name="publishing-platform" type="radio"/>
+<div class="flex grow flex-col">
+<p class="text-sm font-medium text-slate-800 dark:text-white font-display">LinkedIn</p>
+</div>
+</label>
+<label class="flex cursor-pointer items-center gap-4 rounded-lg border border-slate-300 bg-background-light p-4 ring-2 ring-transparent transition-all hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:ring-primary/20 dark:border-slate-700 dark:bg-background-dark dark:hover:border-primary/50 dark:has-[:checked]:border-primary dark:has-[:checked]:bg-primary/10">
+<input class="radio-custom h-5 w-5 appearance-none rounded-full border-2 border-slate-400 bg-transparent text-transparent transition-colors checked:border-primary focus:outline-none focus:ring-0 focus:ring-offset-0 dark:border-slate-600 dark:checked:border-primary" name="publishing-platform" type="radio"/>
+<div class="flex grow flex-col">
+<p class="text-sm font-medium text-slate-800 dark:text-white font-display">YouTube</p>
+</div>
+</label>
+<label class="flex cursor-pointer items-center gap-4 rounded-lg border border-slate-300 bg-background-light p-4 ring-2 ring-transparent transition-all hover:border-primary/50 has-[:checked]:border-primary has-[:checked]:bg-primary/10 has-[:checked]:ring-primary/20 dark:border-slate-700 dark:bg-background-dark dark:hover:border-primary/50 dark:has-[:checked]:border-primary dark:has-[:checked]:bg-primary/10">
+<input class="radio-custom h-5 w-5 appearance-none rounded-full border-2 border-slate-400 bg-transparent text-transparent transition-colors checked:border-primary focus:outline-none focus:ring-0 focus:ring-offset-0 dark:border-slate-600 dark:checked:border-primary" name="publishing-platform" type="radio"/>
+<div class="flex grow flex-col">
+<p class="text-sm font-medium text-slate-800 dark:text-white font-display">Blog / Website</p>
+</div>
+</label>
+</div>
+</aside>
+<div class="md:col-span-8 lg:col-span-9">
+<section class="flex h-full flex-col rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-[#15232A]">
+<header class="border-b border-slate-200 px-4 pb-2 pt-4 dark:border-slate-800">
+<h3 class="text-lg font-bold tracking-tight text-slate-900 dark:text-white font-display">Live Preview on X</h3>
+</header>
+<div class="flex flex-1 items-center justify-center p-4 sm:p-8">
+<div class="flex w-full max-w-md flex-row items-start justify-start gap-3">
+<div class="aspect-square w-10 shrink-0 rounded-full bg-cover bg-center bg-no-repeat" data-alt="Profile picture of a user named Alex Doe" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDpTRykkXQOE6P97Opgce1Ivhy4aOMymMQlsa7q9QhzKORX16-9EugLuWL6lmte5Uben-tELVQxMmI_CBgMsAx2lbNb0PVssaQfSMsxMpwJpTZSgc_acbn3wG_CKEiCMM-euKOs-ljir4fcjk2el87Fb3hkQ34Xxd3ETeihOvwgWvGknQxbQk97Mcflxpa2GXCO8quG_WrEi8FrVmNOHya6DeuAMHjX1Wb_axV0kl0QDDb9r8cdXK3Hjf-BbaYPq9E-pIqXNjbOrw");'></div>
+<div class="flex h-full flex-1 flex-col items-start justify-start">
+<div class="flex w-full flex-row items-center justify-start gap-x-2">
+<p class="text-sm font-bold text-slate-900 dark:text-white font-display">Alex Doe</p>
+<p class="text-sm font-normal text-slate-500 dark:text-slate-400 font-display">@alexdoe · now</p>
+</div>
+<p class="mt-1 text-sm font-normal text-slate-800 dark:text-slate-200 font-display">This is a preview of the content as it would appear on the selected platform. The AI-powered platform helps generate and format this content for maximum impact.</p>
+<div class="mt-3 flex w-full flex-row items-center justify-start gap-9">
+<div class="flex cursor-pointer items-center gap-2 text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-primary">
+<span class="material-symbols-outlined">chat_bubble_outline</span>
+<p class="text-sm font-normal">244</p>
+</div>
+<div class="flex cursor-pointer items-center gap-2 text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-primary">
+<span class="material-symbols-outlined">repeat</span>
+<p class="text-sm font-normal">78</p>
+</div>
+<div class="flex cursor-pointer items-center gap-2 text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-primary">
+<span class="material-symbols-outlined">favorite_border</span>
+<p class="text-sm font-normal">1.2k</p>
+</div>
+<div class="flex cursor-pointer items-center gap-2 text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-primary">
+<span class="material-symbols-outlined">bar_chart</span>
+<p class="text-sm font-normal">98k</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<footer class="mt-8 flex w-full max-w-6xl flex-wrap justify-end gap-3 border-t border-slate-200 px-4 py-4 dark:border-slate-800 sm:px-0">
+<button class="flex h-12 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-slate-200 px-5 text-base font-bold text-slate-800 transition-colors hover:bg-slate-300 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700 font-display">
+<span class="truncate">Save as Draft</span>
+</button>
+<button class="flex h-12 min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-primary px-5 text-base font-bold text-white transition-colors hover:bg-primary/90 font-display">
+<span class="truncate">Publish Now</span>
+</button>
+</footer>
+</div>
+</div>
+</body></html>

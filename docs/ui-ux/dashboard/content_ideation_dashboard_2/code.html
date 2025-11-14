@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>AI Content Ideation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#13a4ec",
+              "background-light": "#f6f7f8",
+              "background-dark": "#101c22",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings:
+        'FILL' 1,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24
+      }
+      .material-symbols-outlined.regular {
+        font-variation-settings: 'FILL' 0;
+      }
+    </style>
+</head>
+<body class="font-display bg-background-light dark:bg-background-dark">
+<div class="relative flex min-h-screen w-full">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-screen sticky top-0 w-64 bg-background-light dark:bg-background-dark border-r border-slate-200 dark:border-slate-800 p-4">
+<div class="flex items-center gap-3 mb-8">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" data-alt="Default Profile Avatar" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBWZ6BrKt7JtHuo6NuZRNCR261eLk80MUtQAvBdUyuuE-AY7rYavj54OUnj6y_q67zJmrQQoDJv78o3SOwrPl1X-EzX72ByPQRMijtux2CP_WORIJKOHVnjB_tHcJLC9Kw8Hgs6dZ6zWMnNCEBfmUED-iEhD0sPMcnhHxQsve_tZNfUGtjPhObfAM2KOQj7KyJvFnO_YSNV6KkhhcUovBdGO3LICD6uGbsksRAB1EVdi0uAFcpXnq95rQhgG0anyi0TCNZjGE1P-w");'></div>
+<div class="flex flex-col">
+<h1 class="text-slate-900 dark:text-white text-base font-medium leading-normal">Default Profile</h1>
+<p class="text-slate-500 dark:text-slate-400 text-sm font-normal leading-normal">Personal Brand</p>
+</div>
+</div>
+<nav class="flex flex-col gap-2 flex-grow">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/20 dark:bg-primary/20" href="#">
+<span class="material-symbols-outlined text-primary text-2xl">auto_awesome</span>
+<p class="text-primary text-sm font-bold leading-normal">Generator</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/50" href="#">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-2xl">bookmark_border</span>
+<p class="text-slate-800 dark:text-white text-sm font-medium leading-normal">Saved Ideas</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/50" href="#">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-2xl">history</span>
+<p class="text-slate-800 dark:text-white text-sm font-medium leading-normal">History</p>
+</a>
+</nav>
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/50" href="#">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-2xl">settings</span>
+<p class="text-slate-800 dark:text-white text-sm font-medium leading-normal">Settings</p>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 p-6 sm:p-8 md:p-12">
+<div class="max-w-4xl mx-auto">
+<!-- PageHeading -->
+<div class="flex flex-wrap justify-between gap-3 mb-8">
+<div class="flex flex-col gap-2">
+<p class="text-slate-900 dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">Unlock Your Next Big Idea</p>
+<p class="text-slate-500 dark:text-slate-400 text-base font-normal leading-normal">Paste your text or a URL below to generate unique content angles.</p>
+</div>
+</div>
+<!-- SegmentedButtons -->
+<div class="flex mb-4">
+<div class="flex h-10 items-center rounded-lg bg-slate-200 dark:bg-[#192b33] p-1">
+<label class="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-lg px-4 has-[:checked]:bg-background-light has-[:checked]:dark:bg-slate-700 has-[:checked]:shadow-sm has-[:checked]:text-slate-900 has-[:checked]:dark:text-white text-slate-500 dark:text-slate-400 text-sm font-medium leading-normal">
+<span class="truncate">Paste Text</span>
+<input checked="" class="invisible w-0" name="input-type" type="radio" value="Paste Text"/>
+</label>
+<label class="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-lg px-4 has-[:checked]:bg-background-light has-[:checked]:dark:bg-slate-700 has-[:checked]:shadow-sm has-[:checked]:text-slate-900 has-[:checked]:dark:text-white text-slate-500 dark:text-slate-400 text-sm font-medium leading-normal">
+<span class="truncate">Enter URL</span>
+<input class="invisible w-0" name="input-type" type="radio" value="Enter URL"/>
+</label>
+</div>
+</div>
+<!-- TextField -->
+<div class="flex flex-col gap-4 mb-6">
+<textarea class="form-input flex w-full min-w-0 flex-1 resize-y overflow-hidden rounded-lg text-slate-900 dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-slate-300 dark:border-slate-700 bg-background-light dark:bg-slate-800/40 focus:border-primary min-h-48 placeholder:text-slate-400 dark:placeholder:text-slate-500 p-4 text-base font-normal leading-normal" placeholder="Start by pasting a blog post, a transcript, or your raw notes..."></textarea>
+<!-- SingleButton -->
+<div class="flex justify-start">
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 bg-primary hover:bg-primary/90 text-white text-base font-bold leading-normal tracking-[0.015em] transition-colors">
+<span class="truncate">Generate Ideas</span>
+</button>
+</div>
+</div>
+<!-- Generated Ideas Section -->
+<div>
+<h2 class="text-2xl font-bold text-slate-900 dark:text-white mb-6">Here are your Idea Kernels</h2>
+<!-- Idea Card Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Idea Card 1 -->
+<div class="bg-background-light dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl p-5 flex flex-col gap-3">
+<h3 class="text-primary text-base font-bold leading-normal">Hook: The Contrarian View</h3>
+<p class="text-slate-600 dark:text-slate-300 text-sm font-normal leading-relaxed flex-grow">Challenge the common narrative. Argue that remote work isn't the utopia everyone claims it to be, focusing on the overlooked downsides like social isolation and career stagnation.</p>
+<div class="flex items-center gap-2 mt-2">
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">bookmark_border</span>
+</button>
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">content_copy</span>
+</button>
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">expand_content</span>
+</button>
+</div>
+</div>
+<!-- Idea Card 2 -->
+<div class="bg-background-light dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl p-5 flex flex-col gap-3">
+<h3 class="text-primary text-base font-bold leading-normal">Angle: The Productivity Myth</h3>
+<p class="text-slate-600 dark:text-slate-300 text-sm font-normal leading-relaxed flex-grow">Explore how the metrics for productivity have changed. Are we measuring the right things? Discuss how 'busyness' is often confused with genuine output in a remote setting.</p>
+<div class="flex items-center gap-2 mt-2">
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">bookmark_border</span>
+</button>
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">content_copy</span>
+</button>
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">expand_content</span>
+</button>
+</div>
+</div>
+<!-- Idea Card 3 -->
+<div class="bg-background-light dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl p-5 flex flex-col gap-3">
+<h3 class="text-primary text-base font-bold leading-normal">Prompt: A Day in the Life</h3>
+<p class="text-slate-600 dark:text-slate-300 text-sm font-normal leading-relaxed flex-grow">Write a short story or script detailing the ideal 'hybrid' work day. How does one balance the focus of home with the collaboration of the office in a single 24-hour period?</p>
+<div class="flex items-center gap-2 mt-2">
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">bookmark_border</span>
+</button>
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">content_copy</span>
+</button>
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">expand_content</span>
+</button>
+</div>
+</div>
+<!-- Idea Card 4 -->
+<div class="bg-background-light dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800 rounded-xl p-5 flex flex-col gap-3">
+<h3 class="text-primary text-base font-bold leading-normal">Analogy: The Digital Nomad</h3>
+<p class="text-slate-600 dark:text-slate-300 text-sm font-normal leading-relaxed flex-grow">Compare the modern remote worker to the historical journeyman or traveling merchant. What parallels can be drawn in terms of skill, autonomy, and community?</p>
+<div class="flex items-center gap-2 mt-2">
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">bookmark_border</span>
+</button>
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">content_copy</span>
+</button>
+<button class="p-2 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+<span class="material-symbols-outlined regular text-slate-500 dark:text-slate-400 text-xl">expand_content</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

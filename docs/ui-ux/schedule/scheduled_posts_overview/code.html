@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Content Schedule - ContentAI</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#13a4ec",
+              "background-light": "#f6f7f8",
+              "background-dark": "#101c22",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="flex-shrink-0 w-64 bg-[#111c22]">
+<div class="flex h-full flex-col justify-between p-4">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-3 p-2">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" data-alt="Company Logo" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDu-Ezh5H9KKFJulmo__CPKEICXRNyOdXyj05qkSkrtCxG4cwPh2-2G_ahJDMboTCkhKWk2jgNdjIg9lP9bU-8jEyz0Sx0XkRc8PCx7NeaSXuV-xG4Pxs6BFeE8WD0ExotZVYTnuTniPEEFtg9iN9LxAWQ24QiSjlldK0R1hK23WvaqXsjD0BEoFSw4g6LxIjb1nM0u52gbbCgl1ok3fwPmS61ZFSFAnxdS_lid_0UnGIQsroD4X2MgMCB5JonmkIquHqw8iV2gLQ");'></div>
+<div class="flex flex-col">
+<h1 class="text-white text-base font-medium leading-normal">ContentAI</h1>
+<p class="text-[#92b7c9] text-sm font-normal leading-normal">Growth Plan</p>
+</div>
+</div>
+<nav class="flex flex-col gap-2 mt-4">
+<a class="flex items-center gap-3 px-3 py-2 text-white rounded-lg hover:bg-white/10" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<p class="text-sm font-medium leading-normal">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-white rounded-lg hover:bg-white/10" href="#">
+<span class="material-symbols-outlined">lightbulb</span>
+<p class="text-sm font-medium leading-normal">Ideation</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-[#233c48] text-white" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">calendar_month</span>
+<p class="text-sm font-medium leading-normal">Content Schedule</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-white rounded-lg hover:bg-white/10" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<p class="text-sm font-medium leading-normal">Analytics</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-white rounded-lg hover:bg-white/10" href="#">
+<span class="material-symbols-outlined">settings</span>
+<p class="text-sm font-medium leading-normal">Settings</p>
+</a>
+</nav>
+</div>
+<div class="flex flex-col gap-4">
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em]">
+<span class="truncate">Upgrade Plan</span>
+</button>
+<a class="flex items-center gap-3 px-3 py-2 text-white rounded-lg hover:bg-white/10" href="#">
+<span class="material-symbols-outlined">help</span>
+<p class="text-sm font-medium leading-normal">Help Center</p>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 p-8">
+<div class="max-w-7xl mx-auto">
+<!-- PageHeading -->
+<header class="flex flex-wrap items-center justify-between gap-4 mb-6">
+<div class="flex flex-col gap-2">
+<h1 class="text-3xl font-black leading-tight tracking-tight text-zinc-900 dark:text-white">Content Schedule</h1>
+<p class="text-base font-normal leading-normal text-zinc-500 dark:text-[#92b7c9]">Manage, view, and schedule all your posts in one place.</p>
+</div>
+<button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 gap-2 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] shadow-sm hover:bg-primary/90">
+<span class="material-symbols-outlined text-base">add_circle</span>
+<span class="truncate">Schedule New Post</span>
+</button>
+</header>
+<!-- Toolbar and View Toggle -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+<!-- ToolBar with Filters -->
+<div class="flex items-center gap-2">
+<div class="relative">
+<select class="w-full pl-3 pr-8 py-2 text-sm bg-white dark:bg-[#233c48] text-zinc-900 dark:text-white border border-zinc-300 dark:border-zinc-700 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-primary">
+<option>Status: All</option>
+<option>Scheduled</option>
+<option>Published</option>
+<option>Draft</option>
+</select>
+<span class="material-symbols-outlined text-zinc-500 dark:text-zinc-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+</div>
+<div class="relative">
+<select class="w-full pl-3 pr-8 py-2 text-sm bg-white dark:bg-[#233c48] text-zinc-900 dark:text-white border border-zinc-300 dark:border-zinc-700 rounded-lg appearance-none focus:outline-none focus:ring-2 focus:ring-primary">
+<option>Channel: All</option>
+<option>Twitter</option>
+<option>LinkedIn</option>
+<option>Facebook</option>
+</select>
+<span class="material-symbols-outlined text-zinc-500 dark:text-zinc-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- SegmentedButtons -->
+<div class="flex h-10 w-full sm:w-auto items-center justify-center rounded-lg bg-zinc-200 dark:bg-[#233c48] p-1">
+<label class="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-lg px-4 has-[:checked]:bg-white dark:has-[:checked]:bg-[#111c22] has-[:checked]:shadow-sm has-[:checked]:text-zinc-900 dark:has-[:checked]:text-white text-zinc-500 dark:text-[#92b7c9] text-sm font-medium leading-normal">
+<span class="truncate">List View</span>
+<input checked="" class="invisible w-0" name="view-toggle" type="radio" value="List View"/>
+</label>
+<label class="flex cursor-pointer h-full grow items-center justify-center overflow-hidden rounded-lg px-4 has-[:checked]:bg-white dark:has-[:checked]:bg-[#111c22] has-[:checked]:shadow-sm has-[:checked]:text-zinc-900 dark:has-[:checked]:text-white text-zinc-500 dark:text-[#92b7c9] text-sm font-medium leading-normal">
+<span class="truncate">Calendar View</span>
+<input class="invisible w-0" name="view-toggle" type="radio" value="Calendar View"/>
+</label>
+</div>
+</div>
+<!-- List View -->
+<div class="overflow-x-auto bg-white dark:bg-[#111c22] rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+<table class="w-full text-sm text-left">
+<thead class="text-xs text-zinc-500 dark:text-zinc-400 uppercase bg-zinc-50 dark:bg-[#233c48]">
+<tr>
+<th class="px-6 py-4" scope="col">Post</th>
+<th class="px-6 py-4" scope="col">Channel</th>
+<th class="px-6 py-4" scope="col">Scheduled For</th>
+<th class="px-6 py-4" scope="col">Status</th>
+<th class="px-6 py-4 text-right" scope="col">Actions</th>
+</tr>
+</thead>
+<tbody>
+<!-- Post Row 1 -->
+<tr class="border-b border-zinc-200 dark:border-zinc-800">
+<td class="px-6 py-4 font-medium text-zinc-900 dark:text-white">Exploring the future of AI in content creation...</td>
+<td class="px-6 py-4">
+<img class="h-6 w-6" data-alt="Twitter Icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBvRsbGz2iI16bpnxt-oO1PmXBbDBULarhyiBTiVWzTLJ7yzw77V3Xxi8OnhykinfkxVNjaMdGwFwkxMD6HUHyda6EvFwlJYi0JRFkXl8n_Uy8Qkjd9Fwkqz3I8MQtJW0NjQm0pt82W6VeRrUR4gV1AveLf9z23rxMw30S70-3-cMgkKBo6ljs3DeJKFc_oOr6g_EmyreCD43T0h1QbSpCdSdq8-Fa9CiMjt1kKkDufY4jkVbfPonmIhfY6K7zTNkImCilp95_C-g"/>
+</td>
+<td class="px-6 py-4 text-zinc-600 dark:text-zinc-300">Oct 28, 2024 at 09:00 AM</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">Scheduled</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+<!-- Post Row 2 -->
+<tr class="border-b border-zinc-200 dark:border-zinc-800">
+<td class="px-6 py-4 font-medium text-zinc-900 dark:text-white">Our latest blog post is live! Learn how to...</td>
+<td class="px-6 py-4">
+<img class="h-6 w-6" data-alt="LinkedIn Icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDKZNy9pH8wkf9n2xg0auTL0CHHXxzUsF-BeXgQUqlR9wzk1QAwpSwCjlYYeTPnNvNHl_QPWPr86milTrYH-wEt4nfMm9lppvUnMMhLVAjPQfpyQHqPGsNq5LvO-8C1NTzDVuQyIo_PGRVGYnFSP9eqYisevPNTn2L6jkYtGEI_CKdSzpx1DaHwBAoKQ5rGda3Y_jxjUU_lQ9lKIaHPduc9im5XRol0ZBxWUwCx_XPWeiaaRx5Jlb9wNsHcnvspnJ8j0_KubIJ1_A"/>
+</td>
+<td class="px-6 py-4 text-zinc-600 dark:text-zinc-300">Oct 25, 2024 at 11:30 AM</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Published</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+<!-- Post Row 3 -->
+<tr class="border-b border-zinc-200 dark:border-zinc-800">
+<td class="px-6 py-4 font-medium text-zinc-900 dark:text-white">[DRAFT] New feature announcement coming soon.</td>
+<td class="px-6 py-4">
+<img class="h-6 w-6" data-alt="Twitter Icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB3V5rCn2rslAP8BALH8mzhZDe7Nl_o8EIUA2oiBi636lftYuFIblajzSzUzD-I0pwxPJg5q1IXaeEyWsduMu8fIkbmcNCrPQ_EmsGHMAh3Px6BZaIZoeU6YXb4uRY3r7HzIGmH9RpEecyqQl3Agk6HE8gsMXeukpHow0X7CzuBMNUEARrNl9lAYFGsEqPvYz0FriSGyx6AZszQNxrAlTO2E5MYQ5DPACgIujCIuJ0IJ9zzDXsa-mwqfXCHfVCX1qid8KivNGzZhA"/>
+</td>
+<td class="px-6 py-4 text-zinc-600 dark:text-zinc-300">-</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-zinc-200 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-300">Draft</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+<!-- Post Row 4 -->
+<tr class="">
+<td class="px-6 py-4 font-medium text-zinc-900 dark:text-white">Weekly roundup of industry news and insights.</td>
+<td class="px-6 py-4">
+<img class="h-6 w-6" data-alt="LinkedIn Icon" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCC6jC_10TBcKNjo3WOs7oh8zwpgvKYahw9b3OKX8pe4vFP72ey18WUC7GI6XHUyLq-Qo1MZD6TmcOZv2HH5ck-Vo2_dIKRq4LRccj1hwj0lROFhcTQ35wjCmMr8NeSQQWmFmuOL7wJlW3wOvs4a7u3-10IwwW3bGvAg0qVS0wnLu8nTd-yL4-yDJzZWw4sdtwq9UNq0lebjOJ1KWM830qKGl2tViwRAmwVZITCtRZvXA5g24lnlXx4_pbV305M3186EzzLfvVodA"/>
+</td>
+<td class="px-6 py-4 text-zinc-600 dark:text-zinc-300">Oct 30, 2024 at 02:00 PM</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">Scheduled</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-600 dark:text-zinc-300"><span class="material-symbols-outlined">more_horiz</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Empty State (Example) -->
+<!-- <div class="text-center py-20 bg-white dark:bg-[#111c22] rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-sm">
+                    <span class="material-symbols-outlined text-6xl text-zinc-300 dark:text-zinc-600">calendar_month</span>
+                    <h3 class="mt-4 text-lg font-semibold text-zinc-900 dark:text-white">No Posts Scheduled Yet</h3>
+                    <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Get started by scheduling your first post.</p>
+                    <button class="mt-6 flex mx-auto min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 gap-2 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] shadow-sm hover:bg-primary/90">
+                        <span class="material-symbols-outlined text-base">add_circle</span>
+                        <span class="truncate">Schedule New Post</span>
+                    </button>
+                </div> -->
+</div>
+</main>
+</div>
+</body></html>
