@@ -1,16 +1,37 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { canvasService } from '@/lib/supabaseService';
+import { Database } from '@/lib/database.types';
 
 export async function GET(request: Request) {
   const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-  
+  const supabase = createServerClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // The `setAll` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
+        },
+      },
+    }
+  );
+
   try {
     // Get the session
     const { data: { session } } = await supabase.auth.getSession();
-    
+
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -20,9 +41,25 @@ export async function GET(request: Request) {
     const canvasId = searchParams.get('id');
 
     if (canvasId) {
-      // Get specific canvas session
-      const canvasSession = await canvasService.getCanvasSession(canvasId, session.user.id);
-      return NextResponse.json(canvasSession);
+      // Get specific canvas session with its blocks
+      const { data, error } = await supabase
+        .from('canvas_sessions')
+        .select(`
+          *,
+          canvas_blocks(*)
+        `)
+        .eq('id', canvasId)
+        .eq('user_id', session.user.id)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') { // Record not found
+          return NextResponse.json({ error: 'Canvas not found' }, { status: 404 });
+        }
+        throw error;
+      }
+
+      return NextResponse.json(data);
     } else {
       // Get all canvas sessions for the user
       const { data, error } = await supabase

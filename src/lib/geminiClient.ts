@@ -1,10 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const model = genAI.getGenerativeModel({
-  model: "gemini-1.5-flash",
+  model: "gemini-2.5-flash",
 });
 
 export async function generateIdeas(input: string): Promise<string[]> {
@@ -26,13 +25,14 @@ export async function generateIdeas(input: string): Promise<string[]> {
     return ideas;
   } catch (error) {
     console.error("Error generating ideas with Gemini:", error);
-    // Return fallback ideas in case of error
+    // Return dynamic fallback ideas based on input
+    const inputKeywords = input.split(' ').slice(0, 3).join(' ');
     return [
-      `5 Tips for ${input.substring(0, 20)}...`,
-      `The Future of ${input.substring(0, 20)}...`,
-      `How to Master ${input.substring(0, 20)}...`,
-      `Why ${input.substring(0, 20)} Matters in 2025`,
-      `Common Mistakes with ${input.substring(0, 20)}...`,
+      `Understanding ${inputKeywords}`,
+      `Getting Started with ${inputKeywords}`,
+      `Best Practices for ${inputKeywords}`,
+      `${inputKeywords}: A Beginner's Guide`,
+      `Common Questions About ${inputKeywords}`,
     ];
   }
 }

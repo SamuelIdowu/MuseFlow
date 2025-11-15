@@ -5,10 +5,10 @@ export async function GET(request: Request) {
   const supabase = await createSupabaseServerClient();
   
   try {
-    // Get the session
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
+    // Get the user (more secure than session)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (!user || userError) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -21,26 +21,26 @@ export async function GET(request: Request) {
       supabase
         .from('idea_kernels')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', session.user.id),
+        .eq('user_id', user.id),
       supabase
         .from('canvas_sessions')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', session.user.id),
+        .eq('user_id', user.id),
       supabase
         .from('scheduled_posts')
         .select('*', { count: 'exact', head: true })
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
     ]);
 
     const userData = {
-      id: session.user.id,
-      email: session.user.email,
+      id: user.id,
+      email: user.email,
       stats: {
         ideasGenerated: ideaCount || 0,
         canvasCreated: canvasCount || 0,
         scheduledPosts: scheduleCount || 0
       },
-      createdAt: session.user.created_at
+      createdAt: user.created_at
     };
 
     return NextResponse.json(userData);

@@ -81,8 +81,8 @@ ALTER TABLE scheduled_posts ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for RLS
 -- Users can only access their own data
-CREATE POLICY "Users can view own data" ON users FOR SELECT USING (auth.uid() = id);
-CREATE POLICY "Users can update own data" ON users FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can view own data" ON users FOR SELECT USING (auth.uid()::text = _id);
+CREATE POLICY "Users can update own data" ON users FOR UPDATE USING (auth.uid()::text = _id);
 
 CREATE POLICY "Users can view own profiles" ON profiles FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own profiles" ON profiles FOR INSERT WITH CHECK (auth.uid() = user_id);

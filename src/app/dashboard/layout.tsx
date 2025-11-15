@@ -58,22 +58,28 @@ export default function DashboardLayout({
 
       if (!mounted) return;
 
+      // Use getUser instead of getSession for security
       const {
-        data: { session },
-      } = await supabase.auth.getSession();
+        data: { user },
+        error: userError
+      } = await supabase.auth.getUser();
 
-      if (session && mounted) {
-        setSession(session);
-        setLoading(false);
-      } else if (!session && mounted) {
+      if (user && !userError && mounted) {
+        // Get session for setting state (this is a valid session since user exists)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          setSession(session);
+          setLoading(false);
+        }
+      } else if (!user && mounted) {
         // Only set redirect timeout if we still don't have a session
         // Give it more time for auth state change to fire
         redirectTimeout = setTimeout(() => {
           if (mounted) {
             supabase.auth
-              .getSession()
-              .then(({ data: { session: finalCheck } }) => {
-                if (!finalCheck && mounted) {
+              .getUser()
+              .then(({ data: { user: finalCheckUser }, error: finalCheckError }) => {
+                if (!finalCheckUser && !finalCheckError && mounted) {
                   router.push("/auth/login");
                 }
               });

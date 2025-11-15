@@ -31,10 +31,37 @@ export async function POST(request: Request) {
 
   try {
     // Get the session (this authenticates the user properly)
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    // Add debugging logs
+    console.log('Session retrieval result:', {
+      session: !!session,
+      sessionError,
+      hasUser: !!session?.user,
+      userId: session?.user?.id,
+      cookiesAvailable: cookieStore.getAll().length > 0
+    });
+
+    if (sessionError) {
+      console.error('Session retrieval error:', sessionError);
+    }
 
     if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      // Try to get user directly as an alternative
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+      console.log('User retrieval result:', {
+        hasUser: !!user,
+        userId: user?.id,
+        userError
+      });
+
+      if (!user || userError) {
+        console.error('No session and no user found - user not authenticated');
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      console.log('User found without session, proceeding with user ID:', user.id);
     }
 
     const { input_text, input_type = 'text' } = await request.json();
@@ -47,11 +74,12 @@ export async function POST(request: Request) {
     // Call the Gemini API to generate ideas
     const generatedIdeas = await generateIdeas(input_text);
 
-    // Save the idea kernel to the database using the authenticated session
+    // Save the idea kernel to the database using the authenticated session or user
+    const userId = session?.user?.id || (await supabase.auth.getUser()).data.user?.id;
     const { data, error } = await supabase
       .from('idea_kernels')
       .insert([{
-        user_id: session.user.id,
+        user_id: userId,
         input_type,
         input_data: input_text,
         kernels: generatedIdeas
@@ -64,6 +92,7 @@ export async function POST(request: Request) {
       throw error;
     }
 
+    console.log('Successfully created idea kernel:', { id: data.id, userId });
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error generating ideas:', error);

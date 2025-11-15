@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import toast from 'react-hot-toast';
+import { apiCall } from '@/lib/apiClient';
 
 export function DashboardClient() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export function DashboardClient() {
 
     setIsLoading(true);
     try {
-      const response = await fetch('/api/ideas', {
+      await apiCall('/api/ideas', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -29,12 +30,7 @@ export function DashboardClient() {
           input_text: inputText,
           input_type: 'text',
         }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to generate ideas');
-      }
+      }, 'IDEAS_API');
 
       toast.success('Ideas generated successfully!');
       // Refresh the current page to show updated data

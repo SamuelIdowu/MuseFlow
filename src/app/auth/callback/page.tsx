@@ -62,17 +62,17 @@ function AuthCallbackContent() {
         // Wait a moment for the auth callback to process
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Get the session details
+        // Get the user details (more secure than session)
         const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser();
 
-        if (sessionError) {
-          throw sessionError;
+        if (userError) {
+          throw userError;
         }
 
-        if (session) {
+        if (user) {
           // Check if this is an email confirmation
           const type = searchParams.get("type");
           if (type === "signup") {

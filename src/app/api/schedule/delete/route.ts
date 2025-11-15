@@ -8,10 +8,10 @@ export async function DELETE(request: Request) {
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   
   try {
-    // Get the session
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
+    // Get the user (more secure than session)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (!user || userError) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -24,7 +24,7 @@ export async function DELETE(request: Request) {
     }
 
     // Delete the scheduled post from the database
-    await scheduleService.deleteScheduledPost(postId, session.user.id);
+    await scheduleService.deleteScheduledPost(postId, user.id);
 
     return NextResponse.json({ message: 'Scheduled post deleted successfully' });
   } catch (error) {

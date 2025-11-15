@@ -8,15 +8,15 @@ export async function GET(request: Request) {
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   
   try {
-    // Get the session
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
+    // Get the user (more secure than session)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (!user || userError) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Fetch scheduled posts from the database
-    const scheduledPosts = await scheduleService.getUserScheduledPosts(session.user.id);
+    const scheduledPosts = await scheduleService.getUserScheduledPosts(user.id);
 
     return NextResponse.json(scheduledPosts);
   } catch (error) {

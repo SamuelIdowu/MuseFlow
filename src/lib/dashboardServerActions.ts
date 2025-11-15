@@ -30,64 +30,79 @@ export async function getDashboardStats() {
   );
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user || userError) {
     throw new Error('User not authenticated');
   }
 
-  const userId = session.user.id;
+  const userId = user.id;
 
-  // Get idea count
-  const { count: ideasCount, error: ideasError } = await supabase
-    .from('idea_kernels')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId as never);
+  let ideasCount = 0;
+  let contentCount = 0;
+  let scheduledCount = 0;
+  let profileCount = 0;
 
-  if (ideasError) {
-    console.error('Error fetching ideas count:', ideasError);
-    throw new Error('Could not fetch ideas count');
-  }
+  try {
+    // Get idea count
+    const { count: ideasCountResult, error: ideasError } = await supabase
+      .from('idea_kernels')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId as never);
 
-  // Get canvas sessions count (as content pieces)
-  const { count: contentCount, error: contentError } = await supabase
-    .from('canvas_sessions')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId as never);
+    if (ideasError) {
+      console.error('Error fetching ideas count:', ideasError);
+      throw new Error('Could not fetch ideas count');
+    }
+    ideasCount = ideasCountResult || 0;
 
-  if (contentError) {
-    console.error('Error fetching content count:', contentError);
-    throw new Error('Could not fetch content count');
-  }
+    // Get canvas sessions count (as content pieces)
+    const { count: contentCountResult, error: contentError } = await supabase
+      .from('canvas_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId as never);
 
-  // Get scheduled posts count
-  const { count: scheduledCount, error: scheduledError } = await supabase
-    .from('scheduled_posts')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId as never);
+    if (contentError) {
+      console.error('Error fetching content count:', contentError);
+      throw new Error('Could not fetch content count');
+    }
+    contentCount = contentCountResult || 0;
 
-  if (scheduledError) {
-    console.error('Error fetching scheduled posts count:', scheduledError);
-    throw new Error('Could not fetch scheduled posts count');
-  }
+    // Get scheduled posts count
+    const { count: scheduledCountResult, error: scheduledError } = await supabase
+      .from('scheduled_posts')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId as never);
 
-  // Get profile count (should be 1 per user, but counting for consistency)
-  const { count: profileCount, error: profileError } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId as never);
+    if (scheduledError) {
+      console.error('Error fetching scheduled posts count:', scheduledError);
+      throw new Error('Could not fetch scheduled posts count');
+    }
+    scheduledCount = scheduledCountResult || 0;
 
-  if (profileError) {
-    console.error('Error fetching profile count:', profileError);
-    throw new Error('Could not fetch profile count');
+    // Get profile count (should be 1 per user, but counting for consistency)
+    const { count: profileCountResult, error: profileError } = await supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId as never);
+
+    if (profileError) {
+      console.error('Error fetching profile count:', profileError);
+      throw new Error('Could not fetch profile count');
+    }
+    profileCount = profileCountResult || 0;
+  } catch (error) {
+    console.error('Database error in getDashboardStats:', error);
+    throw new Error('Could not fetch dashboard statistics');
   }
 
   return {
-    ideasCount: ideasCount || 0,
-    contentCount: contentCount || 0,
-    scheduledCount: scheduledCount || 0,
-    profileCount: profileCount || 0,
+    ideasCount,
+    contentCount,
+    scheduledCount,
+    profileCount,
   };
 }
 
@@ -117,31 +132,41 @@ export async function getRecentIdeas(limit = 3) {
   );
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+    error: userError
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user || userError) {
     throw new Error('User not authenticated');
   }
 
-  const userId = session.user.id;
+  const userId = user.id;
 
-  // Get recent idea kernels
-  const { data: ideas, error } = await supabase
-    .from('idea_kernels')
-    .select('*')
-    .eq('user_id', userId as never)
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  let ideas = [];
 
-  if (error || !ideas) {
-    console.error('Error fetching recent ideas:', error);
+  try {
+    // Get recent idea kernels
+    const { data: ideasData, error } = await supabase
+      .from('idea_kernels')
+      .select('*')
+      .eq('user_id', userId as never)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error || !ideasData) {
+      console.error('Error fetching recent ideas:', error);
+      throw new Error('Could not fetch recent ideas');
+    }
+
+    ideas = ideasData;
+  } catch (error) {
+    console.error('Database error in getRecentIdeas:', error);
     throw new Error('Could not fetch recent ideas');
   }
 
   // Transform the data to have a flat list of ideas with their metadata
   type IdeaKernel = Database['public']['Tables']['idea_kernels']['Row'];
-  const recentIdeas = (ideas as IdeaKernel[]).flatMap(idea => 
+  const recentIdeas = (ideas as IdeaKernel[]).flatMap(idea =>
     (idea.kernels as string[]).map((kernel: string) => ({
       id: idea.id,
       title: kernel,

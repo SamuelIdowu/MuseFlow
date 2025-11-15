@@ -9,10 +9,10 @@ export async function POST(request: Request) {
   const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   
   try {
-    // Get the session
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
+    // Get the user (more secure than session)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (!user || userError) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     if (optimize_time) {
       const content = content_blocks.map((block: any) => block.content).join(' ');
       const suggestedTime = await suggestBestTime(content, `Channel: ${channel}`);
-      
+
       // Combine the scheduled date with the suggested time
       const date = new Date(scheduled_time);
       const [hours, minutes] = suggestedTime.split(':').map(Number);
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
 
     // Save the scheduled post to the database
     const scheduledPost = await scheduleService.createScheduledPost(
-      session.user.id,
+      user.id,
       content_blocks,
       channel,
       finalScheduledTime
