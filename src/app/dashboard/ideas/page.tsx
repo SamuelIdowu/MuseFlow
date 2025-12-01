@@ -27,6 +27,13 @@ interface Idea {
   status: "new" | "saved";
 }
 
+interface SupabaseIdea {
+  id: string;
+  input_data: string;
+  kernels: (string | null)[];
+  created_at: string;
+}
+
 export default function IdeasPage() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,31 +49,29 @@ export default function IdeasPage() {
   useEffect(() => {
     const fetchIdeas = async () => {
       try {
-        // Get current user session
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
+        // Get current user from Supabase (this should now work with Clerk webhook)
+        const { data: { user } } = await supabase.auth.getUser();
 
-        if (!session) {
+        if (!user) {
           // Middleware should handle redirect, but this is a fallback
           router.push("/auth/login");
           return;
         }
 
         // Fetch user's idea kernels from the database
-        const supabaseIdeas = await ideasService.getUserIdeas(session.user.id);
+        const supabaseIdeas = await ideasService.getUserIdeas(user.id);
 
         // Transform the data to match our Idea interface
-        const transformedIdeas = supabaseIdeas.map((idea: any) => ({
+        const transformedIdeas: Idea[] = (supabaseIdeas as SupabaseIdea[]).map((idea) => ({
           id: idea.id,
           title:
-            Array.isArray(idea.kernels) && idea.kernels.length > 0
+            Array.isArray(idea.kernels) && idea.kernels.length > 0 && typeof idea.kernels[0] === 'string'
               ? idea.kernels[0]
               : "Untitled Idea", // Use first kernel as title
           description: idea.input_data || "No description available",
           tags:
             Array.isArray(idea.kernels) && idea.kernels.length > 1
-              ? idea.kernels.slice(1, 4)
+              ? idea.kernels.slice(1, 4).filter((kernel): kernel is string => typeof kernel === 'string')
               : [], // Use the next few kernels as tags
           createdAt: new Date(idea.created_at).toISOString().split("T")[0], // Format date as YYYY-MM-DD
           status: "saved", // All database ideas are considered saved

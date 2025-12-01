@@ -1,19 +1,25 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
 import { scheduleService } from '@/lib/supabaseService';
+import { getSupabaseUserId } from '@/lib/supabaseServerClient';
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-  
   try {
-    // Get the user (more secure than session)
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Get user from Clerk
+    const clerkUser = await currentUser();
 
-    if (!user || userError) {
+    if (!clerkUser) {
+      console.error('Schedule POST - No Clerk user found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get Supabase user ID from Clerk ID
+    const supabaseUserId = await getSupabaseUserId(clerkUser.id);
+
+    if (!supabaseUserId) {
+      console.error('Schedule POST - No Supabase user ID found for Clerk user:', clerkUser.id);
+      return NextResponse.json({ error: 'User not synced' }, { status: 401 });
     }
 
     const { content_blocks, channel, scheduled_time, optimize_time } = await request.json();
@@ -26,7 +32,9 @@ export async function POST(request: Request) {
     // If optimize_time is requested, get AI suggestion for best posting time
     let finalScheduledTime = scheduled_time;
     if (optimize_time) {
-      const content = content_blocks.map((block: any) => block.content).join(' ');
+      const content = Array.isArray(content_blocks)
+        ? content_blocks.map((block: { content: string }) => block.content).join(' ')
+        : content_blocks;
       const suggestedTime = await suggestBestTime(content, `Channel: ${channel}`);
 
       // Combine the scheduled date with the suggested time
@@ -38,7 +46,7 @@ export async function POST(request: Request) {
 
     // Save the scheduled post to the database
     const scheduledPost = await scheduleService.createScheduledPost(
-      user.id,
+      supabaseUserId,
       content_blocks,
       channel,
       finalScheduledTime

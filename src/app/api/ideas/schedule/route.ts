@@ -1,17 +1,25 @@
 import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
 import { scheduleService, ideasService } from '@/lib/supabaseService';
-import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { currentUser } from '@clerk/nextjs/server';
+import { getSupabaseUserId } from '@/lib/supabaseServerClient';
 
 export async function POST(request: Request) {
-  const supabase = await createSupabaseServerClient();
-
   try {
-    // Get the session
-    const { data: { session } } = await supabase.auth.getSession();
+    // Get user from Clerk
+    const clerkUser = await currentUser();
 
-    if (!session) {
+    if (!clerkUser) {
+      console.error('Ideas Schedule POST - No Clerk user found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get Supabase user ID from Clerk ID
+    const supabaseUserId = await getSupabaseUserId(clerkUser.id);
+
+    if (!supabaseUserId) {
+      console.error('Ideas Schedule POST - No Supabase user ID found for Clerk user:', clerkUser.id);
+      return NextResponse.json({ error: 'User not synced' }, { status: 401 });
     }
 
     const { title, content, channel, scheduled_time, optimize_time = false, idea_id } = await request.json();
@@ -37,7 +45,7 @@ export async function POST(request: Request) {
     let contentBlocks;
     if (idea_id) {
       try {
-        const idea = await ideasService.getIdeaById(session.user.id, idea_id);
+        const idea = await ideasService.getIdeaById(supabaseUserId, idea_id);
         if (idea && idea.kernels && Array.isArray(idea.kernels)) {
           // Use the idea kernels to create content blocks
           contentBlocks = idea.kernels
@@ -74,7 +82,7 @@ export async function POST(request: Request) {
 
     // Save the scheduled post to the database
     const scheduledPost = await scheduleService.createScheduledPost(
-      session.user.id,
+      supabaseUserId,
       contentBlocks,
       channel,
       finalScheduledTime

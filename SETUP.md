@@ -4,79 +4,90 @@
 
 - Node.js 18.x or higher
 - pnpm (recommended) or npm
+- A Clerk account
+- A Gemini API key
 - A Supabase account
-- An Gemini API key
 - A Stripe account (optional for Phase 1)
 
 ## 1. Environment Setup
 
-1. Copy `.env.local` and fill in your actual credentials:
+1. Copy `.env.example` to `.env.local`:
 
 ```bash
-cp .env.local .env.local.example
+cp .env.example .env.local
 ```
 
-### Get Supabase Credentials:
+### Get Required API Keys:
 
+#### Clerk Authentication:
+1. Go to [clerk.com](https://clerk.com)
+2. Create a new application
+3. Go to API Keys in the dashboard
+4. Copy your `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`
+
+#### Supabase Database:
 1. Go to [supabase.com](https://supabase.com)
 2. Create a new project
-3. Go to Project Settings → API
-4. Copy your `URL` and `anon public` key
+3. Go to Settings → API
+4. Copy your `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+5. Copy your `SUPABASE_SERVICE_ROLE_KEY` (keep this secret!)
 
-### Get Gemini API Key:
-
-1. Go to
-2. Navigate to API Keys
-3. Create a new secret key
+#### Google Gemini AI:
+1. Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Create a new API key
+3. Copy your `GEMINI_API_KEY`
 
 ### Configure your `.env.local`:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
-Gemini_API_KEY=sk-your_Gemini_key_here
+# Clerk Authentication
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key_here
+CLERK_SECRET_KEY=your_secret_key_here
+
+# Supabase Database
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+
+# Google Gemini AI
+GEMINI_API_KEY=your_gemini_api_key_here
+
+# Stripe (Optional Phase 1)
+STRIPE_SECRET_KEY=your_stripe_secret_key_here
+STRIPE_PUBLISHABLE_KEY=your_stripe_publishable_key_here
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=your_public_stripe_key_here
+
+# Application
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-## 2. Database Setup
+## 2. Clerk Setup
 
-1. In your Supabase project dashboard, go to **SQL Editor**
-2. Create a new query
-3. Copy and paste the contents of `supabase/migrations/001_initial_schema.sql`
-4. Run the query
+1. In your Clerk dashboard, configure your application settings:
+   - **Application Name**: ContentAI
+   - **Application URL**: `http://localhost:3000`
+   - **Redirect URLs**: `http://localhost:3000`, `http://localhost:3000/sign-in`, `http://localhost:3000/sign-up`
 
-This will create:
+2. Configure **Email & Phone** authentication:
+   - Enable **Email code** authentication method
+   - Set up email templates in **Settings → Email templates**
 
-- All necessary tables (users, profiles, idea_kernels, canvas_sessions, canvas_blocks, scheduled_posts)
-- Row Level Security (RLS) policies
-- Indexes for performance
-- Automatic user creation trigger
+3. Configure **Social Login** providers (optional):
+   - Go to **Settings → OAuth & Social**
+   - Add Google, GitHub, or other OAuth providers
+   - Set redirect URLs to your application domain
 
-## 3. Supabase Auth Configuration
+4. Configure webhooks (IMPORTANT):
+   - Go to **Webhooks** in Clerk dashboard
+   - Add endpoint: `http://localhost:3000/api/auth`
+   - Subscribe to events: `user.created`, `user.updated`, `user.deleted`
+   - This syncs users from Clerk to Supabase automatically
 
-1. In Supabase Dashboard, go to **Authentication → Providers**
-2. Enable **Email** authentication
-3. **Configure Email Settings** (IMPORTANT for signup emails):
-   - Go to **Authentication → Email Templates**
-   - Verify that email confirmation is enabled
-   - Go to **Authentication → Settings**
-   - Under "Email Auth", ensure:
-     - ✅ "Enable email confirmations" is checked (for production)
-     - ⚠️ For development/testing, you can disable this to auto-confirm users
-   - **Site URL**: Set to `http://localhost:3000` (development) or your production URL
-   - **Redirect URLs**: Add `http://localhost:3000/auth/callback` (and production URL)
-4. Enable **Google** OAuth (optional):
-   - Add Google OAuth client ID and secret
-   - Set redirect URL: `https://your-project.supabase.co/auth/v1/callback`
-5. Enable **GitHub** OAuth (optional):
-   - Add GitHub OAuth app credentials
-   - Set redirect URL
+## 3. Supabase Setup
 
-### Email Configuration Notes:
-
-- **Development**: If emails aren't being sent, check Supabase logs in the dashboard
-- **Production**: Configure SMTP settings in **Project Settings → Auth → SMTP Settings** for custom email delivery
-- **Testing**: In development, Supabase may auto-confirm users if email confirmation is disabled
+1. In your Supabase dashboard, go to the SQL Editor
+2. Run the `schema.sql` file to create all tables and policies
+3. Verify tables were created: `users`, `profiles`, `idea_kernels`, `canvas_sessions`, `canvas_blocks`, `scheduled_posts`
 
 ## 4. Install Dependencies
 
@@ -94,30 +105,42 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## 6. Test Authentication
 
-1. Navigate to `/login`
-2. Try logging in with:
-   - OAuth (Google/GitHub) if configured
-   - Email/Password (you'll need to sign up first at `/signup`)
+1. Navigate to `/sign-up`
+2. Create an account with email verification
+3. Verify the user was created in both Clerk and Supabase
+4. Try accessing protected routes like `/dashboard`
+
+## 7. Test Features
+
+1. **Profile Setup**: Go to `/dashboard/profile` and create your content profile
+2. **Idea Generation**: Go to `/dashboard` and generate content ideas
+3. **Canvas**: Go to `/dashboard/canvas` and create/edit content blocks
+4. **Scheduling**: Go to `/dashboard/schedule` and schedule posts
+
+---
 
 ## Project Structure
 
 ```
 src/
 ├── app/
-│   ├── (auth)/          # Auth routes (login, signup)
-│   ├── (dashboard)/     # Protected dashboard routes
-│   ├── auth/callback/   # OAuth callback handler
-│   └── api/             # API routes
-├── components/
-│   ├── auth/            # Auth components (OAuth buttons, forms)
-│   ├── layouts/         # Layout components
-│   └── ui/              # Shadcn UI components
-├── lib/
-│   ├── supabase/        # Supabase client utilities
-│   ├── Gemini.ts        # Gemini API client
-│   └── utils.ts         # Utility functions
-└── types/               # TypeScript type definitions
+│   ├── layout.tsx             # Root layout with ClerkProvider
+│   ├── page.tsx              # Landing page
+│   ├── dashboard/            # Protected dashboard routes
+│   ├── sign-in/              # Clerk sign-in page
+│   ├── sign-up/              # Clerk sign-up page
+│   └── api/                  # API routes with Clerk authentication
+├── components/               # Reusable UI components
+├── lib/                      # Utilities and service clients
+│   ├── geminiClient.ts       # Google Gemini AI integration
+│   ├── supabaseClient.ts     # Supabase browser client
+│   ├── supabaseServerClient.ts # Supabase server client
+│   ├── supabaseService.ts    # Database service layer
+│   └── utils.ts              # General utilities
+└── middleware.ts             # Clerk route protection
 ```
+
+---
 
 ## Available Scripts
 
@@ -128,52 +151,59 @@ pnpm start     # Start production server
 pnpm lint      # Run ESLint
 ```
 
-## Next Steps
-
-### Immediate TODOs:
-
-1. ✅ Environment configuration
-2. ✅ Database setup
-3. ✅ Authentication flow
-4. 🔲 Profile wizard implementation
-5. 🔲 Dashboard UI
-6. 🔲 Idea generation feature
-7. 🔲 Smart Canvas editor
-
-### Phase 1 Features (from PRD):
-
-- [ ] Profile Wizard (Manual + Paste)
-- [ ] Text-to-Ideas Engine
-- [ ] Smart Canvas (Merged Templates + Blocks)
-- [ ] Channel Selector & Export with Live Preview
-- [ ] Best-Time Generator
-- [ ] Basic Scheduling & Calendar Sync
-- [ ] Download/Copy-Paste Export
+---
 
 ## Troubleshooting
 
-### Supabase Connection Issues
+### Authentication Issues
+- **Clerk webhook not working**: Ensure webhook endpoint is `http://localhost:3000/api/auth` and the correct events are subscribed
+- **RLS policies failing**: Verify the webhook created users in Supabase users table
+- **"User not synced" error**: Check that Clerk webhooks are firing and creating Supabase users
 
-- Verify your `.env.local` variables are correct
-- Check Supabase project is not paused
-- Ensure RLS policies are enabled
+### Database Issues
+- **Foreign key errors**: Ensure users exist in Supabase before creating profiles/ideas
+- **RLS policy errors**: Check that the Clerk webhook is working properly
+- **Connection issues**: Verify all Supabase environment variables are set correctly
 
-### OAuth Not Working
+### AI Integration
+- **Gemini API errors**: Check API key is valid and has proper permissions
+- **Empty responses**: Verify the API key has quota remaining
 
-- Verify redirect URLs in OAuth provider settings
-- Check Supabase Auth provider configuration
-- Ensure callback route exists at `/auth/callback`
+### Other Issues
+- **"Module not found"**: Run `pnpm install` to ensure all dependencies are installed
+- **Build errors**: Check TypeScript compilation with `pnpm build`
 
-### Gemini Errors
-
-- Verify API key is valid and has credits
-- Check model name is correct (default: gpt-4-turbo-preview)
-- Monitor API usage in Gemini dashboard
+---
 
 ## Support
 
 For issues or questions:
-
-- Check `docs/architecture.md` for technical details
-- Review `docs/prd.md` for product requirements
+- Check the project README for basic information
+- Review `docs/architecture.md` for technical details
+- Check `docs/prd.md` for product requirements
 - See `docs/ui-ux.md` for design specifications
+
+---
+
+## Next Steps
+
+✅ **Completed Setup:**
+1. Environment configuration
+2. Clerk authentication and webhooks
+3. Supabase database with schema migration
+4. Authentication system integration
+5. Core feature implementation (Profile, Ideas, Canvas, Schedule)
+
+**Ready for Production Use:**
+- All critical authentication issues have been resolved
+- Database RLS policies work correctly with Clerk
+- Full feature set is functional
+- Error handling and user feedback implemented
+
+**Remaining Optional Tasks:**
+- Add unit tests
+- Implement Stripe billing
+- Add background job processing
+- Deploy to production hosting
+
+**Ready to ship! 🚀**

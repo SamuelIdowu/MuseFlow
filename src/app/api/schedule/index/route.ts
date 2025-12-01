@@ -1,22 +1,28 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { scheduleService } from '@/lib/supabaseService';
+import { getSupabaseUserId } from '@/lib/supabaseServerClient';
 
 export async function GET(request: Request) {
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-  
   try {
-    // Get the user (more secure than session)
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Get user from Clerk
+    const clerkUser = await currentUser();
 
-    if (!user || userError) {
+    if (!clerkUser) {
+      console.error('Schedule GET - No Clerk user found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get Supabase user ID from Clerk ID
+    const supabaseUserId = await getSupabaseUserId(clerkUser.id);
+
+    if (!supabaseUserId) {
+      console.error('Schedule GET - No Supabase user ID found for Clerk user:', clerkUser.id);
+      return NextResponse.json({ error: 'User not synced' }, { status: 401 });
+    }
+
     // Fetch scheduled posts from the database
-    const scheduledPosts = await scheduleService.getUserScheduledPosts(user.id);
+    const scheduledPosts = await scheduleService.getUserScheduledPosts(supabaseUserId);
 
     return NextResponse.json(scheduledPosts);
   } catch (error) {

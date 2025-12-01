@@ -76,6 +76,11 @@ export async function POST(request: Request) {
 
     // Save the idea kernel to the database using the authenticated session or user
     const userId = session?.user?.id || (await supabase.auth.getUser()).data.user?.id;
+
+    if (!userId) {
+      throw new Error('User ID is undefined');
+    }
+
     const { data, error } = await supabase
       .from('idea_kernels')
       .insert([{

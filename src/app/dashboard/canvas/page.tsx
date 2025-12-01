@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useUser } from "@clerk/nextjs";
+import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,7 +26,6 @@ import {
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { apiCall } from "@/lib/apiClient";
-import { Database } from "@/lib/database.types";
 
 interface CanvasBlock {
   id: string;
@@ -35,39 +35,44 @@ interface CanvasBlock {
 }
 
 export default function CanvasPage() {
+  const { user: clerkUser } = useUser();
   const [blocks, setBlocks] = useState<CanvasBlock[]>([]);
   const [selectedChannel, setSelectedChannel] = useState("linkedin");
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [loading, setLoading] = useState(true);
-  const supabase = createClientComponentClient<Database>();
 
   // Function to fetch canvas blocks from Supabase
   const fetchCanvasBlocks = useCallback(async () => {
     setLoading(true);
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError) {
+      if (!clerkUser) {
+        toast.error("User not authenticated. Please log in.");
+        setLoading(false);
+        return;
+      }
+
+      // Get Supabase user ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('clerk_id', clerkUser.id)
+        .single();
+
+      if (userError || !userData) {
         console.error("Error fetching user:", userError);
         toast.error("Failed to retrieve user session.");
         setLoading(false);
         return;
       }
-      if (!user) {
-        // This case should ideally be handled by middleware, but as a fallback
-        toast.error("User not authenticated. Please log in.");
-        setLoading(false);
-        return;
-      }
+
+      const userId = userData.id;
 
       // First, try to get or create a canvas session
       let canvasSession;
       const { data: existingSessions, error: sessionError } = await supabase
         .from("canvas_sessions")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .order("created_at", { ascending: false })
         .limit(1);
 
@@ -84,12 +89,10 @@ export default function CanvasPage() {
         // Create a new canvas session if none exists
         const { data: newSession, error: createError } = await supabase
           .from("canvas_sessions")
-          .insert([
-            {
-              user_id: user.id,
-              name: "New Canvas",
-            },
-          ])
+          .insert([{
+            user_id: userId,
+            name: "New Canvas",
+          }])
           .select()
           .single();
 
@@ -115,14 +118,12 @@ export default function CanvasPage() {
       }
 
       // Transform the data to match our interface
-      const canvasBlocks = data.map(
-        (block: Database["public"]["Tables"]["canvas_blocks"]["Row"]) => ({
-          id: block.id,
-          type: block.type || "paragraph",
-          content: block.content,
-          order: block.order_index,
-        })
-      );
+      const canvasBlocks = data.map((block) => ({
+        id: block.id,
+        type: block.type || "paragraph",
+        content: block.content,
+        order: block.order_index,
+      }));
 
       setBlocks(canvasBlocks);
     } catch (error: unknown) {
@@ -131,7 +132,7 @@ export default function CanvasPage() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase, clerkUser]);
 
   useEffect(() => {
     fetchCanvasBlocks();
@@ -176,15 +177,15 @@ export default function CanvasPage() {
       const canvasSession = existingSessions[0];
 
       // Insert the new block into Supabase
-      const { error } = await supabase.from("canvas_blocks").insert([
-        {
+      const { error } = await supabase
+        .from("canvas_blocks")
+        .insert([{
           canvas_id: canvasSession.id,
           user_id: user.id,
           type: newBlock.type,
           content: newBlock.content,
           order_index: newBlock.order,
-        },
-      ]);
+        }]);
 
       if (error) {
         throw error;
@@ -331,7 +332,7 @@ export default function CanvasPage() {
     const index = blocks.findIndex((b) => b.id === id);
     if (index === -1) return;
 
-    let newBlocks = [...blocks];
+    const newBlocks = [...blocks];
     if (direction === "up" && index > 0) {
       [newBlocks[index - 1], newBlocks[index]] = [
         newBlocks[index],

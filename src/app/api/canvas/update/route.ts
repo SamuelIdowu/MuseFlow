@@ -29,12 +29,15 @@ export async function PUT(request: Request) {
   );
 
   try {
-    // Get the session
-    const { data: { session } } = await supabase.auth.getSession();
+    // Get the user session
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (!user || userError) {
+      console.error('Canvas update - No user found or user error:', { userError });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = user.id;
 
     // Get canvas session ID from query parameters
     const { searchParams } = new URL(request.url);
@@ -58,7 +61,7 @@ export async function PUT(request: Request) {
         updated_at: new Date().toISOString()
       })
       .eq('id', canvasId)
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .select()
       .single();
 
@@ -97,12 +100,15 @@ export async function DELETE(request: Request) {
   );
 
   try {
-    // Get the session
-    const { data: { session } } = await supabase.auth.getSession();
+    // Get the user session
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (!user || userError) {
+      console.error('Canvas delete - No user found or user error:', { userError });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = user.id;
 
     // Get canvas session ID from query parameters
     const { searchParams } = new URL(request.url);
@@ -118,7 +124,7 @@ export async function DELETE(request: Request) {
       .from('canvas_sessions')
       .delete()
       .eq('id', canvasId)
-      .eq('user_id', session.user.id);
+      .eq('user_id', userId);
 
     if (error) throw error;
 

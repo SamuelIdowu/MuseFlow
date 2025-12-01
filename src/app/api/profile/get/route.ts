@@ -29,18 +29,21 @@ export async function GET(request: Request) {
   );
 
   try {
-    // Get the session
-    const { data: { session } } = await supabase.auth.getSession();
+    // Get the user session
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (!user || userError) {
+      console.error('Profile GET - No user found or user error:', { userError });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch the user's profile from the database using the authenticated session
+    const userId = user.id;
+
+    // Fetch the user's profile from the database using the authenticated user
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .single();
 
     if (error) {

@@ -29,12 +29,15 @@ export async function GET(request: Request) {
   );
 
   try {
-    // Get the session
-    const { data: { session } } = await supabase.auth.getSession();
+    // Get the user session
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (!user || userError) {
+      console.error('Canvas - No user found or user error:', { userError });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = user.id;
 
     // Get canvas session ID from query parameters if provided
     const { searchParams } = new URL(request.url);
@@ -49,7 +52,7 @@ export async function GET(request: Request) {
           canvas_blocks(*)
         `)
         .eq('id', canvasId)
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .single();
 
       if (error) {
@@ -65,7 +68,7 @@ export async function GET(request: Request) {
       const { data, error } = await supabase
         .from('canvas_sessions')
         .select('*')
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .order('updated_at', { ascending: false });
 
       if (error) throw error;

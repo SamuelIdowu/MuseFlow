@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,111 +8,143 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Plus, 
-  Edit, 
-  Trash2, 
+import {
+  Calendar as CalendarIcon,
+  Clock,
+  Plus,
+  Trash2,
   Sparkles,
-  MapPin
+  Loader2
 } from 'lucide-react';
-import { format, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
+import { toast } from 'react-hot-toast';
 
 interface ScheduledPost {
   id: string;
-  title: string;
-  content: string;
+  content_blocks: Array<{ content: string; type: string }>;
   channel: string;
-  scheduledTime: Date;
-  status: 'scheduled' | 'posted';
+  scheduled_time: string;
+  status: string;
+  created_at: string;
 }
 
 export default function SchedulePage() {
-  const [posts, setPosts] = useState<ScheduledPost[]>([
-    {
-      id: '1',
-      title: 'Weekly Tech Roundup',
-      content: 'This week in tech: AI developments, new product launches, and industry insights.',
-      channel: 'linkedin',
-      scheduledTime: new Date(new Date().setHours(10, 0, 0, 0)),
-      status: 'scheduled'
-    },
-    {
-      id: '2',
-      title: 'New Feature Launch',
-      content: 'We\'re excited to announce our new AI content generation feature!',
-      channel: 'x',
-      scheduledTime: new Date(new Date().setDate(new Date().getDate() + 1)),
-      status: 'scheduled'
-    }
-  ]);
-  
+  const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showScheduler, setShowScheduler] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
   const [newPost, setNewPost] = useState({
-    title: '',
     content: '',
     channel: 'linkedin',
     date: new Date(),
-    time: '09:00'
+    time: '09:00',
+    optimize_time: false
   });
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
-  const handleSchedulePost = () => {
-    if (!newPost.title.trim() || !newPost.content.trim()) {
-      alert('Please fill in all required fields');
+  // Fetch scheduled posts on component mount
+  useEffect(() => {
+    fetchScheduledPosts();
+  }, []);
+
+  const fetchScheduledPosts = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/schedule/index');
+      if (!response.ok) {
+        throw new Error('Failed to fetch scheduled posts');
+      }
+      const data = await response.json();
+      setPosts(data);
+    } catch (error) {
+      console.error('Error fetching scheduled posts:', error);
+      toast.error('Failed to load scheduled posts');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSchedulePost = async () => {
+    if (!newPost.content.trim()) {
+      toast.error('Please enter content for your post');
       return;
     }
 
-    // Parse the selected date and time
-    const [hours, minutes] = newPost.time.split(':').map(Number);
-    const scheduledTime = new Date(selectedDate || new Date());
-    scheduledTime.setHours(hours, minutes, 0, 0);
+    if (!selectedDate) {
+      toast.error('Please select a date');
+      return;
+    }
 
-    const scheduledPost: ScheduledPost = {
-      id: `post-${Date.now()}`,
-      title: newPost.title,
-      content: newPost.content,
-      channel: newPost.channel,
-      scheduledTime,
-      status: 'scheduled'
-    };
+    setScheduling(true);
 
-    setPosts([...posts, scheduledPost]);
-    setNewPost({
-      title: '',
-      content: '',
-      channel: 'linkedin',
-      date: new Date(),
-      time: '09:00'
-    });
-    setShowScheduler(false);
+    try {
+      // Parse the selected date and time
+      const [hours, minutes] = newPost.time.split(':').map(Number);
+      const scheduledTime = new Date(selectedDate);
+      scheduledTime.setHours(hours, minutes, 0, 0);
+
+      const postData = {
+        content_blocks: [{ content: newPost.content, type: 'paragraph' }],
+        channel: newPost.channel,
+        scheduled_time: scheduledTime.toISOString(),
+        optimize_time: newPost.optimize_time
+      };
+
+      const response = await fetch('/api/schedule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(postData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to schedule post');
+      }
+
+      const scheduledPost = await response.json();
+      toast.success('Post scheduled successfully!');
+
+      // Reset form and refresh posts
+      setNewPost({
+        content: '',
+        channel: 'linkedin',
+        date: new Date(),
+        time: '09:00',
+        optimize_time: false
+      });
+      setShowScheduler(false);
+      fetchScheduledPosts();
+    } catch (error) {
+      console.error('Error scheduling post:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to schedule post');
+    } finally {
+      setScheduling(false);
+    }
   };
 
   const suggestBestTime = () => {
-    // In a real implementation, this would use AI to suggest the best time
-    // For now, we'll suggest a random time
-    const hours = Math.floor(Math.random() * 12) + 8; // Between 8am and 8pm
-    const minutes = Math.random() > 0.5 ? 0 : 30;
-    const timeString = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
-    
-    setNewPost(prev => ({
-      ...prev,
-      time: timeString
-    }));
+    // This will be handled by the API with AI optimization
+    toast('AI time suggestions will be applied when you schedule the post');
   };
 
-  const deletePost = (id: string) => {
-    setPosts(posts.filter(post => post.id !== id));
-  };
+  const deletePost = async (id: string) => {
+    try {
+      const response = await fetch(`/api/schedule/delete?id=${id}`, {
+        method: 'DELETE',
+      });
 
-  const getChannelIcon = (channel: string) => {
-    switch (channel) {
-      case 'linkedin': return 'linkedin';
-      case 'x': return 'x';
-      case 'blog': return 'file-text';
-      default: return 'rss';
+      if (!response.ok) {
+        throw new Error('Failed to delete post');
+      }
+
+      toast.success('Post deleted successfully!');
+      fetchScheduledPosts();
+    } catch (error) {
+      console.error('Error deleting post:', error);
+      toast.error('Failed to delete post');
     }
   };
 
@@ -121,9 +153,23 @@ export default function SchedulePage() {
       case 'linkedin': return 'LinkedIn';
       case 'x': return 'X (Twitter)';
       case 'blog': return 'Blog';
+      case 'twitter': return 'Twitter';
+      case 'facebook': return 'Facebook';
+      case 'instagram': return 'Instagram';
       default: return channel;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[50vh]">
+        <div className="flex items-center gap-2">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <span>Loading your scheduled posts...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -146,26 +192,16 @@ export default function SchedulePage() {
           <CardContent className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-background rounded-xl border p-6 shadow-lg">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Schedule New Post</h3>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 onClick={() => setShowScheduler(false)}
               >
-              <span className="text-xl">X</span>
+                <span className="text-xl">×</span>
               </Button>
             </div>
-            
+
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="title">Title</Label>
-                <Input
-                  id="title"
-                  value={newPost.title}
-                  onChange={(e) => setNewPost({...newPost, title: e.target.value})}
-                  placeholder="Enter post title..."
-                />
-              </div>
-              
               <div>
                 <Label htmlFor="content">Content</Label>
                 <Textarea
@@ -176,7 +212,7 @@ export default function SchedulePage() {
                   className="min-h-[120px]"
                 />
               </div>
-              
+
               <div>
                 <Label>Channel</Label>
                 <Select value={newPost.channel} onValueChange={(value) => setNewPost({...newPost, channel: value})}>
@@ -190,7 +226,7 @@ export default function SchedulePage() {
                   </SelectContent>
                 </Select>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Date</Label>
@@ -204,7 +240,7 @@ export default function SchedulePage() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <div>
                     <Label>Time</Label>
@@ -214,27 +250,44 @@ export default function SchedulePage() {
                       onChange={(e) => setNewPost({...newPost, time: e.target.value})}
                     />
                   </div>
-                  
-                  <div>
-                    <Label>Best Time Suggestion</Label>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
+
+                  <div className="flex items-center space-x-2">
+                    <Input
+                      type="checkbox"
+                      id="optimize_time"
+                      checked={newPost.optimize_time}
+                      onChange={(e) => setNewPost({...newPost, optimize_time: e.target.checked})}
+                    />
+                    <Label htmlFor="optimize_time">Use AI to optimize posting time</Label>
+                  </div>
+
+                  {!newPost.optimize_time && (
+                    <Button
+                      type="button"
+                      variant="outline"
                       className="w-full"
                       onClick={suggestBestTime}
                     >
                       <Sparkles className="mr-2 h-4 w-4" />
                       Get AI Suggestion
                     </Button>
-                  </div>
+                  )}
                 </div>
               </div>
-              
-              <Button 
-                className="w-full" 
+
+              <Button
+                className="w-full"
                 onClick={handleSchedulePost}
+                disabled={scheduling}
               >
-                Schedule Post
+                {scheduling ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Scheduling...
+                  </>
+                ) : (
+                  'Schedule Post'
+                )}
               </Button>
             </div>
           </CardContent>
@@ -246,44 +299,42 @@ export default function SchedulePage() {
         <CardHeader>
           <CardTitle>Upcoming Posts</CardTitle>
           <CardDescription>
-            Your scheduled content for the next week
+            Your scheduled content
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
             {posts.length > 0 ? (
               posts
-                .filter(post => post.status === 'scheduled')
-                .sort((a, b) => a.scheduledTime.getTime() - b.scheduledTime.getTime())
+                .filter((post: ScheduledPost) => post.status === 'scheduled')
+                .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime())
                 .map((post) => (
-                  <div 
-                    key={post.id} 
+                  <div
+                    key={post.id}
                     className="border rounded-lg p-4 hover:bg-muted/50 transition-colors flex justify-between items-start"
                   >
                     <div className="space-y-1">
-                      <h3 className="font-medium">{post.title}</h3>
                       <p className="text-sm text-muted-foreground line-clamp-2">
-                        {post.content}
+                        {Array.isArray(post.content_blocks) && post.content_blocks.length > 0
+                          ? post.content_blocks[0].content || 'No content'
+                          : 'No content'}
                       </p>
                       <div className="flex items-center gap-2 mt-2">
                         <Badge variant="outline">{getChannelLabel(post.channel)}</Badge>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <CalendarIcon className="h-4 w-4" />
-                          {format(post.scheduledTime, 'MMM d, yyyy')}
+                          {format(new Date(post.scheduled_time), 'MMM d, yyyy')}
                         </div>
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                           <Clock className="h-4 w-4" />
-                          {format(post.scheduledTime, 'h:mm a')}
+                          {format(new Date(post.scheduled_time), 'h:mm a')}
                         </div>
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => {}}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => deletePost(post.id)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -309,45 +360,6 @@ export default function SchedulePage() {
           </div>
         </CardContent>
       </Card>
-
-      {/* Past Posts */}
-      {posts.some(post => post.status === 'posted') && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Recently Posted</CardTitle>
-            <CardDescription>
-              Content you&apos;ve published recently
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-4">
-              {posts
-                .filter(post => post.status === 'posted')
-                .map((post) => (
-                  <div 
-                    key={post.id} 
-                    className="border rounded-lg p-4 bg-muted/30 flex justify-between items-start"
-                  >
-                    <div className="space-y-1">
-                      <h3 className="font-medium">{post.title}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {post.content}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="outline">{getChannelLabel(post.channel)}</Badge>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <CalendarIcon className="h-4 w-4" />
-                          {format(post.scheduledTime, 'MMM d, yyyy')}
-                        </div>
-                      </div>
-                    </div>
-                    <Badge variant="secondary">Posted</Badge>
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

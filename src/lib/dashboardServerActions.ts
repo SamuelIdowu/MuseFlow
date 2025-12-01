@@ -1,40 +1,21 @@
 'use server';
 
-import { createServerClient } from '@supabase/ssr';
+import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
 import { Database } from './database.types';
 
 export async function getDashboardStats() {
-  const cookieStore = await cookies();
-  const supabase = createServerClient<Database>(
+  // Create Supabase client with SSR support
+  const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-      },
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! // Use anon key for client-side auth
   );
 
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
+  // Get user session
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (!user || userError) {
+  if (!user || error) {
+    console.error('Dashboard stats - No user found or user error:', { error });
     throw new Error('User not authenticated');
   }
 
@@ -50,7 +31,7 @@ export async function getDashboardStats() {
     const { count: ideasCountResult, error: ideasError } = await supabase
       .from('idea_kernels')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId as never);
+      .eq('user_id', userId);
 
     if (ideasError) {
       console.error('Error fetching ideas count:', ideasError);
@@ -62,7 +43,7 @@ export async function getDashboardStats() {
     const { count: contentCountResult, error: contentError } = await supabase
       .from('canvas_sessions')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId as never);
+      .eq('user_id', userId);
 
     if (contentError) {
       console.error('Error fetching content count:', contentError);
@@ -74,7 +55,7 @@ export async function getDashboardStats() {
     const { count: scheduledCountResult, error: scheduledError } = await supabase
       .from('scheduled_posts')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId as never);
+      .eq('user_id', userId);
 
     if (scheduledError) {
       console.error('Error fetching scheduled posts count:', scheduledError);
@@ -86,7 +67,7 @@ export async function getDashboardStats() {
     const { count: profileCountResult, error: profileError } = await supabase
       .from('profiles')
       .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId as never);
+      .eq('user_id', userId);
 
     if (profileError) {
       console.error('Error fetching profile count:', profileError);
@@ -107,36 +88,17 @@ export async function getDashboardStats() {
 }
 
 export async function getRecentIdeas(limit = 3) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient<Database>(
+  // Create Supabase client with SSR support
+  const supabase = createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-      },
-    }
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY! // Use anon key for client-side auth
   );
 
-  const {
-    data: { user },
-    error: userError
-  } = await supabase.auth.getUser();
+  // Get user session
+  const { data: { user }, error } = await supabase.auth.getUser();
 
-  if (!user || userError) {
+  if (!user || error) {
+    console.error('Recent ideas - No user found or user error:', { error });
     throw new Error('User not authenticated');
   }
 
@@ -149,7 +111,7 @@ export async function getRecentIdeas(limit = 3) {
     const { data: ideasData, error } = await supabase
       .from('idea_kernels')
       .select('*')
-      .eq('user_id', userId as never)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(limit);
 

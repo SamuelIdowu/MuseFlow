@@ -19,7 +19,7 @@ async function DashboardContent() {
 
   } catch (error) {
     if (error instanceof Error && error.message === 'User not authenticated') {
-      
+
      console.warn('User not authenticated, redirecting to login page.');
      redirect('/auth/login');
     }

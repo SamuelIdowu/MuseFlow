@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
   const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  const supabase = createRouteHandlerClient({ cookies: () => Promise.resolve(cookieStore) });
   
   try {
     // Get the user (more secure than session)

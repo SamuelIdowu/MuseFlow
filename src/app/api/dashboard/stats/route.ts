@@ -1,18 +1,18 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
 async function getDashboardStatsAPI() {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServiceClient();
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     throw new Error('User not authenticated');
   }
 
-  const userId = session.user.id;
+  const userId = user.id;
 
   // Get idea count
   const { count: ideasCount, error: ideasError } = await supabase
@@ -68,17 +68,17 @@ async function getDashboardStatsAPI() {
 
 export async function GET(request: Request) {
   try {
-    // Get the session
-    const supabase = await createSupabaseServerClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    // Get the user
+    const supabase = await createSupabaseServiceClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Call the stats function
     const stats = await getDashboardStatsAPI();
-    
+
     return NextResponse.json(stats);
   } catch (error: any) {
     console.error('Error fetching dashboard stats:', error);

@@ -204,19 +204,19 @@ export interface Database {
         Row: {
           id: string
           email: string
-          _id: string
+          clerk_id: string
           created_at: string
         }
         Insert: {
           id?: string
           email: string
-          _id: string
+          clerk_id: string
           created_at?: string
         }
         Update: {
           id?: string
           email?: string
-          _id?: string
+          clerk_id?: string
           created_at?: string
         }
         Relationships: []

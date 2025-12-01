@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
 import { format } from 'date-fns';
-import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
 async function getRecentIdeasAPI(limit = 3) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServiceClient();
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     throw new Error('User not authenticated');
   }
 
-  const userId = session.user.id;
+  const userId = user.id;
 
   // Get recent idea kernels
   const { data: ideas, error } = await supabase
@@ -44,20 +44,20 @@ async function getRecentIdeasAPI(limit = 3) {
 
 export async function GET(request: Request) {
   try {
-    // Get the session
-    const supabase = await createSupabaseServerClient();
-    const { data: { session } } = await supabase.auth.getSession();
+    // Get the user
+    const supabase = await createSupabaseServiceClient();
+    const { data: { user } } = await supabase.auth.getUser();
 
-    if (!session) {
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '3', 10);
-    
+
     // Call the recent ideas function
     const recentIdeas = await getRecentIdeasAPI(limit);
-    
+
     return NextResponse.json(recentIdeas);
   } catch (error: any) {
     console.error('Error fetching recent ideas:', error);

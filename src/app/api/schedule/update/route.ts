@@ -6,13 +6,13 @@ import { suggestBestTime } from '@/lib/geminiClient';
 
 export async function PUT(request: Request) {
   const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+  const supabase = createRouteHandlerClient({ cookies: () => Promise.resolve(cookieStore) });
   
   try {
-    // Get the session
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
+    // Get the user (more secure than session)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (!user || userError) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -54,7 +54,7 @@ export async function PUT(request: Request) {
         updated_at: new Date().toISOString()
       })
       .eq('id', postId)
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .select()
       .single();
 

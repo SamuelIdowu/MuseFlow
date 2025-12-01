@@ -1,55 +1,34 @@
 import { NextResponse } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
+import { currentUser } from '@clerk/nextjs/server';
+import { createSupabaseServiceClient, getSupabaseUserId } from '@/lib/supabaseServerClient';
 import { Database } from '@/lib/database.types';
 
 export async function GET(request: Request) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-      },
-    }
-  );
-
   try {
-    // Get the user (more secure than session)
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Get user from Clerk
+    const clerkUser = await currentUser();
 
-    // Add debugging logs
-    console.log('Profile GET - User retrieval result:', {
-      hasUser: !!user,
-      userId: user?.id,
-      userError,
-      cookiesAvailable: cookieStore.getAll().length > 0
-    });
-
-    if (!user || userError) {
-      console.error('Profile GET - No user found or user error:', { userError });
+    if (!clerkUser) {
+      console.error('Profile GET - No Clerk user found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch the user's profile from the database using the authenticated user
+    // Get Supabase user ID from Clerk ID
+    const supabaseUserId = await getSupabaseUserId(clerkUser.id);
+
+    if (!supabaseUserId) {
+      console.error('Profile GET - No Supabase user ID found for Clerk user:', clerkUser.id);
+      return NextResponse.json({ error: 'User not synced' }, { status: 401 });
+    }
+
+    // Create supabase client to fetch profile
+    const supabase = createSupabaseServiceClient();
+
+    // Fetch the user's profile from the database using the Supabase user ID
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', supabaseUserId)
       .single();
 
     if (error) {
@@ -65,7 +44,7 @@ export async function GET(request: Request) {
       throw error;
     }
 
-    console.log('Profile GET - Successfully fetched profile:', { id: data?.id, userId: user.id });
+    console.log('Profile GET - Successfully fetched profile:', { id: data?.id, userId: supabaseUserId });
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching profile:', error);
@@ -74,60 +53,39 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-      },
-    }
-  );
-
   try {
-    // Get the user (more secure than session)
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Get user from Clerk
+    const clerkUser = await currentUser();
 
-    // Add debugging logs
-    console.log('Profile POST - User retrieval result:', {
-      hasUser: !!user,
-      userId: user?.id,
-      userError,
-      cookiesAvailable: cookieStore.getAll().length > 0
-    });
-
-    if (!user || userError) {
-      console.error('Profile POST - No user found or user error:', { userError });
+    if (!clerkUser) {
+      console.error('Profile POST - No Clerk user found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Get Supabase user ID from Clerk ID
+    const supabaseUserId = await getSupabaseUserId(clerkUser.id);
+
+    if (!supabaseUserId) {
+      console.error('Profile POST - No Supabase user ID found for Clerk user:', clerkUser.id);
+      return NextResponse.json({ error: 'User not synced' }, { status: 401 });
+    }
+
     const { niche, tone_config, samples } = await request.json();
+
+    // Create supabase client to save profile
+    const supabase = createSupabaseServiceClient();
 
     // Check if profile exists
     const { data: existingProfile } = await supabase
       .from('profiles')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', supabaseUserId)
       .single();
 
     let result;
     if (existingProfile) {
       // Update existing profile
-      console.log('Profile POST - Updating existing profile for user:', user.id);
+      console.log('Profile POST - Updating existing profile for user:', supabaseUserId);
       result = await supabase
         .from('profiles')
         .update({
@@ -136,16 +94,16 @@ export async function POST(request: Request) {
           samples,
           updated_at: new Date().toISOString()
         })
-        .eq('user_id', user.id)
+        .eq('user_id', supabaseUserId)
         .select()
         .single();
     } else {
       // Create new profile
-      console.log('Profile POST - Creating new profile for user:', user.id);
+      console.log('Profile POST - Creating new profile for user:', supabaseUserId);
       result = await supabase
         .from('profiles')
         .insert([{
-          user_id: user.id,
+          user_id: supabaseUserId,
           niche,
           tone_config,
           samples
@@ -159,7 +117,7 @@ export async function POST(request: Request) {
       throw result.error;
     }
 
-    console.log('Profile POST - Successfully saved profile:', { id: result.data?.id, userId: user.id });
+    console.log('Profile POST - Successfully saved profile:', { id: result.data?.id, userId: supabaseUserId });
     return NextResponse.json(result.data);
   } catch (error) {
     console.error('Error saving profile:', error);

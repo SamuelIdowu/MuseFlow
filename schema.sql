@@ -1,11 +1,11 @@
 -- Supabase Database Schema for AI Content Ideation Platform
 
 -- Table: users
--- Description: Stores basic user information from Supabase Auth
+-- Description: Stores basic user information from Clerk Auth
 CREATE TABLE IF NOT EXISTS users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
-  _id TEXT UNIQUE NOT NULL, -- Supabase auth user id
+  clerk_id TEXT UNIQUE NOT NULL, -- Clerk user id
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

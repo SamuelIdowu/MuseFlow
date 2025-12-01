@@ -1,7 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useUser } from "@clerk/nextjs";
+import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,7 +24,6 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import toast from "react-hot-toast";
-import { Database } from "@/lib/database.types";
 
 interface ToneConfig {
   professionalism: number;
@@ -40,6 +41,7 @@ interface Profile {
 }
 
 export default function ProfilePage() {
+  const { user: clerkUser } = useUser();
   const [profile, setProfile] = useState<Profile>({
     id: "",
     userId: "",
@@ -54,33 +56,37 @@ export default function ProfilePage() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const supabase = createClientComponentClient<Database>();
 
   const fetchProfile = useCallback(async () => {
     setLoading(true);
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-      if (userError) {
-        console.error("Error fetching user:", userError);
-        toast.error("Failed to retrieve user session.");
-        setLoading(false);
-        return;
-      }
-      if (!user) {
-        // This case should ideally be handled by middleware, but as a fallback
+      if (!clerkUser) {
         toast.error("User not authenticated. Please log in.");
         setLoading(false);
         return;
       }
 
+      // Get Supabase user ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('clerk_id', clerkUser.id)
+        .single();
+
+      if (userError || !userData) {
+        console.error("Error fetching user:", userError);
+        toast.error("Failed to retrieve user session.");
+        setLoading(false);
+        return;
+      }
+
+      const userId = userData.id;
+
       // Fetch the profile from the database
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .single();
 
       if (error && error.code !== "PGRST116") {
@@ -93,21 +99,21 @@ export default function ProfilePage() {
       if (data) {
         setProfile({
           id: data.id,
-          userId: user.id,
+          userId,
           niche: data.niche || "",
-          tone_config: data.tone_config || {
+          tone_config: (data.tone_config as unknown as ToneConfig) || {
             professionalism: 50,
             creativity: 50,
             casualness: 50,
             directness: 50,
           },
-          samples: data.samples || [],
+          samples: (data.samples as string[]) || [],
         });
       } else {
         // If no profile exists yet, create with default values
         setProfile({
           id: "",
-          userId: user.id,
+          userId,
           niche: "",
           tone_config: {
             professionalism: 50,
@@ -124,7 +130,7 @@ export default function ProfilePage() {
     } finally {
       setLoading(false);
     }
-  }, [supabase]);
+  }, [supabase, clerkUser]);
 
   useEffect(() => {
     fetchProfile();
@@ -175,22 +181,34 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      if (!clerkUser) {
         toast.error("User not authenticated");
         setSaving(false);
         return;
       }
 
-      const profileToUpsert: Database["public"]["Tables"]["profiles"]["Insert"] =
-        {
-          user_id: user.id,
-          niche: profile.niche,
-          tone_config: profile.tone_config,
-          samples: profile.samples,
-        };
+      // Get Supabase user ID
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('clerk_id', clerkUser.id)
+        .single();
+
+      if (userError || !userData) {
+        console.error("Error fetching user:", userError);
+        toast.error("Failed to retrieve user session.");
+        setSaving(false);
+        return;
+      }
+
+      const userId = userData.id;
+
+      const profileToUpsert = {
+        user_id: userId,
+        niche: profile.niche,
+        tone_config: profile.tone_config as unknown as any, // Type assertion for JSON compatibility
+        samples: profile.samples as unknown as any,
+      };
 
       const { error } = await supabase
         .from("profiles")
@@ -259,7 +277,7 @@ export default function ProfilePage() {
             <CardHeader>
               <CardTitle>Tone & Voice Configuration</CardTitle>
               <CardDescription>
-                Adjust sliders to define your content's tone.
+                Adjust sliders to define your content&apos;s tone.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">

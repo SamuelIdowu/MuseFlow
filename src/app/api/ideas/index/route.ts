@@ -1,20 +1,20 @@
 import { NextResponse } from 'next/server';
 import { ideasService } from '@/lib/supabaseService';
-import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
 export async function GET(_request: Request) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServiceClient();
   
   try {
-    // Get the session
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (!session) {
+    // Get the user (more secure than session)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+    if (!user || userError) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Fetch idea kernels from the database
-    const ideaKernels = await ideasService.getUserIdeas(session.user.id);
+    const ideaKernels = await ideasService.getUserIdeas(user.id);
 
     return NextResponse.json(ideaKernels);
   } catch (error) {

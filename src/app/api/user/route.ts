@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServerClient } from '@/lib/supabaseServerClient';
+import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
 export async function GET(request: Request) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = await createSupabaseServiceClient();
   
   try {
     // Get the user (more secure than session)

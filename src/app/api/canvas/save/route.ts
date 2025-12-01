@@ -29,12 +29,15 @@ export async function POST(request: Request) {
   );
 
   try {
-    // Get the user (more secure than session)
+    // Get the user session
     const { data: { user }, error: userError } = await supabase.auth.getUser();
 
     if (!user || userError) {
+      console.error('Canvas save - No user found or user error:', { userError });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    const userId = user.id;
 
     const { canvas_data, canvas_name, canvas_id } = await request.json();
 
@@ -49,7 +52,7 @@ export async function POST(request: Request) {
         .from('canvas_blocks')
         .delete()
         .eq('canvas_id', canvas_id)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (deleteResult.error) {
         throw deleteResult.error;
@@ -58,7 +61,7 @@ export async function POST(request: Request) {
       // Then insert new blocks
       const blocksWithCanvasId = canvas_data.map((block: any, index: number) => ({
         canvas_id: canvas_id,
-        user_id: user.id,
+        user_id: userId,
         type: block.type,
         content: block.content,
         order_index: block.order_index ?? index,
@@ -79,7 +82,7 @@ export async function POST(request: Request) {
         .from('canvas_sessions')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', canvas_id)
-        .eq('user_id', user.id);
+        .eq('user_id', userId);
 
       if (updateCanvasResult.error) {
         throw updateCanvasResult.error;
@@ -95,7 +98,7 @@ export async function POST(request: Request) {
       const canvasSessionResult = await supabase
         .from('canvas_sessions')
         .insert([{
-          user_id: user.id,
+          user_id: userId,
           name: canvas_name || 'Untitled Canvas'
         }])
         .select()
@@ -110,7 +113,7 @@ export async function POST(request: Request) {
       // Then save the blocks
       const blocksWithCanvasId = canvas_data.map((block: any, index: number) => ({
         canvas_id: newCanvas.id,
-        user_id: user.id,
+        user_id: userId,
         type: block.type,
         content: block.content,
         order_index: block.order_index ?? index,

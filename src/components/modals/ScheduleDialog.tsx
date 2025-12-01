@@ -28,12 +28,13 @@ interface ScheduleDialogProps {
   }) => void;
 }
 
-export function ScheduleDialog({ 
-  isOpen, 
-  onOpenChange, 
-  ideaTitle, 
+export function ScheduleDialog({
+  isOpen,
+  onOpenChange,
+  ideaTitle,
   ideaDescription,
-  onSchedule 
+  ideaId,
+  onSchedule
 }: ScheduleDialogProps) {
   const [newPost, setNewPost] = useState({
     title: ideaTitle,
