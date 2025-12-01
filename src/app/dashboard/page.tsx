@@ -1,29 +1,27 @@
 import Link from 'next/link';
-// Import redirect from next/navigation
-import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getDashboardStats, getRecentIdeas } from '@/lib/dashboardServerActions';
+import { getDashboardStats, getRecentIdeas, getActiveProfile } from '@/lib/dashboardServerActions';
 import { format } from 'date-fns';
 import { DashboardClient } from './DashboardClient';
+import { ExpandableIdea } from '@/components/ExpandableIdea';
+
+// Force dynamic rendering because this route uses auth() which requires headers
+export const dynamic = 'force-dynamic';
 
 async function DashboardContent() {
   let stats;
   let recentIdeas;
+  let activeProfile;
 
   try {
-    [stats, recentIdeas] = await Promise.all([
+    [stats, recentIdeas, activeProfile] = await Promise.all([
       getDashboardStats(),
-      getRecentIdeas(3)
+      getRecentIdeas(3),
+      getActiveProfile()
     ]);
 
   } catch (error) {
-    if (error instanceof Error && error.message === 'User not authenticated') {
-
-     console.warn('User not authenticated, redirecting to login page.');
-     redirect('/auth/login');
-    }
-
     // Handle all other errors (e.g., database connection issues)
     console.error('Error loading dashboard data:', error);
     return (
@@ -40,7 +38,7 @@ async function DashboardContent() {
   return (
     <>
       <div className="grid gap-6 md:grid-cols-2">
-        <DashboardClient />
+        <DashboardClient activeProfile={activeProfile} />
         <Card>
           <CardHeader>
             <CardTitle>Quick Stats</CardTitle>
@@ -82,15 +80,7 @@ async function DashboardContent() {
           <div className="space-y-4">
             {recentIdeas.length > 0 ? (
               recentIdeas.map((idea) => (
-                <div
-                  key={idea.id}
-                  className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <h3 className="font-medium">{idea.title}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Generated on {format(new Date(idea.createdAt), 'MMM d, yyyY')}
-                  </p>
-                </div>
+                <ExpandableIdea key={idea.id} idea={idea} />
               ))
             ) : (
               <p className="text-muted-foreground text-center py-4">
@@ -105,11 +95,24 @@ async function DashboardContent() {
 }
 
 export default async function DashboardPage() {
+  const activeProfile = await getActiveProfile();
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Content Ideation Dashboard</h2>
+          <div className="flex items-center gap-3 mb-2">
+            <h2 className="text-2xl font-bold tracking-tight">Content Ideation Dashboard</h2>
+            {activeProfile ? (
+              <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20">
+                Active: {activeProfile.profile_name}
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-md bg-yellow-50 dark:bg-yellow-900/20 px-2 py-1 text-xs font-medium text-yellow-800 dark:text-yellow-500 ring-1 ring-inset ring-yellow-600/20">
+                No Active Profile
+              </span>
+            )}
+          </div>
           <p className="text-muted-foreground">
             Generate content ideas from your input and start creating
           </p>

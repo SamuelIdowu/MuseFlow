@@ -1,70 +1,35 @@
 import { NextResponse } from 'next/server';
 import { generateIdeas } from '@/lib/geminiClient';
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
-import { Database } from '@/lib/database.types';
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { createSupabaseServiceClient, ensureSupabaseUser } from '@/lib/supabaseServerClient';
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-      },
-    }
-  );
-
   try {
-    // Get the session (this authenticates the user properly)
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    // Get Clerk authentication
+    const { userId } = await auth();
+    const user = await currentUser();
 
-    // Add debugging logs
-    console.log('Session retrieval result:', {
-      session: !!session,
-      sessionError,
-      hasUser: !!session?.user,
-      userId: session?.user?.id,
-      cookiesAvailable: cookieStore.getAll().length > 0
-    });
-
-    if (sessionError) {
-      console.error('Session retrieval error:', sessionError);
+    if (!userId || !user) {
+      console.error('Ideas API - No Clerk user found');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    if (!session) {
-      // Try to get user directly as an alternative
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-      console.log('User retrieval result:', {
-        hasUser: !!user,
-        userId: user?.id,
-        userError
-      });
-
-      if (!user || userError) {
-        console.error('No session and no user found - user not authenticated');
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-
-      console.log('User found without session, proceeding with user ID:', user.id);
+    const email = user.emailAddresses[0]?.emailAddress;
+    if (!email) {
+      console.error('Ideas API - No email found for user');
+      return NextResponse.json({ error: 'User has no email address' }, { status: 400 });
     }
 
-    const { input_text, input_type = 'text' } = await request.json();
+    // Ensure user exists in Supabase and get their UUID
+    const supabaseUserId = await ensureSupabaseUser(userId, email);
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Failed to ensure user exists' }, { status: 500 });
+    }
+
+    // Create Supabase service client (bypasses RLS)
+    const supabase = createSupabaseServiceClient();
+
+    const { input_text, input_type = 'text', active_profile } = await request.json();
 
     // Validate input
     if (!input_text?.trim()) {
@@ -72,19 +37,13 @@ export async function POST(request: Request) {
     }
 
     // Call the Gemini API to generate ideas
-    const generatedIdeas = await generateIdeas(input_text);
+    const generatedIdeas = await generateIdeas(input_text, active_profile);
 
-    // Save the idea kernel to the database using the authenticated session or user
-    const userId = session?.user?.id || (await supabase.auth.getUser()).data.user?.id;
-
-    if (!userId) {
-      throw new Error('User ID is undefined');
-    }
-
+    // Save the idea kernel to the database
     const { data, error } = await supabase
       .from('idea_kernels')
       .insert([{
-        user_id: userId,
+        user_id: supabaseUserId,
         input_type,
         input_data: input_text,
         kernels: generatedIdeas
@@ -97,7 +56,7 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    console.log('Successfully created idea kernel:', { id: data.id, userId });
+    console.log('Successfully created idea kernel:', { id: data.id, userId: supabaseUserId });
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error generating ideas:', error);

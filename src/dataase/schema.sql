@@ -80,9 +80,13 @@ ALTER TABLE canvas_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduled_posts ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for RLS
--- Users can only access their own data
-CREATE POLICY "Users can view own data" ON users FOR SELECT USING (auth.uid()::text = _id);
-CREATE POLICY "Users can update own data" ON users FOR UPDATE USING (auth.uid()::text = _id);
+-- NOTE: Since we're using Clerk for auth (not Supabase Auth), auth.uid() won't work as expected
+-- For security, we handle authorization in API routes using service role key and Clerk user verification
+-- The users table policies are disabled; instead, we rely on server-side authorization
+
+-- Users table: Managed via service role in API routes (see /api/auth/route.ts)
+-- No client-side access to users table needed
+CREATE POLICY "Service role full access" ON users FOR ALL USING (true);
 
 CREATE POLICY "Users can view own profiles" ON profiles FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own profiles" ON profiles FOR INSERT WITH CHECK (auth.uid() = user_id);

@@ -3,13 +3,18 @@ import { headers } from 'next/headers';
 import { Webhook } from 'svix';
 import { createClient } from '@supabase/supabase-js';
 
-// Initialize Supabase client with service role key for webhooks
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY!, // Use service role for webhooks
-);
-
 export async function POST(request: Request) {
+  // Initialize Supabase client inside the function to avoid build-time errors
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseServiceRoleKey = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    console.error('Missing Supabase configuration');
+    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
+
   try {
     const headersList = await headers();
     const clerkSecret = headersList.get('svix-id') &&
@@ -29,7 +34,13 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Missing svix headers' }, { status: 400 });
       }
 
-      const wh = new Webhook(process.env.CLERK_PUBLISHABLE_KEY!);
+      const clerkSecretKey = process.env.CLERK_PUBLISHABLE_KEY;
+      if (!clerkSecretKey) {
+        console.error('Missing Clerk publishable key');
+        return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+      }
+
+      const wh = new Webhook(clerkSecretKey);
       wh.verify(
         JSON.stringify(payload),
         {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,12 +12,15 @@ import { format, addDays } from 'date-fns';
 import { Calendar as CalendarIcon, Clock, Sparkles } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
+import { Profile } from '@/types/profile';
+
 interface ScheduleDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
   ideaTitle: string;
   ideaDescription: string;
   ideaId?: string;
+  activeProfile: Profile | null;
   onSchedule: (post: {
     title: string;
     content: string;
@@ -28,14 +31,15 @@ interface ScheduleDialogProps {
   }) => void;
 }
 
-export function ScheduleDialog({
+const ScheduleDialogComponent = ({
   isOpen,
   onOpenChange,
   ideaTitle,
   ideaDescription,
   ideaId,
+  activeProfile,
   onSchedule
-}: ScheduleDialogProps) {
+}: ScheduleDialogProps) => {
   const [newPost, setNewPost] = useState({
     title: ideaTitle,
     content: ideaDescription,
@@ -83,7 +87,7 @@ export function ScheduleDialog({
     // In a real implementation, this would call the AI to suggest the best time
     // For now, we'll just show a toast and suggest a time
     toast.success('AI suggested optimal time!');
-    
+
     // Generate a random time between 8am and 8pm for demo purposes
     const hours = Math.floor(Math.random() * 12) + 8;
     const minutes = Math.random() > 0.5 ? 0 : 30;
@@ -98,40 +102,40 @@ export function ScheduleDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto" showCloseButton={true}>
+      <DialogContent className="w-full max-w-4xl max-h-[90vh] overflow-y-auto" showCloseButton={true}>
         <DialogHeader>
           <DialogTitle>Schedule Post from Idea</DialogTitle>
           <DialogDescription>
             Set the details for your scheduled post
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4 py-4">
-          <div>
+          <div className='flex flex-col gap-2'>
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
               value={newPost.title}
-              onChange={(e) => setNewPost({...newPost, title: e.target.value})}
+              onChange={(e) => setNewPost(prev => ({ ...prev, title: e.target.value }))}
               placeholder="Enter post title..."
             />
           </div>
 
-          <div>
+          <div className='flex flex-col gap-2'>
             <Label htmlFor="content">Content</Label>
             <Textarea
               id="content"
               value={newPost.content}
-              onChange={(e) => setNewPost({...newPost, content: e.target.value})}
+              onChange={(e) => setNewPost(prev => ({ ...prev, content: e.target.value }))}
               placeholder="Enter your content..."
               className="min-h-[120px]"
             />
           </div>
 
-          <div>
+          <div className='flex flex-col gap-2'>
             <Label>Channel</Label>
-            <Select value={newPost.channel} onValueChange={(value) => setNewPost({...newPost, channel: value})}>
-              <SelectTrigger>
+            <Select value={newPost.channel} onValueChange={(value) => setNewPost(prev => ({ ...prev, channel: value }))}>
+              <SelectTrigger className='mb-2'>
                 <SelectValue placeholder="Select channel" />
               </SelectTrigger>
               <SelectContent>
@@ -143,7 +147,7 @@ export function ScheduleDialog({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+            <div className='flex flex-col gap-2'>
               <Label>Date</Label>
               <div className="border rounded-lg p-2 w-full mt-1">
                 <Calendar
@@ -157,16 +161,16 @@ export function ScheduleDialog({
             </div>
 
             <div className="space-y-4">
-              <div>
+              <div className='flex flex-col gap-2'>
                 <Label>Time</Label>
                 <Input
                   type="time"
                   value={newPost.time}
-                  onChange={(e) => setNewPost({...newPost, time: e.target.value})}
+                  onChange={(e) => setNewPost(prev => ({ ...prev, time: e.target.value }))}
                 />
               </div>
 
-              <div>
+              <div className='flex flex-col gap-2'>
                 <Label>Best Time Suggestion</Label>
                 <Button
                   type="button"
@@ -193,4 +197,6 @@ export function ScheduleDialog({
       </DialogContent>
     </Dialog>
   );
-}
+};
+
+export const ScheduleDialog = memo(ScheduleDialogComponent);

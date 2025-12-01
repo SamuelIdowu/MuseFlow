@@ -1,22 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { formatForChannel } from '@/lib/geminiClient';
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => Promise.resolve(cookieStore) });
-  
   try {
-    // Get the user (more secure than session)
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Get Clerk authentication
+    const { userId } = await auth();
 
-    if (!user || userError) {
+    if (!userId) {
+      console.error('Export preview - No Clerk user found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { content_blocks, channel } = await request.json();
+    const { content_blocks, channel, active_profile } = await request.json();
 
     // Validate input
     if (!content_blocks || !channel) {
@@ -27,9 +24,9 @@ export async function POST(request: Request) {
     const content = content_blocks.map((block: any) => block.content).join(' ');
 
     // Use Gemini to format content for the specific channel
-    const formattedContent = await formatForChannel(content, channel);
+    const formattedContent = await formatForChannel(content, channel, active_profile);
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       channel,
       preview: formattedContent,
       original_blocks: content_blocks

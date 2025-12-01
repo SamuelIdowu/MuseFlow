@@ -1,8 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
-import { scheduleService } from '@/lib/supabaseService';
-import { getSupabaseUserId } from '@/lib/supabaseServerClient';
+import { ensureSupabaseUser, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
 export async function POST(request: Request) {
   try {
@@ -14,15 +13,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get Supabase user ID from Clerk ID
-    const supabaseUserId = await getSupabaseUserId(clerkUser.id);
+    // Get or create Supabase user ID from Clerk ID
+    const email = clerkUser.emailAddresses[0]?.emailAddress || '';
+    const supabaseUserId = await ensureSupabaseUser(clerkUser.id, email);
 
     if (!supabaseUserId) {
-      console.error('Schedule POST - No Supabase user ID found for Clerk user:', clerkUser.id);
-      return NextResponse.json({ error: 'User not synced' }, { status: 401 });
+      console.error('Schedule POST - Failed to ensure Supabase user for Clerk user:', clerkUser.id);
+      return NextResponse.json({ error: 'Failed to sync user' }, { status: 500 });
     }
 
-    const { content_blocks, channel, scheduled_time, optimize_time } = await request.json();
+    const { content_blocks, channel, scheduled_time, optimize_time, active_profile } = await request.json();
 
     // Validate input
     if (!content_blocks || !channel) {
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       const content = Array.isArray(content_blocks)
         ? content_blocks.map((block: { content: string }) => block.content).join(' ')
         : content_blocks;
-      const suggestedTime = await suggestBestTime(content, `Channel: ${channel}`);
+      const suggestedTime = await suggestBestTime(content, `Channel: ${channel}`, active_profile);
 
       // Combine the scheduled date with the suggested time
       const date = new Date(scheduled_time);
@@ -44,13 +44,25 @@ export async function POST(request: Request) {
       finalScheduledTime = date.toISOString();
     }
 
+    // Use service client to bypass RLS
+    const supabase = createSupabaseServiceClient();
+
     // Save the scheduled post to the database
-    const scheduledPost = await scheduleService.createScheduledPost(
-      supabaseUserId,
-      content_blocks,
-      channel,
-      finalScheduledTime
-    );
+    const { data: scheduledPost, error: insertError } = await supabase
+      .from('scheduled_posts')
+      .insert([{
+        user_id: supabaseUserId,
+        content_blocks,
+        channel,
+        scheduled_time: finalScheduledTime
+      }])
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error creating scheduled post:', insertError);
+      throw insertError;
+    }
 
     return NextResponse.json(scheduledPost);
   } catch (error) {

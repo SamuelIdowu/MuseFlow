@@ -20,10 +20,6 @@ export default function DashboardLayout({
   const { user } = useUser();
 
   useEffect(() => {
-    if (isLoaded && !isSignedIn) {
-      router.push("/sign-in");
-    }
-
     const handleResize = () => {
       setIsMobile(window.innerWidth < 768);
     };
@@ -34,14 +30,27 @@ export default function DashboardLayout({
     return () => {
       window.removeEventListener("resize", handleResize);
     };
-  }, [isSignedIn, isLoaded, router]);
+  }, []);
 
-  if (!isLoaded || !isSignedIn) {
+  if (!isLoaded) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
           <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Since we have middleware protecting this route, if we get here and the user
+  // is not signed in, we should redirect them
+  if (!isSignedIn) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+          <p className="text-muted-foreground">Redirecting to sign-in...</p>
         </div>
       </div>
     );

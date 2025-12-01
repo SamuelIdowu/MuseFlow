@@ -91,8 +91,7 @@ export async function POST(request: Request) {
         .update({
           niche,
           tone_config,
-          samples,
-          updated_at: new Date().toISOString()
+          samples
         })
         .eq('user_id', supabaseUserId)
         .select()

@@ -30,8 +30,8 @@ async function getRecentIdeasAPI(limit = 3) {
 
   // Transform the data to have a flat list of ideas with their metadata
   const recentIdeas = ideas.flatMap(idea =>
-    (idea.kernels as string[]).map((kernel: string) => ({
-      id: idea.id,
+    (idea.kernels as string[]).map((kernel: string, index: number) => ({
+      id: `${idea.id}-${index}`,
       title: kernel,
       createdAt: idea.created_at,
       inputData: idea.input_data,

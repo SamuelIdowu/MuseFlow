@@ -27,8 +27,8 @@ const navItems = [
     icon: Calendar,
   },
   {
-    title: 'Profile',
-    href: '/dashboard/profile',
+    title: 'Profiles',
+    href: '/dashboard/profiles',
     icon: User,
   },
   {
@@ -42,7 +42,7 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="hidden border-r h-full w-64 flex-col justify-between p-4 lg:flex">
+    <div className="hidden border-r h-screen w-70 flex-col justify-between p-4 flex lg:flex">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2 px-2 py-4">
           <div className="bg-primary text-primary-foreground rounded-lg p-2">
@@ -69,7 +69,7 @@ export function Sidebar() {
           );
         })}
       </div>
-      <div className="text-xs text-muted-foreground p-4">
+      <div className="mt-auto text-xs text-muted-foreground p-4">
         © {new Date().getFullYear()} ContentAI. All rights reserved.
       </div>
     </div>

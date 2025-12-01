@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
-import { scheduleService, ideasService } from '@/lib/supabaseService';
 import { currentUser } from '@clerk/nextjs/server';
-import { getSupabaseUserId } from '@/lib/supabaseServerClient';
+import { getSupabaseUserId, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
 export async function POST(request: Request) {
   try {
@@ -22,7 +21,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'User not synced' }, { status: 401 });
     }
 
-    const { title, content, channel, scheduled_time, optimize_time = false, idea_id } = await request.json();
+    const { title, content, channel, scheduled_time, optimize_time = false, idea_id, active_profile } = await request.json();
 
     // Validate input
     if (!title?.trim() || !content?.trim() || !channel) {
@@ -32,7 +31,7 @@ export async function POST(request: Request) {
     // If optimize_time is requested, get AI suggestion for best posting time
     let finalScheduledTime = scheduled_time;
     if (optimize_time) {
-      const suggestedTime = await suggestBestTime(content, `Channel: ${channel}`);
+      const suggestedTime = await suggestBestTime(content, `Channel: ${channel}`, active_profile);
 
       // Combine the scheduled date with the suggested time
       const date = new Date(scheduled_time);
@@ -41,15 +40,24 @@ export async function POST(request: Request) {
       finalScheduledTime = date.toISOString();
     }
 
+    // Use service client to bypass RLS
+    const supabase = createSupabaseServiceClient();
+
     // If an idea_id is provided, fetch the idea from the database to get the kernels array
     let contentBlocks;
     if (idea_id) {
       try {
-        const idea = await ideasService.getIdeaById(supabaseUserId, idea_id);
-        if (idea && idea.kernels && Array.isArray(idea.kernels)) {
+        const { data: idea, error } = await supabase
+          .from('idea_kernels')
+          .select('*')
+          .eq('id', idea_id)
+          .eq('user_id', supabaseUserId)
+          .single();
+
+        if (!error && idea && idea.kernels && Array.isArray(idea.kernels)) {
           // Use the idea kernels to create content blocks
           contentBlocks = idea.kernels
-            .filter((kernel): kernel is string => typeof kernel === 'string')
+            .filter((kernel: any): kernel is string => typeof kernel === 'string')
             .map((kernel: string, index: number) => ({
               type: 'paragraph',
               content: kernel,
@@ -81,12 +89,21 @@ export async function POST(request: Request) {
     }
 
     // Save the scheduled post to the database
-    const scheduledPost = await scheduleService.createScheduledPost(
-      supabaseUserId,
-      contentBlocks,
-      channel,
-      finalScheduledTime
-    );
+    const { data: scheduledPost, error: insertError } = await supabase
+      .from('scheduled_posts')
+      .insert([{
+        user_id: supabaseUserId,
+        content_blocks: contentBlocks,
+        channel,
+        scheduled_time: finalScheduledTime
+      }])
+      .select()
+      .single();
+
+    if (insertError) {
+      console.error('Error creating scheduled post:', insertError);
+      throw insertError;
+    }
 
     return NextResponse.json(scheduledPost);
   } catch (error) {

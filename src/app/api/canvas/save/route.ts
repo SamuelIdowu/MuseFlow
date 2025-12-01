@@ -1,43 +1,32 @@
-import { createServerClient } from '@supabase/ssr';
-import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { Database } from '@/lib/database.types';
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { createSupabaseServiceClient, ensureSupabaseUser } from '@/lib/supabaseServerClient';
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return cookieStore.getAll();
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            );
-          } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing
-            // user sessions.
-          }
-        },
-      },
-    }
-  );
-
   try {
-    // Get the user session
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Get Clerk authentication
+    const { userId } = await auth();
+    const user = await currentUser();
 
-    if (!user || userError) {
-      console.error('Canvas save - No user found or user error:', { userError });
+    if (!userId || !user) {
+      console.error('Canvas save API - No Clerk user found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const userId = user.id;
+    const email = user.emailAddresses[0]?.emailAddress;
+    if (!email) {
+      console.error('Canvas save API - No email found for user');
+      return NextResponse.json({ error: 'User has no email address' }, { status: 400 });
+    }
+
+    // Ensure user exists in Supabase and get their UUID
+    const supabaseUserId = await ensureSupabaseUser(userId, email);
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Failed to ensure user exists' }, { status: 500 });
+    }
+
+    // Create Supabase service client (bypasses RLS)
+    const supabase = createSupabaseServiceClient();
 
     const { canvas_data, canvas_name, canvas_id } = await request.json();
 
@@ -52,7 +41,7 @@ export async function POST(request: Request) {
         .from('canvas_blocks')
         .delete()
         .eq('canvas_id', canvas_id)
-        .eq('user_id', userId);
+        .eq('user_id', supabaseUserId);
 
       if (deleteResult.error) {
         throw deleteResult.error;
@@ -61,7 +50,7 @@ export async function POST(request: Request) {
       // Then insert new blocks
       const blocksWithCanvasId = canvas_data.map((block: any, index: number) => ({
         canvas_id: canvas_id,
-        user_id: userId,
+        user_id: supabaseUserId,
         type: block.type,
         content: block.content,
         order_index: block.order_index ?? index,
@@ -82,7 +71,7 @@ export async function POST(request: Request) {
         .from('canvas_sessions')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', canvas_id)
-        .eq('user_id', userId);
+        .eq('user_id', supabaseUserId);
 
       if (updateCanvasResult.error) {
         throw updateCanvasResult.error;
@@ -98,7 +87,7 @@ export async function POST(request: Request) {
       const canvasSessionResult = await supabase
         .from('canvas_sessions')
         .insert([{
-          user_id: userId,
+          user_id: supabaseUserId,
           name: canvas_name || 'Untitled Canvas'
         }])
         .select()
@@ -113,7 +102,7 @@ export async function POST(request: Request) {
       // Then save the blocks
       const blocksWithCanvasId = canvas_data.map((block: any, index: number) => ({
         canvas_id: newCanvas.id,
-        user_id: userId,
+        user_id: supabaseUserId,
         type: block.type,
         content: block.content,
         order_index: block.order_index ?? index,

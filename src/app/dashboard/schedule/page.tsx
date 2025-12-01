@@ -19,6 +19,7 @@ import {
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { toast } from 'react-hot-toast';
+import { ScheduledPostCard } from '@/components/ScheduledPostCard';
 
 interface ScheduledPost {
   id: string;
@@ -131,6 +132,8 @@ export default function SchedulePage() {
   };
 
   const deletePost = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this scheduled post?')) return;
+
     try {
       const response = await fetch(`/api/schedule/delete?id=${id}`, {
         method: 'DELETE',
@@ -188,9 +191,10 @@ export default function SchedulePage() {
 
       {/* Scheduler Modal */}
       {showScheduler && (
-        <Card className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm p-4">
-          <CardContent className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl bg-background rounded-xl border p-6 shadow-lg">
-            <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-3xl max-h-[90vh] bg-background rounded-xl border shadow-lg flex flex-col">
+            {/* Fixed Header */}
+            <div className="flex justify-between items-center p-6 pb-4 border-b">
               <h3 className="text-lg font-semibold">Schedule New Post</h3>
               <Button
                 variant="ghost"
@@ -201,80 +205,86 @@ export default function SchedulePage() {
               </Button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="content">Content</Label>
-                <Textarea
-                  id="content"
-                  value={newPost.content}
-                  onChange={(e) => setNewPost({...newPost, content: e.target.value})}
-                  placeholder="Enter your content..."
-                  className="min-h-[120px]"
-                />
-              </div>
-
-              <div>
-                <Label>Channel</Label>
-                <Select value={newPost.channel} onValueChange={(value) => setNewPost({...newPost, channel: value})}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select channel" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="linkedin">LinkedIn</SelectItem>
-                    <SelectItem value="x">X (Twitter)</SelectItem>
-                    <SelectItem value="blog">Blog</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
+            {/* Scrollable Content */}
+            <div className="overflow-y-auto flex-1 p-6 pt-4">
+              <div className="space-y-4">
                 <div>
-                  <Label>Date</Label>
-                  <div className="border rounded-lg p-2 w-full">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={setSelectedDate}
-                      initialFocus
-                      className="w-full"
-                    />
-                  </div>
+                  <Label htmlFor="content">Content</Label>
+                  <Textarea
+                    id="content"
+                    value={newPost.content}
+                    onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
+                    placeholder="Enter your content..."
+                    className="min-h-[120px]"
+                  />
                 </div>
 
-                <div className="space-y-4">
+                <div>
+                  <Label>Channel</Label>
+                  <Select value={newPost.channel} onValueChange={(value) => setNewPost({ ...newPost, channel: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select channel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="linkedin">LinkedIn</SelectItem>
+                      <SelectItem value="x">X (Twitter)</SelectItem>
+                      <SelectItem value="blog">Blog</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Time</Label>
-                    <Input
-                      type="time"
-                      value={newPost.time}
-                      onChange={(e) => setNewPost({...newPost, time: e.target.value})}
-                    />
+                    <Label>Date</Label>
+                    <div className="border rounded-lg p-2 w-full">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={setSelectedDate}
+                        initialFocus
+                        className="w-full"
+                      />
+                    </div>
                   </div>
 
-                  <div className="flex items-center space-x-2">
-                    <Input
-                      type="checkbox"
-                      id="optimize_time"
-                      checked={newPost.optimize_time}
-                      onChange={(e) => setNewPost({...newPost, optimize_time: e.target.checked})}
-                    />
-                    <Label htmlFor="optimize_time">Use AI to optimize posting time</Label>
-                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Time</Label>
+                      <Input
+                        type="time"
+                        value={newPost.time}
+                        onChange={(e) => setNewPost({ ...newPost, time: e.target.value })}
+                      />
+                    </div>
 
-                  {!newPost.optimize_time && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full"
-                      onClick={suggestBestTime}
-                    >
-                      <Sparkles className="mr-2 h-4 w-4" />
-                      Get AI Suggestion
-                    </Button>
-                  )}
+                    <div className="flex items-center space-x-2">
+                      <Input
+                        type="checkbox"
+                        id="optimize_time"
+                        checked={newPost.optimize_time}
+                        onChange={(e) => setNewPost({ ...newPost, optimize_time: e.target.checked })}
+                      />
+                      <Label htmlFor="optimize_time">Use AI to optimize posting time</Label>
+                    </div>
+
+                    {!newPost.optimize_time && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={suggestBestTime}
+                      >
+                        <Sparkles className="mr-2 h-4 w-4" />
+                        Get AI Suggestion
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
+            </div>
 
+            {/* Fixed Footer with Action Button */}
+            <div className="p-6 pt-4 border-t">
               <Button
                 className="w-full"
                 onClick={handleSchedulePost}
@@ -290,8 +300,8 @@ export default function SchedulePage() {
                 )}
               </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       )}
 
       {/* Calendar View */}
@@ -309,38 +319,11 @@ export default function SchedulePage() {
                 .filter((post: ScheduledPost) => post.status === 'scheduled')
                 .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime())
                 .map((post) => (
-                  <div
+                  <ScheduledPostCard
                     key={post.id}
-                    className="border rounded-lg p-4 hover:bg-muted/50 transition-colors flex justify-between items-start"
-                  >
-                    <div className="space-y-1">
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {Array.isArray(post.content_blocks) && post.content_blocks.length > 0
-                          ? post.content_blocks[0].content || 'No content'
-                          : 'No content'}
-                      </p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <Badge variant="outline">{getChannelLabel(post.channel)}</Badge>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <CalendarIcon className="h-4 w-4" />
-                          {format(new Date(post.scheduled_time), 'MMM d, yyyy')}
-                        </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4" />
-                          {format(new Date(post.scheduled_time), 'h:mm a')}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => deletePost(post.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+                    post={post}
+                    onDelete={deletePost}
+                  />
                 ))
             ) : (
               <div className="text-center py-8">
