@@ -138,18 +138,22 @@ export interface Database {
         Insert: {
           id?: string
           user_id: string
+          profile_name?: string
           niche?: string | null
           tone_config?: Json | null
           samples?: Json | null
+          is_active?: boolean
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
           user_id?: string
+          profile_name?: string
           niche?: string | null
           tone_config?: Json | null
           samples?: Json | null
+          is_active?: boolean
           created_at?: string
           updated_at?: string
         }

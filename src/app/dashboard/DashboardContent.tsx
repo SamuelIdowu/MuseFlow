@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { DashboardClient } from './DashboardClient';
 import { DashboardStatsCard } from '@/components/dashboard/DashboardStatsCard';
 import { ExpandableIdea } from '@/components/ExpandableIdea';
+import { Profile } from '@/types/profile';
 
 interface Idea {
   id: string;
@@ -15,7 +16,11 @@ interface Idea {
   inputType: string;
 }
 
-export default function DashboardContent() {
+interface DashboardContentProps {
+  activeProfile: Profile | null;
+}
+
+export default function DashboardContent({ activeProfile }: DashboardContentProps) {
   const [recentIdeas, setRecentIdeas] = useState<Idea[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +65,7 @@ export default function DashboardContent() {
   return (
     <>
       <div className="grid gap-6 md:grid-cols-2">
-        <DashboardClient />
+        <DashboardClient activeProfile={activeProfile} />
         <DashboardStatsCard />
       </div>
 

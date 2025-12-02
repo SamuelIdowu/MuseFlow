@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from './database.types';
+import { unstable_cache, revalidatePath } from 'next/cache';
 
 /**
  * Creates a Supabase server client for use with service role key
@@ -31,7 +32,7 @@ export function createSupabaseServiceClient() {
 
   // Log masked URL for debugging
   const maskedUrl = supabaseUrl.replace(/https?:\/\/([^.]+)\./, 'https://***.');
-  console.log('[Supabase] Creating service client with URL:', maskedUrl);
+  // console.log('[Supabase] Creating service client with URL:', maskedUrl);
 
   return createClient<Database>(
     supabaseUrl,
@@ -67,24 +68,42 @@ export function createAuthenticatedSupabaseClient(token: string) {
 }
 
 /**
+ * Internal function to get Supabase user ID from Clerk user ID
+ * Cached using unstable_cache
+ */
+const getCachedSupabaseUserId = unstable_cache(
+  async (clerkUserId: string) => {
+    // console.log('[getSupabaseUserId] Cache MISS for:', clerkUserId);
+    const supabase = createSupabaseServiceClient();
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_id', clerkUserId)
+      .single();
+
+    if (error) {
+      if (error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+        console.error('Error getting Supabase user ID:', error);
+      }
+      return null;
+    }
+
+    return data?.id || null;
+  },
+  ['supabase-user-id'],
+  {
+    tags: ['supabase-users'],
+    revalidate: 3600 // Cache for 1 hour
+  }
+);
+
+/**
  * Helper function to get Supabase user ID from Clerk user ID
  * This is necessary because RLS policies in Supabase expect the auth.uid() to match user_id FKs
  */
 export async function getSupabaseUserId(clerkUserId: string): Promise<string | null> {
-  const supabase = createSupabaseServiceClient();
-
-  const { data, error } = await supabase
-    .from('users')
-    .select('id')
-    .eq('clerk_id', clerkUserId)
-    .single();
-
-  if (error) {
-    console.error('Error getting Supabase user ID:', error);
-    return null;
-  }
-
-  return data?.id || null;
+  return getCachedSupabaseUserId(clerkUserId);
 }
 
 /**
@@ -98,37 +117,24 @@ export async function ensureSupabaseUser(
   clerkUserId: string,
   email: string
 ): Promise<string | null> {
-  console.log('[ensureSupabaseUser] Starting for Clerk ID:', clerkUserId, 'Email:', email);
+  // Try to get from cache first
+  const cachedId = await getCachedSupabaseUserId(clerkUserId);
+
+  if (cachedId) {
+    // console.log('[ensureSupabaseUser] Cache HIT for:', clerkUserId);
+    return cachedId;
+  }
+
+  console.log('[ensureSupabaseUser] Cache MISS, checking/creating user for:', clerkUserId);
 
   const supabase = createSupabaseServiceClient();
 
-  // First, try to get existing user
-  console.log('[ensureSupabaseUser] Checking for existing user...');
-  const { data: existingUser, error: selectError } = await supabase
-    .from('users')
-    .select('id')
-    .eq('clerk_id', clerkUserId)
-    .single();
-
-  // If user exists, return their ID
-  if (existingUser && !selectError) {
-    console.log('[ensureSupabaseUser] User already exists with ID:', existingUser.id);
-    return existingUser.id;
-  }
-
-  // If error is not "no rows", something went wrong
-  if (selectError && selectError.code !== 'PGRST116') {
-    console.error('[ensureSupabaseUser] Error checking for existing user:', {
-      code: selectError.code,
-      message: selectError.message,
-      details: selectError.details,
-      hint: selectError.hint
-    });
-    return null;
-  }
+  // Double check DB in case cache was just stale null (though unstable_cache handles this mostly)
+  // But since we are about to write, we should be sure.
+  // Actually, getCachedSupabaseUserId already checked DB. If it returned null, user likely doesn't exist.
 
   // User doesn't exist, create them
-  console.log('[ensureSupabaseUser] User not found, creating new user...');
+  console.log('[ensureSupabaseUser] User not found in cache/DB, creating new user...');
   const { data: newUser, error: insertError } = await supabase
     .from('users')
     .insert({
@@ -152,6 +158,8 @@ export async function ensureSupabaseUser(
 
       if (retryUser && !retryError) {
         console.log('[ensureSupabaseUser] Found user on retry with ID:', retryUser.id);
+        // Invalidate cache so next read finds it
+        revalidatePath('/', 'layout');
         return retryUser.id;
       }
 
@@ -170,5 +178,8 @@ export async function ensureSupabaseUser(
   }
 
   console.log('[ensureSupabaseUser] User created successfully with ID:', newUser?.id);
+  // Invalidate cache so next read finds the new user
+  revalidatePath('/', 'layout');
+
   return newUser?.id || null;
 }

@@ -25,7 +25,7 @@ import {
     clearCanvasAction,
     saveToIdeasAction
 } from "@/lib/dashboardServerActions";
-import { DragDropContext, Droppable, Draggable, DropResult } from "react-beautiful-dnd";
+import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from "react-beautiful-dnd";
 import { StrictModeDroppable } from "@/components/StrictModeDroppable"; // We might need to create this or inline it
 
 
@@ -617,7 +617,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                 <div className="flex flex-col gap-4">
                     <DragDropContext onDragEnd={handleDragEnd}>
                         <StrictModeDroppable droppableId="canvas-blocks">
-                            {(provided) => (
+                            {(provided: DroppableProvided) => (
                                 <div
                                     {...provided.droppableProps}
                                     ref={provided.innerRef}
@@ -636,7 +636,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                                     ) : (
                                         blocks.map((block, index) => (
                                             <Draggable key={block.id} draggableId={block.id} index={index}>
-                                                {(provided, snapshot) => (
+                                                {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
                                                     <div
                                                         ref={provided.innerRef}
                                                         {...provided.draggableProps}
