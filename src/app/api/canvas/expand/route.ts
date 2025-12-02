@@ -2,6 +2,8 @@ import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { expandContentBlock } from '@/lib/geminiClient';
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   try {
     // Get Clerk authentication

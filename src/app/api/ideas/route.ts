@@ -3,6 +3,8 @@ import { generateIdeas } from '@/lib/geminiClient';
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { createSupabaseServiceClient, ensureSupabaseUser } from '@/lib/supabaseServerClient';
 
+export const maxDuration = 60;
+
 export async function POST(request: Request) {
   try {
     // Get Clerk authentication
