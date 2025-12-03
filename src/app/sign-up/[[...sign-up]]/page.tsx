@@ -14,10 +14,13 @@ export default function SignUpPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { signUp, isLoaded } = useSignUp();
+  const { signUp, isLoaded, setActive } = useSignUp();
   const [error, setError] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [pending, setPending] = useState(false);
+
+  const [verifying, setVerifying] = useState(false);
+  const [code, setCode] = useState('');
 
   // Password validation checks
   const hasMinLength = password.length >= 8;
@@ -52,12 +55,92 @@ export default function SignUpPage() {
 
       // After successful sign up, send email verification
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      setPending(false);
+      setVerifying(true);
     } catch (err: any) {
       console.error(JSON.stringify(err, null, 2));
       setError(err.errors?.[0]?.message || 'Failed to create account');
       setPending(false);
     }
   };
+
+  const handleVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isLoaded) return;
+
+    setPending(true);
+    setError('');
+
+    try {
+      const completeSignUp = await signUp.attemptEmailAddressVerification({
+        code,
+      });
+
+      if (completeSignUp.status !== 'complete') {
+        console.log(JSON.stringify(completeSignUp, null, 2));
+        setError('Verification failed. Please try again.');
+        setPending(false);
+      } else {
+        await setActive({ session: completeSignUp.createdSessionId });
+        // Redirect handled by middleware or router
+        window.location.href = '/dashboard';
+      }
+    } catch (err: any) {
+      console.error(JSON.stringify(err, null, 2));
+      setError(err.errors?.[0]?.message || 'Verification failed');
+      setPending(false);
+    }
+  };
+
+  if (verifying) {
+    return (
+      <div className="relative flex min-h-screen w-full flex-col bg-background">
+        <div className="flex h-full grow flex-col">
+          <main className="flex-1 flex items-center justify-center p-8">
+            <div className="w-full max-w-md mx-auto space-y-8">
+              <div className="text-center">
+                <div className="flex justify-center mb-4">
+                  <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                    <span className="text-2xl">✉️</span>
+                  </div>
+                </div>
+                <h2 className="text-2xl font-bold tracking-tight">Check your email</h2>
+                <p className="text-muted-foreground mt-2">
+                  We sent a verification code to <span className="font-medium text-foreground">{email}</span>
+                </p>
+              </div>
+
+              {error && (
+                <div className="rounded-lg bg-destructive/15 p-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleVerify} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="code">Verification Code</Label>
+                  <Input
+                    id="code"
+                    placeholder="Enter code"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    className="text-center text-lg tracking-widest"
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={pending || !code}
+                >
+                  {pending ? 'Verifying...' : 'Verify Email'}
+                </Button>
+              </form>
+            </div>
+          </main>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative flex min-h-screen w-full flex-col bg-background">
