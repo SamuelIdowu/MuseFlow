@@ -16,6 +16,8 @@ export default function SignUpPage() {
   const [showPassword, setShowPassword] = useState(false);
   const { signUp, isLoaded } = useSignUp();
   const [error, setError] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [pending, setPending] = useState(false);
 
   // Password validation checks
   const hasMinLength = password.length >= 8;
@@ -34,6 +36,14 @@ export default function SignUpPage() {
       return;
     }
 
+    if (!termsAccepted) {
+      setError('Please accept the Terms of Service');
+      return;
+    }
+
+    setPending(true);
+    setError('');
+
     try {
       await signUp.create({
         emailAddress: email,
@@ -43,7 +53,9 @@ export default function SignUpPage() {
       // After successful sign up, send email verification
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
     } catch (err: any) {
+      console.error(JSON.stringify(err, null, 2));
       setError(err.errors?.[0]?.message || 'Failed to create account');
+      setPending(false);
     }
   };
 
@@ -246,6 +258,8 @@ export default function SignUpPage() {
                         type="checkbox"
                         id="terms"
                         className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                        checked={termsAccepted}
+                        onChange={(e) => setTermsAccepted(e.target.checked)}
                       />
                       <label htmlFor="terms" className="text-sm text-muted-foreground">
                         I agree to the{' '}
@@ -262,9 +276,16 @@ export default function SignUpPage() {
                     <Button
                       type="submit"
                       className="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-5 text-base font-bold leading-normal tracking-[0.015em] w-full mt-4"
-                      disabled={!hasMinLength || !hasNumber || !passwordsMatch}
+                      disabled={!hasMinLength || !hasNumber || !hasUppercase || !hasSpecialChar || !passwordsMatch || !termsAccepted || pending}
                     >
-                      <span className="truncate">Create Free Account</span>
+                      {pending ? (
+                        <span className="flex items-center gap-2">
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Creating Account...
+                        </span>
+                      ) : (
+                        <span className="truncate">Create Free Account</span>
+                      )}
                     </Button>
                   </form>
 
