@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from './database.types';
-import { unstable_cache, revalidatePath } from 'next/cache';
+import { cache } from 'react';
 
 /**
  * Creates a Supabase server client for use with service role key
@@ -68,42 +68,26 @@ export function createAuthenticatedSupabaseClient(token: string) {
 }
 
 /**
- * Internal function to get Supabase user ID from Clerk user ID
- * Cached using unstable_cache
- */
-const getCachedSupabaseUserId = unstable_cache(
-  async (clerkUserId: string) => {
-    // console.log('[getSupabaseUserId] Cache MISS for:', clerkUserId);
-    const supabase = createSupabaseServiceClient();
-
-    const { data, error } = await supabase
-      .from('users')
-      .select('id')
-      .eq('clerk_id', clerkUserId)
-      .single();
-
-    if (error) {
-      if (error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-        console.error('Error getting Supabase user ID:', error);
-      }
-      return null;
-    }
-
-    return data?.id || null;
-  },
-  ['supabase-user-id'],
-  {
-    tags: ['supabase-users'],
-    revalidate: 3600 // Cache for 1 hour
-  }
-);
-
-/**
  * Helper function to get Supabase user ID from Clerk user ID
  * This is necessary because RLS policies in Supabase expect the auth.uid() to match user_id FKs
  */
 export async function getSupabaseUserId(clerkUserId: string): Promise<string | null> {
-  return getCachedSupabaseUserId(clerkUserId);
+  const supabase = createSupabaseServiceClient();
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('clerk_id', clerkUserId)
+    .single();
+
+  if (error) {
+    if (error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+      console.error('Error getting Supabase user ID:', error);
+    }
+    return null;
+  }
+
+  return data?.id || null;
 }
 
 /**
@@ -113,28 +97,22 @@ export async function getSupabaseUserId(clerkUserId: string): Promise<string | n
  * @param email - User's email address
  * @returns Supabase user ID or null if operation failed
  */
-export async function ensureSupabaseUser(
+export const ensureSupabaseUser = cache(async (
   clerkUserId: string,
   email: string
-): Promise<string | null> {
-  // Try to get from cache first
-  const cachedId = await getCachedSupabaseUserId(clerkUserId);
+): Promise<string | null> => {
+  // Try to get existing user
+  const existingId = await getSupabaseUserId(clerkUserId);
 
-  if (cachedId) {
-    // console.log('[ensureSupabaseUser] Cache HIT for:', clerkUserId);
-    return cachedId;
+  if (existingId) {
+    return existingId;
   }
 
-  console.log('[ensureSupabaseUser] Cache MISS, checking/creating user for:', clerkUserId);
+  console.log('[ensureSupabaseUser] User not found, creating new user for:', clerkUserId);
 
   const supabase = createSupabaseServiceClient();
 
-  // Double check DB in case cache was just stale null (though unstable_cache handles this mostly)
-  // But since we are about to write, we should be sure.
-  // Actually, getCachedSupabaseUserId already checked DB. If it returned null, user likely doesn't exist.
-
   // User doesn't exist, create them
-  console.log('[ensureSupabaseUser] User not found in cache/DB, creating new user...');
   const { data: newUser, error: insertError } = await supabase
     .from('users')
     .insert({
@@ -157,9 +135,6 @@ export async function ensureSupabaseUser(
         .single();
 
       if (retryUser && !retryError) {
-        console.log('[ensureSupabaseUser] Found user on retry with ID:', retryUser.id);
-        // Invalidate cache so next read finds it
-        revalidatePath('/', 'layout');
         return retryUser.id;
       }
 
@@ -178,8 +153,6 @@ export async function ensureSupabaseUser(
   }
 
   console.log('[ensureSupabaseUser] User created successfully with ID:', newUser?.id);
-  // Invalidate cache so next read finds the new user
-  revalidatePath('/', 'layout');
 
   return newUser?.id || null;
-}
+});
