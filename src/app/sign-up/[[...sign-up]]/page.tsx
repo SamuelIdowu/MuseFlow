@@ -23,7 +23,7 @@ export default function SignUpPage() {
   const hasMinLength = password.length >= 8;
   const hasUppercase = /[A-Z]/.test(password);
   const hasNumber = /\d/.test(password);
-  const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+  const hasSpecialChar = /[^A-Za-z0-9]/.test(password);
   const passwordsMatch = password === confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
