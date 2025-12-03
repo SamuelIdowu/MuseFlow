@@ -15,8 +15,8 @@ export default function SignUpPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { signUp, isLoaded, setActive } = useSignUp();
-  const { userId } = useAuth();
+  const { signUp, isLoaded: isSignUpLoaded, setActive } = useSignUp();
+  const { userId, isLoaded: isAuthLoaded } = useAuth();
   const router = useRouter();
   const [error, setError] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -27,10 +27,22 @@ export default function SignUpPage() {
 
   // Redirect if already signed in
   useEffect(() => {
-    if (userId) {
+    if (isAuthLoaded && userId) {
       router.push('/dashboard');
     }
-  }, [userId, router]);
+  }, [isAuthLoaded, userId, router]);
+
+  // Show loading state while checking auth
+  if (!isAuthLoaded || (isAuthLoaded && userId)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Password validation checks
   const hasMinLength = password.length >= 8;
@@ -42,7 +54,7 @@ export default function SignUpPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!isLoaded) return;
+    if (!isSignUpLoaded) return;
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -74,7 +86,8 @@ export default function SignUpPage() {
       // Handle "Session already exists" error
       if (errorMessage.toLowerCase().includes('session already exists') || err.status === 403) {
         console.log('Session already exists, redirecting to dashboard...');
-        router.push('/dashboard');
+        // Force hard navigation to ensure auth state is picked up
+        window.location.href = '/dashboard';
         return;
       }
 
@@ -85,7 +98,7 @@ export default function SignUpPage() {
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isLoaded) return;
+    if (!isSignUpLoaded) return;
 
     setPending(true);
     setError('');
