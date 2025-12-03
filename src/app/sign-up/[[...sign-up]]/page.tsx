@@ -5,8 +5,9 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
-import { useSignUp } from '@clerk/nextjs';
-import { useState } from 'react';
+import { useSignUp, useAuth } from '@clerk/nextjs';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Github, CheckCircle, X } from 'lucide-react';
 
 export default function SignUpPage() {
@@ -15,12 +16,21 @@ export default function SignUpPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const { signUp, isLoaded, setActive } = useSignUp();
+  const { userId } = useAuth();
+  const router = useRouter();
   const [error, setError] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [pending, setPending] = useState(false);
 
   const [verifying, setVerifying] = useState(false);
   const [code, setCode] = useState('');
+
+  // Redirect if already signed in
+  useEffect(() => {
+    if (userId) {
+      router.push('/dashboard');
+    }
+  }, [userId, router]);
 
   // Password validation checks
   const hasMinLength = password.length >= 8;
@@ -59,7 +69,16 @@ export default function SignUpPage() {
       setVerifying(true);
     } catch (err: any) {
       console.error(JSON.stringify(err, null, 2));
-      setError(err.errors?.[0]?.message || 'Failed to create account');
+      const errorMessage = err.errors?.[0]?.message || 'Failed to create account';
+
+      // Handle "Session already exists" error
+      if (errorMessage.toLowerCase().includes('session already exists') || err.status === 403) {
+        console.log('Session already exists, redirecting to dashboard...');
+        router.push('/dashboard');
+        return;
+      }
+
+      setError(errorMessage);
       setPending(false);
     }
   };
