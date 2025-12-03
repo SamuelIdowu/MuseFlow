@@ -124,10 +124,11 @@ export const ensureSupabaseUser = cache(async (
 
   if (insertError) {
     // If duplicate key error, user was created by another concurrent request
-    // Retry the SELECT to get their ID
+    // OR the email already exists but with a different clerk_id
     if (insertError.code === '23505') {
-      console.log('[ensureSupabaseUser] Duplicate key error (race condition), retrying SELECT...');
+      console.log('[ensureSupabaseUser] Duplicate key error, checking for existing user...');
 
+      // 1. Check if it was a race condition on clerk_id
       const { data: retryUser, error: retryError } = await supabase
         .from('users')
         .select('id')
@@ -135,10 +136,40 @@ export const ensureSupabaseUser = cache(async (
         .single();
 
       if (retryUser && !retryError) {
+        console.log('[ensureSupabaseUser] Found user by clerk_id after race condition');
         return retryUser.id;
       }
 
-      console.error('[ensureSupabaseUser] Retry failed:', retryError);
+      // 2. Check if it was a collision on email (e.g. old account with same email)
+      console.log('[ensureSupabaseUser] Checking for email collision:', email);
+      const { data: emailUser, error: emailError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .single();
+
+      if (emailUser && !emailError) {
+        console.log('[ensureSupabaseUser] Found user by email, updating clerk_id...');
+
+        // Update the clerk_id for this user to match the current one
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ clerk_id: clerkUserId })
+          .eq('id', emailUser.id);
+
+        if (updateError) {
+          console.error('[ensureSupabaseUser] Failed to update clerk_id for existing email user:', updateError);
+          // We can't return the ID if we failed to claim the user, as it might lead to security issues
+          // or data inconsistency. But usually this should work.
+          // If we fail here, we should probably throw or return null.
+          return null;
+        }
+
+        console.log('[ensureSupabaseUser] Successfully updated clerk_id for user:', emailUser.id);
+        return emailUser.id;
+      }
+
+      console.error('[ensureSupabaseUser] Duplicate key error but could not find user by clerk_id or email');
       return null;
     }
 
