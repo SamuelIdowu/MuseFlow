@@ -149,10 +149,10 @@ export function IdeasPageClient({ activeProfile }: IdeasPageClientProps) {
     }
 
     return (
-        <div className="space-y-8">
-            <div className="flex justify-between items-center">
+        <div className="space-y-8 w-full max-w-full overflow-hidden">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex flex-wrap items-center gap-3 mb-2">
                         <h2 className="text-2xl font-bold tracking-tight">Generated Ideas</h2>
                         {activeProfile ? (
                             <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20">
@@ -168,7 +168,7 @@ export function IdeasPageClient({ activeProfile }: IdeasPageClientProps) {
                         Browse your AI-generated content ideas and start creating
                     </p>
                 </div>
-                <Button asChild>
+                <Button asChild className="w-full md:w-auto">
                     <Link href="/dashboard">
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Generate New Ideas

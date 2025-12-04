@@ -73,7 +73,7 @@ export function ExpandableIdeaCard({ idea, onSchedule, onDelete }: ExpandableIde
 
     return (
         <>
-            <Card className="group hover:shadow-md transition-shadow">
+            <Card className="group hover:shadow-md transition-shadow w-full overflow-hidden">
                 <CardHeader>
                     <div className="flex justify-between items-start">
                         <CardTitle className="text-lg group-hover:text-primary transition-colors">
@@ -91,7 +91,7 @@ export function ExpandableIdeaCard({ idea, onSchedule, onDelete }: ExpandableIde
                 <CardContent className="space-y-4">
                     {/* Description with Read More button */}
                     <div>
-                        <p className="text-muted-foreground">
+                        <p className="text-muted-foreground break-words">
                             {truncateText(idea.description, 100)}
                         </p>
                         {shouldShowReadMore && (

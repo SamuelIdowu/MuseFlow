@@ -12,6 +12,13 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
 import { PlusCircle, Sparkles, RefreshCw, Trash2, Loader2, GripVertical, Eye, EyeOff, Download, FileText, FileCode, FileType, Save } from "lucide-react";
 import { toast } from "react-hot-toast";
 import ReactMarkdown from "react-markdown";
@@ -522,19 +529,19 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     }
 
     return (
-        <div className="flex gap-6">
+        <div className="flex flex-col gap-6 w-full max-w-full overflow-hidden">
             {/* Main Canvas Area */}
-            <div className={`${showPreview ? 'w-1/2' : 'flex-1'} space-y-6 overflow-y-auto pr-2 transition-all`}>
+            <div className="flex-1 space-y-6 overflow-y-auto pr-2 transition-all">
                 {/* Page Heading */}
                 <div className="flex flex-col gap-3">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col md:flex-row items-start justify-between gap-4">
                         <Input
-                            className="text-[72px] font-bold leading-tight bg-transparent border-none py-5 focus-visible:ring-0 focus-visible:ring-offset-0 flex-1"
+                            className="text-4xl md:text-[72px] font-bold leading-tight bg-transparent border-none py-2 md:py-5 focus-visible:ring-0 focus-visible:ring-offset-0 w-full md:flex-1 h-auto"
                             type="text"
                             value={pageTitle}
                             onChange={(e) => setPageTitle(e.target.value)}
                         />
-                        <div className="flex items-center gap-2 pt-1">
+                        <div className="flex flex-wrap items-center gap-2 pt-1 w-full md:w-auto">
                             {/* Clear Canvas Button */}
                             <Button
                                 variant="ghost"
@@ -583,25 +590,26 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
 
                             {/* Preview Toggle */}
                             <Button
-                                variant={showPreview ? "default" : "outline"}
+                                variant="outline"
                                 size="sm"
-                                onClick={() => setShowPreview(!showPreview)}
+                                onClick={() => setShowPreview(true)}
+                                className="hidden md:flex"
                             >
-                                {showPreview ? (
-                                    <>
-                                        <EyeOff className="mr-2 h-4 w-4" />
-                                        Hide Preview
-                                    </>
-                                ) : (
-                                    <>
-                                        <Eye className="mr-2 h-4 w-4" />
-                                        Show Preview
-                                    </>
-                                )}
+                                <Eye className="mr-2 h-4 w-4" />
+                                Preview
+                            </Button>
+                            {/* Mobile Preview Toggle (Icon Only) */}
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setShowPreview(true)}
+                                className="md:hidden"
+                            >
+                                <Eye className="h-4 w-4" />
                             </Button>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         <p className="text-muted-foreground text-sm font-normal leading-normal">
                             Use the canvas below to build your content. Drag blocks to reorder.
                         </p>
@@ -767,22 +775,22 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                 </div>
             </div>
 
-            {/* Preview Panel */}
-            {showPreview && (
-                <div className="w-1/2 space-y-6 overflow-y-auto pl-6 border-l">
-                    <div className="sticky top-0 bg-background pb-4 z-10">
-                        <h2 className="text-2xl font-bold">Preview</h2>
-                        <p className="text-sm text-muted-foreground">
+            {/* Preview Modal */}
+            <Dialog open={showPreview} onOpenChange={setShowPreview}>
+                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Content Preview</DialogTitle>
+                        <DialogDescription>
                             Live preview of your content
-                        </p>
-                    </div>
-                    <div className="prose prose-slate dark:prose-invert max-w-none">
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="prose prose-slate dark:prose-invert max-w-none mt-4">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {convertToMarkdown()}
                         </ReactMarkdown>
                     </div>
-                </div>
-            )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

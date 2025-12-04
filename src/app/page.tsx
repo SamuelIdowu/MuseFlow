@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import { auth } from '@clerk/nextjs/server';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, CheckCircle2, Sparkles, Zap, Layout, Calendar, Users, Star } from 'lucide-react';
+import { ArrowRight, CheckCircle2, Sparkles, Zap, Layout, Calendar, Users, Star, Menu } from 'lucide-react';
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 
 export default async function Home() {
   const { userId } = await auth();
@@ -26,6 +27,8 @@ export default async function Home() {
               ContentAI
             </span>
           </div>
+
+          {/* Desktop Nav */}
           <nav className="hidden md:flex space-x-8">
             <Link href="#features" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
               Features
@@ -37,7 +40,8 @@ export default async function Home() {
               Testimonials
             </Link>
           </nav>
-          <div className="flex items-center space-x-4">
+
+          <div className="hidden md:flex items-center space-x-4">
             <Link href="/sign-in">
               <Button variant="ghost" className="text-muted-foreground hover:text-foreground">Sign In</Button>
             </Link>
@@ -46,6 +50,37 @@ export default async function Home() {
                 Get Started
               </Button>
             </Link>
+          </div>
+
+          {/* Mobile Menu */}
+          <div className="md:hidden">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <Menu className="h-6 w-6" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+                <nav className="flex flex-col gap-4 mt-8">
+                  <Link href="#features" className="text-lg font-medium hover:text-primary transition-colors">
+                    Features
+                  </Link>
+                  <Link href="#workflow" className="text-lg font-medium hover:text-primary transition-colors">
+                    Workflow
+                  </Link>
+                  <Link href="#testimonials" className="text-lg font-medium hover:text-primary transition-colors">
+                    Testimonials
+                  </Link>
+                  <hr className="my-4 border-border" />
+                  <Link href="/sign-in">
+                    <Button variant="ghost" className="w-full justify-start text-lg">Sign In</Button>
+                  </Link>
+                  <Link href={getStartedHref}>
+                    <Button className="w-full text-lg">Get Started</Button>
+                  </Link>
+                </nav>
+              </SheetContent>
+            </Sheet>
           </div>
         </header>
 

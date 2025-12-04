@@ -98,7 +98,7 @@ export function DashboardClient({ activeProfile }: DashboardClientProps) {
       <CardContent>
         <div className="space-y-4">
           <div className="bg-muted/50 rounded-lg p-3 mb-3 text-sm">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex flex-wrap items-center gap-2 mb-2">
               <span className="font-medium">Active Context:</span>
               {activeProfile ? (
                 <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-xs font-medium border border-primary/20">
@@ -110,7 +110,7 @@ export function DashboardClient({ activeProfile }: DashboardClientProps) {
             </div>
 
             {activeProfile && (
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs text-muted-foreground">
                 {activeProfile.niche && (
                   <div className="flex gap-1">
                     <span className="font-medium">Niche:</span>
@@ -118,7 +118,7 @@ export function DashboardClient({ activeProfile }: DashboardClientProps) {
                   </div>
                 )}
                 {activeProfile.tone_config && (
-                  <div className="flex gap-1">
+                  <div className="flex flex-wrap gap-1">
                     <span className="font-medium">Tone:</span>
                     <span>
                       Prof: {activeProfile.tone_config.professionalism}/10 •
