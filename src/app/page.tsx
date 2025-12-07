@@ -24,7 +24,7 @@ export default async function Home() {
               <Sparkles className="w-5 h-5 text-primary-foreground" />
             </div>
             <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80">
-              ContentAI
+              MuseFlow 
             </span>
           </div>
 
@@ -93,7 +93,7 @@ export default async function Home() {
             </div>
             <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white via-white/90 to-white/50 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
               Simplify Your Workflow <br />
-              with <span className="text-primary">ContentAI</span>
+              with <span className="text-primary">MuseFlow</span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
               Generate, refine, and publish compelling content in minutes.
@@ -315,7 +315,7 @@ export default async function Home() {
                   <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
                     <Sparkles className="w-3 h-3 text-primary-foreground" />
                   </div>
-                  <span className="text-lg font-bold">ContentAI</span>
+                  <span className="text-lg font-bold">MuseFlow</span>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Empowering creators with intelligent tools for the future of content.
