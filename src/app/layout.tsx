@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ContentAI - AI Content Ideation Platform",
+  title: "MuseFlow - AI Content Ideation Platform",
   description: "Your AI content co-pilot for ideation and publishing",
 };
 
