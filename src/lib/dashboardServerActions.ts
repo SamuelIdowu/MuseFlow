@@ -187,6 +187,108 @@ export async function getRecentIdeas(limit = 3) {
   return recentIdeas;
 }
 
+export async function getRecentChats(limit = 20) {
+  const { userId } = await auth();
+  const user = await currentUser();
+
+  if (!userId || !user) return [];
+
+  const email = user.emailAddresses[0]?.emailAddress;
+  if (!email) return [];
+
+  const supabaseUserId = await ensureSupabaseUser(userId, email);
+  if (!supabaseUserId) return [];
+
+  const supabase = createSupabaseServiceClient();
+
+  const { data, error } = await supabase
+    .from('idea_kernels')
+    .select('id, input_data, created_at')
+    .eq('user_id', supabaseUserId)
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    console.error('Error fetching recent chats:', error);
+    return [];
+  }
+
+  return data.map(chat => ({
+    id: chat.id,
+    title: chat.input_data.length > 40 ? chat.input_data.substring(0, 40) + '...' : chat.input_data,
+    createdAt: chat.created_at
+  }));
+}
+
+export async function getChatById(id: string) {
+  const { userId } = await auth();
+  const user = await currentUser();
+
+  if (!userId || !user) throw new Error('Unauthorized');
+
+  const email = user.emailAddresses[0]?.emailAddress;
+  if (!email) throw new Error('No email');
+
+  const supabaseUserId = await ensureSupabaseUser(userId, email);
+  if (!supabaseUserId) throw new Error('User not found');
+
+  const supabase = createSupabaseServiceClient();
+
+  const { data, error } = await supabase
+    .from('idea_kernels')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', supabaseUserId)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  // Transform to Message[]
+  // Legacy support: kernels might be string[] or Message[]
+  // We need to standardize on return.
+  let messages: any[] = [];
+
+  // Initial User Message (Title)
+  messages.push({
+    id: 'msg-0',
+    role: 'user',
+    content: data.input_data,
+    timestamp: new Date(data.created_at)
+  });
+
+  const kernels = data.kernels as any[];
+  if (Array.isArray(kernels)) {
+    kernels.forEach((k: any, index: number) => {
+      if (typeof k === 'string') {
+        // Legacy: It's just an AI response text
+        messages.push({
+          id: `msg-ai-${index}`,
+          role: 'assistant',
+          content: k,
+          type: 'text',
+          timestamp: new Date(data.created_at) // Approximate
+        });
+      } else if (k.role && k.content) {
+        // New format: Message object
+        messages.push({
+          id: k.id || `msg-${index + 1}`,
+          role: k.role,
+          content: k.content,
+          type: k.type || 'text',
+          timestamp: k.timestamp ? new Date(k.timestamp) : new Date(data.created_at)
+        });
+      }
+    });
+  }
+
+  return {
+    id: data.id,
+    messages
+  };
+}
+
 export async function getCanvasDataAction() {
   const { userId } = await auth();
   const user = await currentUser();
@@ -571,5 +673,30 @@ export async function deleteIdeaAction(id: string) {
   if (error) {
     console.error('Error deleting idea:', error);
     throw new Error('Failed to delete idea');
+  }
+}
+
+export async function deleteAllChatsAction() {
+  const { userId } = await auth();
+  const user = await currentUser();
+
+  if (!userId || !user) throw new Error('User not authenticated');
+
+  const email = user.emailAddresses[0]?.emailAddress;
+  if (!email) throw new Error('User has no email address');
+
+  const supabaseUserId = await ensureSupabaseUser(userId, email);
+  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
+
+  const supabase = createSupabaseServiceClient();
+
+  const { error } = await supabase
+    .from('idea_kernels')
+    .delete()
+    .eq('user_id', supabaseUserId);
+
+  if (error) {
+    console.error('Error clearing all chats:', error);
+    throw new Error('Failed to clear all chats');
   }
 }

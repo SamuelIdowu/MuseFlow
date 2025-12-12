@@ -40,6 +40,15 @@ export function createSupabaseServiceClient() {
     {
       auth: {
         persistSession: false,
+      },
+      global: {
+        fetch: (url, options) => {
+          return fetch(url, {
+            ...options,
+            // @ts-ignore - duplex is not in the RequestInit type for some versions but required for node fetch
+            duplex: 'half',
+          });
+        }
       }
     }
   );
@@ -178,7 +187,9 @@ export const ensureSupabaseUser = cache(async (
       code: insertError.code,
       message: insertError.message,
       details: insertError.details,
-      hint: insertError.hint
+      hint: insertError.hint,
+      clerkUserId,
+      email
     });
     return null;
   }

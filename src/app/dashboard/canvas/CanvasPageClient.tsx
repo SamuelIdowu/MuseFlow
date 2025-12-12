@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { Profile } from "@/types/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
-import { PlusCircle, Sparkles, RefreshCw, Trash2, Loader2, GripVertical, Eye, EyeOff, Download, FileText, FileCode, FileType, Save } from "lucide-react";
+import { PlusCircle, Sparkles, RefreshCw, Trash2, Loader2, GripVertical, Eye, EyeOff, Download, FileText, FileCode, FileType, Save, Maximize2 } from "lucide-react";
 import { toast } from "react-hot-toast";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -49,18 +50,65 @@ interface CanvasPageClientProps {
 }
 
 export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
+    const searchParams = useSearchParams();
     const [blocks, setBlocks] = useState<Block[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
     const [expandingBlockId, setExpandingBlockId] = useState<string | null>(null);
     const [regeneratingBlockId, setRegeneratingBlockId] = useState<string | null>(null);
-    const [pageTitle, setPageTitle] = useState("My New Article");
+    const [pageTitle, setPageTitle] = useState(searchParams.get("title") || "My New Article");
     const [showPreview, setShowPreview] = useState(false);
+    const [selectedBlockForPreview, setSelectedBlockForPreview] = useState<Block | null>(null);
     const saveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
     useEffect(() => {
-        fetchBlocks();
+        const contextParam = searchParams.get("context");
+        if (contextParam) {
+            fetchBlocksWithContext(contextParam);
+        } else {
+            fetchBlocks();
+        }
     }, []);
+
+    const fetchBlocksWithContext = async (context: string) => {
+        try {
+            setLoading(true);
+            const fetchedBlocks = await getCanvasDataAction();
+            if (fetchedBlocks.length === 0 && context) {
+                // Pre-populate with a paragraph block containing the context
+                try {
+                    const addedBlock = await addCanvasBlockAction({
+                        type: "paragraph",
+                        content: context,
+                        order: 0
+                    });
+
+                    setBlocks([{
+                        id: addedBlock.id,
+                        type: addedBlock.type || "paragraph",
+                        content: addedBlock.content,
+                        order: addedBlock.order_index,
+                        title: "Idea Context"
+                    }]);
+                } catch (addError) {
+                    console.error("Error creating initial block:", addError);
+                    toast.error("Failed to initialize canvas with content");
+                    // Fallback to empty blocks
+                    setBlocks([]);
+                }
+            } else {
+                setBlocks(fetchedBlocks.map((block: any) => ({
+                    ...block,
+                    title: block.title || `${block.type} block`,
+                })) as Block[]);
+            }
+        } catch (error) {
+            console.error("Error fetching/initializing canvas:", error);
+            toast.error("Failed to load canvas");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchBlocks = async () => {
         try {
@@ -226,8 +274,6 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
             setExpandingBlockId(null);
         }
     };
-
-
 
     const handleRegenerateBlock = async (blockId: string) => {
         const block = blocks.find(b => b.id === blockId);
@@ -472,7 +518,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                 case "call-to-action":
                     text += `\n*** ${content} ***\n\n`;
                     break;
-                default:
+                case "default":
                     text += `${content}\n\n`;
             }
         });
@@ -750,6 +796,16 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                                                                         <Trash2 className="mr-2 h-4 w-4" />
                                                                         Delete
                                                                     </Button>
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        className="text-muted-foreground hover:text-foreground font-medium"
+                                                                        onClick={() => setSelectedBlockForPreview(block)}
+                                                                        title="Preview this block"
+                                                                    >
+                                                                        <Maximize2 className="mr-2 h-4 w-4" />
+                                                                        Expand
+                                                                    </Button>
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -791,6 +847,24 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                     </div>
                 </DialogContent>
             </Dialog>
-        </div>
+
+            {/* Single Block Preview Modal */}
+            <Dialog open={!!selectedBlockForPreview} onOpenChange={(open) => !open && setSelectedBlockForPreview(null)}>
+                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle>Block Preview</DialogTitle>
+                        <DialogDescription>
+                            Previewing content for {selectedBlockForPreview?.title || "selected block"}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="prose prose-slate dark:prose-invert max-w-none mt-4">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {selectedBlockForPreview?.content || ""}
+                        </ReactMarkdown>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+        </div >
     );
 }

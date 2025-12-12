@@ -26,25 +26,49 @@ function buildProfileContext(profile?: Profile | null): string {
   return context;
 }
 
-export async function generateIdeas(input: string, activeProfile?: Profile | null): Promise<string[]> {
+export async function generateChatResponse(input: string, activeProfile?: Profile | null, history: any[] = []): Promise<string> {
   // Check if API key is available
   if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
     console.error("GEMINI_API_KEY is not set");
-    const inputKeywords = input.split(' ').slice(0, 3).join(' ');
-    return [
-      `Understanding ${inputKeywords}`,
-      `Getting Started with ${inputKeywords}`,
-      `Best Practices for ${inputKeywords}`,
-      `${inputKeywords}: A Beginner's Guide`,
-      `Common Questions About ${inputKeywords}`,
-    ];
+    return `Here is some placeholder content for specific topic: "${input}". 
+    
+    1. Introduction to the topic.
+    2. Key concepts and importance.
+    3. Practical applications and examples.
+    4. Conclusion and next steps.
+    
+    This is a simulated response because the API key is missing.`;
   }
 
   try {
     const profileContext = buildProfileContext(activeProfile);
-    const prompt = `Generate 5-10 content idea kernels based on the following input: "${input}".${profileContext}
-    Each idea should be a concise title or hook that could be expanded into a full piece of content.
-    Respond with only the ideas, one per line, without any other text.`;
+
+    // Format history for the prompt
+    let historyContext = "";
+    if (history && history.length > 0) {
+      historyContext = "\n\nChat History:\n";
+      history.forEach((msg, index) => {
+        const role = msg.role === 'user' ? 'User' : 'Assistant';
+        // Skip the current input if it's somehow already in history (shouldn't be, but good saftey)
+        if (msg.content === input && index === history.length - 1) return;
+        historyContext += `${role}: ${msg.content}\n`;
+      });
+      historyContext += "\n";
+    }
+
+    const prompt = `You are a helpful AI creative assistant.
+    ${profileContext}
+    ${historyContext}
+    User Input: "${input}"
+    
+    Task: Generate a comprehensive, engaging, and conversational response based on the user's input.
+    - If there is chat history, treat the User Input as a follow-up instruction to refine, expand, or modify the previous context.
+    - If the user asks for ideas, provide them in a fluid, well-structured format (not just a raw list).
+    - If the user asks to write something, write a high-quality draft.
+    - Use Markdown formatting (headings, bullet points, bold text) to make it readable.
+    - Ensure the tone matches the active profile settings.
+    
+    Return only the response text.`;
 
     const result = await model.generateContent(prompt);
     const response = result.response;
@@ -52,36 +76,13 @@ export async function generateIdeas(input: string, activeProfile?: Profile | nul
     // Check if there's a response before trying to get text
     if (!response) {
       console.error("No response received from Gemini API");
-      const inputKeywords = input.split(' ').slice(0, 3).join(' ');
-      return [
-        `Understanding ${inputKeywords}`,
-        `Getting Started with ${inputKeywords}`,
-        `Best Practices for ${inputKeywords}`,
-        `${inputKeywords}: A Beginner's Guide`,
-        `Common Questions About ${inputKeywords}`,
-      ];
+      return "I'm sorry, I couldn't generate a response at this time. Please try again.";
     }
 
-    const text = response.text();
-
-    // Split the response into individual ideas
-    const ideas = text
-      .split("\n")
-      .map((idea: string) => idea.trim())
-      .filter((idea: string) => idea.length > 0);
-
-    return ideas;
+    return response.text();
   } catch (error) {
-    console.error("Error generating ideas with Gemini:", error);
-    // Return dynamic fallback ideas based on input
-    const inputKeywords = input.split(' ').slice(0, 3).join(' ');
-    return [
-      `Understanding ${inputKeywords}`,
-      `Getting Started with ${inputKeywords}`,
-      `Best Practices for ${inputKeywords}`,
-      `${inputKeywords}: A Beginner's Guide`,
-      `Common Questions About ${inputKeywords}`,
-    ];
+    console.error("Error generating chat response with Gemini:", error);
+    return "I'm sorry, I encountered an error while generating the response. Please try again.";
   }
 }
 

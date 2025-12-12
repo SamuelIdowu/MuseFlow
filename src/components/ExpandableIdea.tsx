@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import {
     Dialog,
@@ -8,7 +9,10 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
+    DialogFooter, // Make sure to import DialogFooter if it exists, otherwise just div
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Edit } from "lucide-react";
 
 interface ExpandableIdeaProps {
     idea: {
@@ -22,6 +26,26 @@ interface ExpandableIdeaProps {
 
 export function ExpandableIdea({ idea }: ExpandableIdeaProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const router = useRouter();
+
+    const handleEditInCanvas = () => {
+        // Prepare context from inputData or title
+        let context = "";
+        if (typeof idea.inputData === "string") {
+            context = idea.inputData;
+        } else if (idea.inputData && typeof idea.inputData === "object") {
+            context = JSON.stringify(idea.inputData, null, 2);
+        } else {
+            context = idea.title;
+        }
+
+        const params = new URLSearchParams({
+            title: idea.title,
+            context: context
+        });
+
+        router.push(`/dashboard/canvas?${params.toString()}`);
+    };
 
     return (
         <>
@@ -65,6 +89,13 @@ export function ExpandableIdea({ idea }: ExpandableIdeaProps) {
                                 </p>
                             </div>
                         )}
+
+                        <div className="pt-4 flex justify-end">
+                            <Button onClick={handleEditInCanvas}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit in Canvas
+                            </Button>
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>
