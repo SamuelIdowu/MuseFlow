@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS profiles (
   niche TEXT,
   tone_config JSONB, -- Stores sliders/preferences as JSON {professionalism: 70, creativity: 60, ...}
   samples JSONB, -- Stores array of sample content posts
+  default_content_type TEXT CHECK (default_content_type IN ('social_post', 'article_blog', 'script', 'copywriting', 'technical_doc')),
   is_active BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -86,25 +87,40 @@ ALTER TABLE scheduled_posts ENABLE ROW LEVEL SECURITY;
 
 -- Users table: Managed via service role in API routes (see /api/auth/route.ts)
 -- No client-side access to users table needed
+DROP POLICY IF EXISTS "Service role full access" ON users;
 CREATE POLICY "Service role full access" ON users FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Users can view own profiles" ON profiles;
 CREATE POLICY "Users can view own profiles" ON profiles FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own profiles" ON profiles;
 CREATE POLICY "Users can insert own profiles" ON profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own profiles" ON profiles;
 CREATE POLICY "Users can update own profiles" ON profiles FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view own idea_kernels" ON idea_kernels;
 CREATE POLICY "Users can view own idea_kernels" ON idea_kernels FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own idea_kernels" ON idea_kernels;
 CREATE POLICY "Users can insert own idea_kernels" ON idea_kernels FOR INSERT WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view own canvas_sessions" ON canvas_sessions;
 CREATE POLICY "Users can view own canvas_sessions" ON canvas_sessions FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own canvas_sessions" ON canvas_sessions;
 CREATE POLICY "Users can insert own canvas_sessions" ON canvas_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own canvas_sessions" ON canvas_sessions;
 CREATE POLICY "Users can update own canvas_sessions" ON canvas_sessions FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view own canvas_blocks" ON canvas_blocks;
 CREATE POLICY "Users can view own canvas_blocks" ON canvas_blocks FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own canvas_blocks" ON canvas_blocks;
 CREATE POLICY "Users can insert own canvas_blocks" ON canvas_blocks FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own canvas_blocks" ON canvas_blocks;
 CREATE POLICY "Users can update own canvas_blocks" ON canvas_blocks FOR UPDATE USING (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can view own scheduled_posts" ON scheduled_posts;
 CREATE POLICY "Users can view own scheduled_posts" ON scheduled_posts FOR SELECT USING (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can insert own scheduled_posts" ON scheduled_posts;
 CREATE POLICY "Users can insert own scheduled_posts" ON scheduled_posts FOR INSERT WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "Users can update own scheduled_posts" ON scheduled_posts;
 CREATE POLICY "Users can update own scheduled_posts" ON scheduled_posts FOR UPDATE USING (auth.uid() = user_id);
 
 -- Create indexes for better performance
@@ -121,7 +137,7 @@ CREATE INDEX IF NOT EXISTS idx_scheduled_posts_status ON scheduled_posts(status)
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW updated_at = NOW();
+    NEW.updated_at = NOW();
     RETURN NEW;
 END;
 $$ language 'plpgsql';
@@ -130,14 +146,18 @@ $$ language 'plpgsql';
 CREATE UNIQUE INDEX idx_profiles_user_active ON profiles (user_id) WHERE is_active = true;
 
 -- Create triggers for updated_at
+DROP TRIGGER IF EXISTS update_profiles_updated_at ON profiles;
 CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_canvas_sessions_updated_at ON canvas_sessions;
 CREATE TRIGGER update_canvas_sessions_updated_at BEFORE UPDATE ON canvas_sessions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_canvas_blocks_updated_at ON canvas_blocks;
 CREATE TRIGGER update_canvas_blocks_updated_at BEFORE UPDATE ON canvas_blocks
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_scheduled_posts_updated_at ON scheduled_posts;
 CREATE TRIGGER update_scheduled_posts_updated_at BEFORE UPDATE ON scheduled_posts
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

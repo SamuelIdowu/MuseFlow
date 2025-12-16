@@ -1,19 +1,24 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
+import { ensureSupabaseUser, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
 export async function PUT(request: Request) {
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => Promise.resolve(cookieStore) });
-  
   try {
-    // Get the user (more secure than session)
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Get user from Clerk
+    const clerkUser = await currentUser();
 
-    if (!user || userError) {
+    if (!clerkUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Get or create Supabase user ID from Clerk ID
+    const email = clerkUser.emailAddresses[0]?.emailAddress || '';
+    const supabaseUserId = await ensureSupabaseUser(clerkUser.id, email);
+
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Failed to sync user' }, { status: 500 });
     }
 
     // Get post ID from query parameters
@@ -33,9 +38,11 @@ export async function PUT(request: Request) {
     // If optimize_time is requested, get AI suggestion for best posting time
     let finalScheduledTime = scheduled_time;
     if (optimize_time) {
-      const content = content_blocks.map((block: any) => block.content).join(' ');
+      const content = Array.isArray(content_blocks)
+        ? content_blocks.map((block: any) => block.content).join(' ')
+        : content_blocks;
       const suggestedTime = await suggestBestTime(content, `Channel: ${channel}`);
-      
+
       // Combine the scheduled date with the suggested time
       const date = new Date(scheduled_time);
       const [hours, minutes] = suggestedTime.split(':').map(Number);
@@ -43,26 +50,32 @@ export async function PUT(request: Request) {
       finalScheduledTime = date.toISOString();
     }
 
+    // Use service client to bypass RLS
+    const supabase = createSupabaseServiceClient();
+
     // Update the scheduled post in the database
+    // Ensure we also check user_id to prevent updating other users' posts
     const { data, error } = await supabase
       .from('scheduled_posts')
       .update({
         content_blocks,
         channel,
         scheduled_time: finalScheduledTime,
-        status: status || 'scheduled',
-        updated_at: new Date().toISOString()
+        status: status || 'scheduled'
       })
       .eq('id', postId)
-      .eq('user_id', user.id)
+      .eq('user_id', supabaseUserId)
       .select()
       .single();
 
     if (error) throw error;
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error updating scheduled post:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || 'Internal server error', details: error },
+      { status: 500 }
+    );
   }
 }

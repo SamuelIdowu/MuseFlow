@@ -25,6 +25,7 @@ interface ScheduledPost {
 interface ScheduledPostCardProps {
     post: ScheduledPost;
     onDelete: (id: string) => void;
+    onEdit: (post: ScheduledPost) => void;
 }
 
 const getChannelLabel = (channel: string) => {
@@ -39,7 +40,7 @@ const getChannelLabel = (channel: string) => {
     }
 };
 
-export function ScheduledPostCard({ post, onDelete }: ScheduledPostCardProps) {
+export function ScheduledPostCard({ post, onDelete, onEdit }: ScheduledPostCardProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Get content preview
@@ -87,6 +88,13 @@ export function ScheduledPostCard({ post, onDelete }: ScheduledPostCardProps) {
                     </div>
                 </div>
                 <div className="flex gap-2 ml-4">
+                    <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onEdit(post)}
+                    >
+                        Edit
+                    </Button>
                     <Button
                         size="sm"
                         variant="outline"

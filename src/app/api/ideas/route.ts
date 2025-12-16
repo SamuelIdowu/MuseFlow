@@ -23,8 +23,8 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { input_text, input_type = 'text', active_profile, chat_id, history } = body;
-    console.log('[IDEAS_API] Request payload received', { input_type, chat_id, hasProfile: !!active_profile, historyLength: history?.length });
+    const { input_text, input_type = 'text', content_type, active_profile, chat_id, history } = body;
+    console.log('[IDEAS_API] Request payload received', { input_type, content_type, chat_id, hasProfile: !!active_profile, historyLength: history?.length });
 
     // Validate input
     if (!input_text?.trim()) {
@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     let generatedResponse: string;
     try {
       console.log('[IDEAS_API] Calling generateChatResponse...');
-      generatedResponse = await generateChatResponse(input_text, active_profile, conversationHistory);
+      generatedResponse = await generateChatResponse(input_text, active_profile, conversationHistory, content_type);
       console.log('[IDEAS_API] generateChatResponse success, length:', generatedResponse.length);
     } catch (e) {
       console.error('[IDEAS_API] generateChatResponse failed:', e);

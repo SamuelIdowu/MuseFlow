@@ -8,6 +8,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { getRecentChats, deleteIdeaAction, deleteAllChatsAction } from '@/lib/dashboardServerActions';
 import { Button } from '@/components/ui/button';
+import { ModeToggle } from '@/components/mode-toggle';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'react-hot-toast';
@@ -203,8 +204,9 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
           </div>
         </ScrollArea>
       </div>
-      <div className="p-6 text-xs text-muted-foreground border-t">
-        © {new Date().getFullYear()} ContentAI. All rights reserved.
+      <div className="p-4 border-t flex items-center justify-between">
+        <span className="text-xs text-muted-foreground">© {new Date().getFullYear()} ContentAI</span>
+        <ModeToggle />
       </div>
     </div>
   );

@@ -21,6 +21,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { CONTENT_TYPES } from "@/types/content";
 import { saveToIdeasAction } from '@/lib/dashboardServerActions';
 
 // Types
@@ -49,6 +57,7 @@ export function DashboardClient({
   const router = useRouter();
   const searchParams = useSearchParams(); // To detect if we should clear
   const [inputText, setInputText] = useState('');
+  const [selectedContentType, setSelectedContentType] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>(initialChatSession?.messages || []);
   const [currentChatId, setCurrentChatId] = useState<string | null>(initialChatSession?.id || null);
@@ -66,6 +75,15 @@ export function DashboardClient({
       }
     }
   }, [initialChatSession, searchParams]);
+
+  // Set default content type when profile changes
+  useEffect(() => {
+    if (activeProfile?.default_content_type) {
+      setSelectedContentType(activeProfile.default_content_type);
+    } else {
+      setSelectedContentType('');
+    }
+  }, [activeProfile]);
 
   // Edit Modal State
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -123,7 +141,8 @@ export function DashboardClient({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           input_text: userMessage.content,
-          input_type: 'text',
+          input_type: 'text', // Keep as 'text' for now, or use mapped type if we want to change this
+          content_type: selectedContentType, // Pass the specific content type ID
           active_profile: activeProfile,
           chat_id: currentChatId, // Optional now
           history: messages // Pass current history for stateless continuity
@@ -363,24 +382,43 @@ export function DashboardClient({
 
       {/* Input Area */}
       <div className="p-4 bg-background/80 backdrop-blur-sm sticky bottom-0 z-10 transition-all duration-300">
-        <div className="max-w-3xl mx-auto relative rounded-xl border bg-background shadow-sm focus-within:ring-1 focus-within:ring-ring transition-all">
-          <Textarea
-            ref={textareaRef}
-            placeholder={activeProfile ? `Generate ideas for ${activeProfile.profile_name}...` : "Ask anything..."}
-            className="min-h-[60px] max-h-[200px] w-full resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-4 py-4 pr-12 text-base shadow-none"
-            value={inputText}
-            onChange={handleValuesChange}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading}
-          />
-          <Button
-            size="icon"
-            className="absolute right-2 bottom-2 h-8 w-8 rounded-lg transition-transform hover:scale-105 active:scale-95"
-            onClick={handleGenerateIdeas}
-            disabled={!inputText.trim() || isLoading}
-          >
-            <ArrowUp className="h-4 w-4" />
-          </Button>
+        <div className="max-w-3xl mx-auto space-y-2">
+          {/* Controls Bar */}
+          <div className="flex items-center gap-2">
+            <Select value={selectedContentType} onValueChange={setSelectedContentType}>
+              <SelectTrigger className="w-[200px] h-8 text-xs">
+                <SelectValue placeholder="Content Type (Optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="general">General Response</SelectItem>
+                {CONTENT_TYPES.map((type) => (
+                  <SelectItem key={type.id} value={type.id}>
+                    {type.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="relative rounded-xl border bg-background shadow-sm focus-within:ring-1 focus-within:ring-ring transition-all">
+            <Textarea
+              ref={textareaRef}
+              placeholder={activeProfile ? `Generate ideas for ${activeProfile.profile_name}...` : "Ask anything..."}
+              className="min-h-[60px] max-h-[200px] w-full resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-4 py-4 pr-12 text-base shadow-none"
+              value={inputText}
+              onChange={handleValuesChange}
+              onKeyDown={handleKeyDown}
+              disabled={isLoading}
+            />
+            <Button
+              size="icon"
+              className="absolute right-2 bottom-2 h-8 w-8 rounded-lg transition-transform hover:scale-105 active:scale-95"
+              onClick={handleGenerateIdeas}
+              disabled={!inputText.trim() || isLoading}
+            >
+              <ArrowUp className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
         <div className="text-center mt-2">
           <p className="text-[10px] text-muted-foreground">

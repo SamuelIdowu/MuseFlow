@@ -63,7 +63,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'User not synced' }, { status: 401 });
         }
 
-        const { profile_name, niche, tone_config, samples, is_active } = await request.json();
+        const requestJson = await request.json();
+        const { profile_name, niche, tone_config, samples, is_active } = requestJson;
 
         // Validate required fields
         if (!profile_name || !profile_name.trim()) {
@@ -90,6 +91,7 @@ export async function POST(request: Request) {
                 profile_name: profile_name.trim(),
                 niche: niche || null,
                 tone_config: tone_config || null,
+                default_content_type: requestJson.default_content_type || null,
                 samples: samples || null,
                 is_active: is_active || false
             }])

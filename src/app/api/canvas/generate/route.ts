@@ -14,12 +14,12 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const { block_type, canvas_title, active_profile, context_blocks, user_instruction } = await request.json();
+        const { block_type, canvas_title, active_profile, context_blocks, user_instruction, contentTypeId } = await request.json();
 
         console.log('Canvas generate - Generating block for user:', { userId, block_type });
 
         // Call the Gemini API to generate the block content
-        const generatedContent = await generateContentBlock(block_type, canvas_title, active_profile, context_blocks, user_instruction);
+        const generatedContent = await generateContentBlock(block_type, canvas_title, active_profile, context_blocks, user_instruction, contentTypeId);
 
         console.log('Canvas generate - Successfully generated block for user:', userId);
         return NextResponse.json({

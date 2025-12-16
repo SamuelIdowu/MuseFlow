@@ -11,6 +11,7 @@ export interface Profile {
     profile_name: string;
     niche: string | null;
     tone_config: ToneConfig | null;
+    default_content_type: string | null;
     samples: string[] | null;
     is_active: boolean;
     created_at: string;

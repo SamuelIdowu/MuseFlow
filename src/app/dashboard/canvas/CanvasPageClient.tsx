@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Profile } from "@/types/profile";
+import { CONTENT_TYPES, CATEGORIES } from "@/types/content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -57,6 +58,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     const [expandingBlockId, setExpandingBlockId] = useState<string | null>(null);
     const [regeneratingBlockId, setRegeneratingBlockId] = useState<string | null>(null);
     const [pageTitle, setPageTitle] = useState(searchParams.get("title") || "My New Article");
+    const [selectedContentTypeId, setSelectedContentTypeId] = useState<string>(CONTENT_TYPES[0]?.id || 'linkedin_post');
     const [showPreview, setShowPreview] = useState(false);
     const [selectedBlockForPreview, setSelectedBlockForPreview] = useState<Block | null>(null);
     const saveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
@@ -251,6 +253,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                     block_type: blockType,
                     canvas_title: pageTitle,
                     active_profile: activeProfile,
+                    contentTypeId: selectedContentTypeId,
                     context_blocks: blocks
                         .filter(b => b.id !== id) // Exclude current block
                         .map(b => ({ type: b.type, content: b.content })),
@@ -295,6 +298,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                     block_type: block.type,
                     canvas_title: pageTitle,
                     active_profile: activeProfile,
+                    contentTypeId: selectedContentTypeId,
                     context_blocks: blocks
                         .filter(b => b.id !== blockId) // Exclude current block
                         .map(b => ({ type: b.type, content: b.content })),
@@ -331,6 +335,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                     block_type: block.type,
                     canvas_title: pageTitle,
                     active_profile: activeProfile,
+                    contentTypeId: selectedContentTypeId,
                     context_blocks: blocks
                         .filter(b => b.id !== blockId) // Exclude current block
                         .map(b => ({ type: b.type, content: b.content })),
@@ -598,6 +603,32 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                             >
                                 <Trash2 className="h-4 w-4" />
                             </Button>
+
+                            {/* Output Type Selector */}
+                            <div className="w-[280px]">
+                                <Select
+                                    value={selectedContentTypeId}
+                                    onValueChange={setSelectedContentTypeId}
+                                >
+                                    <SelectTrigger className="w-full h-9">
+                                        <SelectValue placeholder="Output Type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {CATEGORIES.map(category => (
+                                            <div key={category}>
+                                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                                                    {category}
+                                                </div>
+                                                {CONTENT_TYPES.filter(t => t.category === category).map(type => (
+                                                    <SelectItem key={type.id} value={type.id}>
+                                                        {type.label}
+                                                    </SelectItem>
+                                                ))}
+                                            </div>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
 
                             {/* Save to Ideas Button */}
                             <Button

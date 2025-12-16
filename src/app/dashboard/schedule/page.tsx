@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'react-hot-toast';
 import { ScheduledPostCard } from '@/components/ScheduledPostCard';
 
@@ -42,6 +43,7 @@ export default function SchedulePage() {
     time: '09:00',
     optimize_time: false
   });
+  const [editingPost, setEditingPost] = useState<ScheduledPost | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
   // Fetch scheduled posts on component mount
@@ -92,21 +94,32 @@ export default function SchedulePage() {
         optimize_time: newPost.optimize_time
       };
 
-      const response = await fetch('/api/schedule', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(postData),
-      });
+      let response;
+      if (editingPost) {
+        response = await fetch(`/api/schedule/update?id=${editingPost.id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(postData),
+        });
+      } else {
+        response = await fetch('/api/schedule', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(postData),
+        });
+      }
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to schedule post');
+        throw new Error(errorData.error || `Failed to ${editingPost ? 'update' : 'schedule'} post`);
       }
 
-      const scheduledPost = await response.json();
-      toast.success('Post scheduled successfully!');
+      await response.json();
+      toast.success(`Post ${editingPost ? 'updated' : 'scheduled'} successfully!`);
 
       // Reset form and refresh posts
       setNewPost({
@@ -116,14 +129,38 @@ export default function SchedulePage() {
         time: '09:00',
         optimize_time: false
       });
+      setEditingPost(null);
       setShowScheduler(false);
       fetchScheduledPosts();
     } catch (error) {
       console.error('Error scheduling post:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to schedule post');
+      toast.error(error instanceof Error ? error.message : `Failed to ${editingPost ? 'update' : 'schedule'} post`);
     } finally {
       setScheduling(false);
     }
+  };
+
+  const handleEditPost = (post: ScheduledPost) => {
+    setEditingPost(post);
+
+    // Parse content from blocks or use default
+    const content = Array.isArray(post.content_blocks) && post.content_blocks.length > 0
+      ? post.content_blocks.map(block => block.content).join('\n\n')
+      : '';
+
+    // Parse date and time
+    const date = new Date(post.scheduled_time);
+    const timeStr = format(date, 'HH:mm');
+
+    setNewPost({
+      content,
+      channel: post.channel,
+      date: date,
+      time: timeStr,
+      optimize_time: false
+    });
+    setSelectedDate(date);
+    setShowScheduler(true);
   };
 
   const suggestBestTime = () => {
@@ -195,11 +232,21 @@ export default function SchedulePage() {
           <div className="w-full max-w-3xl max-h-[90vh] bg-background rounded-xl border shadow-lg flex flex-col">
             {/* Fixed Header */}
             <div className="flex justify-between items-center p-6 pb-4 border-b">
-              <h3 className="text-lg font-semibold">Schedule New Post</h3>
+              <h3 className="text-lg font-semibold">{editingPost ? 'Edit Scheduled Post' : 'Schedule New Post'}</h3>
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setShowScheduler(false)}
+                onClick={() => {
+                  setShowScheduler(false);
+                  setEditingPost(null);
+                  setNewPost({
+                    content: '',
+                    channel: 'linkedin',
+                    date: new Date(),
+                    time: '09:00',
+                    optimize_time: false
+                  });
+                }}
               >
                 <span className="text-xl">×</span>
               </Button>
@@ -257,12 +304,11 @@ export default function SchedulePage() {
                       />
                     </div>
 
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        type="checkbox"
+                    <div className="flex items-center space-x-2 pt-2">
+                      <Switch
                         id="optimize_time"
                         checked={newPost.optimize_time}
-                        onChange={(e) => setNewPost({ ...newPost, optimize_time: e.target.checked })}
+                        onCheckedChange={(checked) => setNewPost({ ...newPost, optimize_time: checked })}
                       />
                       <Label htmlFor="optimize_time">Use AI to optimize posting time</Label>
                     </div>
@@ -296,7 +342,7 @@ export default function SchedulePage() {
                     Scheduling...
                   </>
                 ) : (
-                  'Schedule Post'
+                  editingPost ? 'Update Post' : 'Schedule Post'
                 )}
               </Button>
             </div>
@@ -323,6 +369,7 @@ export default function SchedulePage() {
                     key={post.id}
                     post={post}
                     onDelete={deletePost}
+                    onEdit={handleEditPost}
                   />
                 ))
             ) : (

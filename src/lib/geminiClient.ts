@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Profile } from "@/types/profile";
+import { CONTENT_TYPES } from "@/types/content";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -26,7 +27,7 @@ function buildProfileContext(profile?: Profile | null): string {
   return context;
 }
 
-export async function generateChatResponse(input: string, activeProfile?: Profile | null, history: any[] = []): Promise<string> {
+export async function generateChatResponse(input: string, activeProfile?: Profile | null, history: any[] = [], contentTypeId?: string): Promise<string> {
   // Check if API key is available
   if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
     console.error("GEMINI_API_KEY is not set");
@@ -56,8 +57,30 @@ export async function generateChatResponse(input: string, activeProfile?: Profil
       historyContext += "\n";
     }
 
+    // Look up content type if provided
+    let contentTypeInstruction = "";
+    if (contentTypeId) {
+      const typeDef = CONTENT_TYPES.find(t => t.id === contentTypeId);
+      if (typeDef) {
+        contentTypeInstruction = `\nOUTPUT FORMATTING REQUIREMENT:\nThe user explicitly requested a "${typeDef.label}" (${typeDef.category}).\nStructure the response strictly as a ${typeDef.label}.\n`;
+        // Add specific hints based on category
+        if (typeDef.category === 'Social Posts') {
+          contentTypeInstruction += "Include relevant hashtags and keep it concise/platform-appropriate.\n";
+        } else if (typeDef.category === 'Scripts') {
+          contentTypeInstruction += "Include scene/segment headers and spoken lines. Use a conversational tone.\n";
+        } else if (typeDef.category === 'Articles & Blogs') {
+          contentTypeInstruction += "Use clear headings, structured paragraphs, and an educational tone.\n";
+        } else if (typeDef.category === 'Copywriting') {
+          contentTypeInstruction += "Use persuasive language, strong hooks, and clear calls to action.\n";
+        } else if (typeDef.category === 'Technical & Professional') {
+          contentTypeInstruction += "Use formal language, objective tone, and precise terminology.\n";
+        }
+      }
+    }
+
     const prompt = `You are a helpful AI creative assistant.
     ${profileContext}
+    ${contentTypeInstruction}
     ${historyContext}
     User Input: "${input}"
     
@@ -91,7 +114,8 @@ export async function expandContentBlock(
   blockType: string,
   canvasTitle?: string,
   activeProfile?: Profile | null,
-  contextBlocks?: { type: string; content: string }[]
+  contextBlocks?: { type: string; content: string }[],
+  contentTypeId?: string
 ): Promise<string> {
   // Check if API key is available
   if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
@@ -104,6 +128,27 @@ export async function expandContentBlock(
 
     let contextPart = canvasTitle ? `Context: Writing a content piece titled "${canvasTitle}".\n` : "";
 
+    // Look up content type if provided
+    let contentTypeInstruction = "";
+    if (contentTypeId) {
+      const typeDef = CONTENT_TYPES.find(t => t.id === contentTypeId);
+      if (typeDef) {
+        contentTypeInstruction = `\nOUTPUT FORMATTING REQUIREMENT:\nThe user explicitly requested a "${typeDef.label}" (${typeDef.category}).\nStructure the response strictly as a ${typeDef.label}.\n`;
+        // Add specific hints based on category
+        if (typeDef.category === 'Social Posts') {
+          contentTypeInstruction += "Include relevant hashtags and keep it concise/platform-appropriate.\n";
+        } else if (typeDef.category === 'Scripts') {
+          contentTypeInstruction += "Include scene/segment headers and spoken lines. Use a conversational tone.\n";
+        } else if (typeDef.category === 'Articles & Blogs') {
+          contentTypeInstruction += "Use clear headings, structured paragraphs, and an educational tone.\n";
+        } else if (typeDef.category === 'Copywriting') {
+          contentTypeInstruction += "Use persuasive language, strong hooks, and clear calls to action.\n";
+        } else if (typeDef.category === 'Technical & Professional') {
+          contentTypeInstruction += "Use formal language, objective tone, and precise terminology.\n";
+        }
+      }
+    }
+
     if (contextBlocks && contextBlocks.length > 0) {
       contextPart += "\nExisting Content Blocks for Context:\n";
       contextBlocks.forEach((block, index) => {
@@ -114,7 +159,7 @@ export async function expandContentBlock(
       contextPart += "\n";
     }
 
-    const prompt = `${contextPart}Task: Expand the following ${blockType} block: "${content}".${profileContext}
+    const prompt = `${contextPart}Task: Expand the following ${blockType} block: "${content}".${profileContext}${contentTypeInstruction}
     Instructions: Make it more detailed, engaging, and comprehensive while maintaining the original meaning. Ensure the tone fits the overall article title and aligns with the context of the other blocks provided above.
     Return only the expanded content without additional commentary.`;
 
@@ -139,7 +184,8 @@ export async function generateContentBlock(
   canvasTitle?: string,
   activeProfile?: Profile | null,
   contextBlocks?: { type: string; content: string }[],
-  userInstruction?: string
+  userInstruction?: string,
+  contentTypeId?: string
 ): Promise<string> {
   // Check if API key is available
   if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
@@ -161,7 +207,28 @@ export async function generateContentBlock(
 
     const instructionPart = userInstruction ? `User Instruction: ${userInstruction}\n` : "";
 
-    const prompt = `${contextPart}${instructionPart}Task: Generate content for a ${blockType} block.${profileContext}
+    // Look up content type if provided
+    let contentTypeInstruction = "";
+    if (contentTypeId) {
+      const typeDef = CONTENT_TYPES.find(t => t.id === contentTypeId);
+      if (typeDef) {
+        contentTypeInstruction = `\nOUTPUT FORMATTING REQUIREMENT:\nThe user explicitly requested a "${typeDef.label}" (${typeDef.category}).\nStructure the response strictly as a ${typeDef.label}.\n`;
+        // Add specific hints based on category
+        if (typeDef.category === 'Social Posts') {
+          contentTypeInstruction += "Include relevant hashtags and keep it concise/platform-appropriate.\n";
+        } else if (typeDef.category === 'Scripts') {
+          contentTypeInstruction += "Include scene/segment headers and spoken lines. Use a conversational tone.\n";
+        } else if (typeDef.category === 'Articles & Blogs') {
+          contentTypeInstruction += "Use clear headings, structured paragraphs, and an educational tone.\n";
+        } else if (typeDef.category === 'Copywriting') {
+          contentTypeInstruction += "Use persuasive language, strong hooks, and clear calls to action.\n";
+        } else if (typeDef.category === 'Technical & Professional') {
+          contentTypeInstruction += "Use formal language, objective tone, and precise terminology.\n";
+        }
+      }
+    }
+
+    const prompt = `${contextPart}${instructionPart}Task: Generate content for a ${blockType} block.${profileContext}${contentTypeInstruction}
     Instructions: Write high-quality, engaging content that fits the overall article title and aligns with the context of the other blocks provided above.
     Return only the generated content without additional commentary.`;
 

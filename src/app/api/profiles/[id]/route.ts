@@ -26,7 +26,8 @@ export async function PUT(
             return NextResponse.json({ error: 'User not synced' }, { status: 401 });
         }
 
-        const { profile_name, niche, tone_config, samples } = await request.json();
+        const requestJson = await request.json();
+        const { profile_name, niche, tone_config, samples } = requestJson;
 
         // Validate required fields
         if (!profile_name || !profile_name.trim()) {
@@ -55,6 +56,7 @@ export async function PUT(
                 profile_name: profile_name.trim(),
                 niche: niche || null,
                 tone_config: tone_config || null,
+                default_content_type: requestJson.default_content_type || null,
                 samples: samples || null
             })
             .eq('id', id)

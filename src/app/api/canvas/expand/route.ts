@@ -14,7 +14,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { block_content, block_type, canvas_title, active_profile, context_blocks } = await request.json();
+    const { block_content, block_type, canvas_title, active_profile, context_blocks, contentTypeId } = await request.json();
 
     // Validate input
     if (!block_content?.trim()) {
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     console.log('Canvas expand - Expanding block for user:', { userId, block_type, contentLength: block_content.length });
 
     // Call the Gemini API to expand the block content
-    const expandedContent = await expandContentBlock(block_content, block_type, canvas_title, active_profile, context_blocks);
+    const expandedContent = await expandContentBlock(block_content, block_type, canvas_title, active_profile, context_blocks, contentTypeId);
 
     console.log('Canvas expand - Successfully expanded block for user:', userId);
     return NextResponse.json({

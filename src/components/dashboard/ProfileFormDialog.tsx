@@ -17,6 +17,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
 import { X } from "lucide-react";
 import { Profile, ToneConfig } from "@/types/profile";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
+import { CONTENT_TYPES } from "@/types/content";
 
 interface ProfileFormDialogProps {
     open: boolean;
@@ -41,6 +49,7 @@ export function ProfileFormDialog({
         casualness: 50,
         directness: 50,
     });
+    const [defaultContentType, setDefaultContentType] = useState<string>("");
     const [samples, setSamples] = useState<string[]>([]);
     const [saving, setSaving] = useState(false);
 
@@ -57,6 +66,7 @@ export function ProfileFormDialog({
                     directness: 50,
                 }
             );
+            setDefaultContentType(profile.default_content_type || "");
             setSamples(profile.samples || []);
         } else if (mode === "create") {
             setProfileName("");
@@ -67,6 +77,7 @@ export function ProfileFormDialog({
                 casualness: 50,
                 directness: 50,
             });
+            setDefaultContentType("");
             setSamples([]);
         }
     }, [mode, profile, open]);
@@ -103,6 +114,7 @@ export function ProfileFormDialog({
                 profile_name: profileName.trim(),
                 niche: niche.trim() || null,
                 tone_config: toneConfig,
+                default_content_type: defaultContentType || null,
                 samples: samples.filter((s) => s.trim() !== ""),
             });
             onOpenChange(false);
@@ -148,6 +160,27 @@ export function ProfileFormDialog({
                             value={niche}
                             onChange={(e) => setNiche(e.target.value)}
                         />
+                    </div>
+
+                    {/* Default Content Type */}
+                    <div className="space-y-2">
+                        <Label>Default Content Type</Label>
+                        <Select value={defaultContentType} onValueChange={setDefaultContentType}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a default content type (Optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="general">No Default (General)</SelectItem>
+                                {CONTENT_TYPES.map((type) => (
+                                    <SelectItem key={type.id} value={type.id}>
+                                        {type.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <p className="text-[10px] text-muted-foreground">
+                            This content type will be automatically selected when you switch to this profile.
+                        </p>
                     </div>
 
                     {/* Tone Configuration */}
