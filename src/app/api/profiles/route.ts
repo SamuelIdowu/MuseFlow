@@ -13,6 +13,8 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
+        console.log('Profiles GET - Clerk user authenticated:', { clerkId: clerkUser.id, email: clerkUser.emailAddresses?.[0]?.emailAddress });
+
         // Get Supabase user ID from Clerk ID
         const supabaseUserId = await getSupabaseUserId(clerkUser.id);
 
@@ -38,9 +40,19 @@ export async function GET() {
 
         console.log('Profiles GET - Successfully fetched profiles:', { count: data?.length, userId: supabaseUserId });
         return NextResponse.json({ profiles: data || [] });
-    } catch (error) {
-        console.error('Error fetching profiles:', error);
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    } catch (error: any) {
+        console.error('Error fetching profiles:', {
+            message: error?.message,
+            code: error?.code,
+            status: error?.status,
+            errors: error?.errors,
+            clerkTraceId: error?.clerkTraceId,
+            fullError: error
+        });
+        return NextResponse.json({
+            error: 'Internal server error',
+            details: error?.errors || error?.message
+        }, { status: 500 });
     }
 }
 

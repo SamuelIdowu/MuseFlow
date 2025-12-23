@@ -3,6 +3,7 @@
 import { cn } from '@/lib/utils';
 
 import { Home, FileText, Calendar, User, Settings, SquarePen, MessageSquare, Plus, Trash2 } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -108,18 +109,16 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
   };
 
   return (
-    <div className="flex flex-col h-full w-72 border-r bg-card">
+    <div className="flex flex-col h-full w-72 border-r border-sidebar-border bg-sidebar">
       <div className="flex flex-col flex-1 h-full overflow-hidden">
         <div className="flex items-center gap-2 px-6 py-6 flex-shrink-0">
-          <div className="bg-primary text-primary-foreground rounded-lg p-2">
-            <span className="text-xl font-bold">MF</span>
-          </div>
-          <span className="text-xl font-bold">MuseFlow</span>
+          <Image src="/logo.jpg" alt="MuseFlow Logo" width={40} height={40} className="rounded-lg" />
+          <span className="text-xl font-bold text-sidebar-foreground">MuseFlow</span>
         </div>
 
         <div className="px-4 mb-4 flex-shrink-0">
           <Link href="/dashboard" onClick={onNavClick}>
-            <Button className="w-full justify-start gap-2" variant="outline">
+            <Button className="w-full justify-start gap-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200">
               <Plus className="h-4 w-4" />
               New Chat
             </Button>
@@ -137,8 +136,8 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                 href={item.href}
                 onClick={onNavClick}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50',
-                  isActive && 'bg-muted text-foreground'
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground/80 transition-all duration-200 hover:text-sidebar-foreground hover:bg-sidebar-accent relative',
+                  isActive && 'bg-sidebar-accent text-sidebar-foreground before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-1 before:rounded-r before:bg-primary'
                 )}
               >
                 <Icon className="h-5 w-5" />
@@ -148,14 +147,14 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
           })}
         </div>
 
-        <Separator className="my-4" />
+        <Separator className="my-4 bg-sidebar-border" />
 
-        <div className="px-4 pb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider flex-shrink-0 flex justify-between items-center group">
+        <div className="px-4 pb-2 text-xs font-semibold text-sidebar-foreground/60 uppercase tracking-wider flex-shrink-0 flex justify-between items-center group">
           <span>Recent Chats</span>
           {recentChats.length > 0 && (
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <button className="text-[10px] hover:text-destructive transition-colors">
+                <button className="text-[10px] hover:text-destructive transition-colors duration-200">
                   Clear All
                 </button>
               </AlertDialogTrigger>
@@ -185,8 +184,8 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                   href={`/dashboard?chatId=${chat.id}`}
                   onClick={onNavClick}
                   className={cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground hover:bg-muted/50 pr-8', // Add padding right for button
-                    currentChatId === chat.id && 'bg-muted text-foreground'
+                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-sidebar-foreground/80 transition-all duration-200 hover:text-sidebar-foreground hover:bg-sidebar-accent pr-8 relative', // Add padding right for button
+                    currentChatId === chat.id && 'bg-sidebar-accent text-sidebar-foreground before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-4 before:w-0.5 before:rounded-r before:bg-primary'
                   )}
                 >
                   <MessageSquare className="h-4 w-4 flex-shrink-0" />
@@ -194,7 +193,7 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
                 </Link>
                 <button
                   onClick={(e) => handleDeleteChat(e, chat.id)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-destructive transition-all rounded-md hover:bg-muted"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-sidebar-foreground/60 hover:text-destructive transition-all duration-200 rounded-md hover:bg-sidebar-accent"
                   title="Delete Chat"
                 >
                   <Trash2 className="h-3 w-3" />
@@ -204,8 +203,8 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
           </div>
         </ScrollArea>
       </div>
-      <div className="p-4 border-t flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">© {new Date().getFullYear()} ContentAI</span>
+      <div className="p-4 border-t border-sidebar-border flex items-center justify-between">
+        <span className="text-xs text-sidebar-foreground/60">© {new Date().getFullYear()} ContentAI</span>
         <ModeToggle />
       </div>
     </div>

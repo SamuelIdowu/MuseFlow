@@ -43,13 +43,13 @@ export function ProfileCard({ profile, onEdit, onDelete, onSetActive }: ProfileC
 
     return (
         <Card
-            className={`flex flex-col gap-4 p-4 relative transition-all ${isActive
-                ? "border-2 border-primary bg-primary/5 dark:bg-primary/10"
-                : "border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111c22]"
+            className={`flex flex-col gap-4 p-4 relative transition-all duration-200 ${isActive
+                ? "ring-2 ring-primary bg-primary/5 border-primary"
+                : "border-border bg-card hover:border-primary/30"
                 }`}
         >
             {isActive && (
-                <div className="absolute top-4 right-4 flex items-center gap-2 bg-primary/20 text-primary dark:text-primary-300 text-xs font-bold px-2 py-1 rounded-full">
+                <div className="absolute top-4 right-4 flex items-center gap-2 bg-primary/20 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
                     <CheckCircle className="h-4 w-4" fill="currentColor" />
                     <span>Active</span>
                 </div>
@@ -57,10 +57,10 @@ export function ProfileCard({ profile, onEdit, onDelete, onSetActive }: ProfileC
 
             <CardHeader className="p-0 space-y-0">
                 <div className="flex flex-col">
-                    <p className="text-gray-900 dark:text-white text-lg font-bold leading-normal">
+                    <p className="text-foreground text-lg font-semibold leading-normal">
                         {profile.profile_name}
                     </p>
-                    <p className="text-gray-500 dark:text-[#92b7c9] text-sm font-normal leading-normal">
+                    <p className="text-muted-foreground text-sm font-normal leading-normal">
                         {profile.niche ? `Niche: ${profile.niche}` : "No niche specified"}
                     </p>
                 </div>
@@ -68,14 +68,14 @@ export function ProfileCard({ profile, onEdit, onDelete, onSetActive }: ProfileC
 
             <CardContent className="p-0 flex-1 flex flex-col gap-4">
                 <div>
-                    <h3 className="text-gray-600 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">
+                    <h3 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-2">
                         Tone & Keywords
                     </h3>
                     <div className="flex flex-wrap gap-2">
                         {toneKeywords.map((keyword, index) => (
                             <span
                                 key={index}
-                                className="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full"
+                                className="bg-muted text-muted-foreground text-xs font-medium px-2.5 py-1 rounded-full border border-border"
                             >
                                 {keyword}
                             </span>
@@ -85,13 +85,13 @@ export function ProfileCard({ profile, onEdit, onDelete, onSetActive }: ProfileC
 
                 <div
                     className={`flex mt-auto pt-4 border-t ${isActive
-                        ? "border-primary/20 dark:border-primary/30"
-                        : "border-gray-200 dark:border-gray-800"
+                        ? "border-primary/20"
+                        : "border-border"
                         }`}
                 >
                     {!isActive && (
                         <Button
-                            className="w-full mb-2 bg-primary text-gray-800 hover:bg-primary/90"
+                            className="w-full mb-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200"
                             onClick={() => onSetActive(profile.id)}
                         >
                             Set as Active
@@ -101,16 +101,16 @@ export function ProfileCard({ profile, onEdit, onDelete, onSetActive }: ProfileC
 
                 <div className="flex items-center gap-2">
                     <Button
-                        variant="secondary"
-                        className="flex-1 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                        variant="outline"
+                        className="flex-1 flex items-center justify-center gap-2 transition-all duration-200"
                         onClick={() => onEdit(profile)}
                     >
                         <Edit className="h-4 w-4" />
                         <span>Edit</span>
                     </Button>
                     <Button
-                        variant="secondary"
-                        className="flex-1 flex items-center justify-center gap-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600"
+                        variant="outline"
+                        className="flex-1 flex items-center justify-center gap-2 text-destructive hover:bg-destructive/10 transition-all duration-200"
                         onClick={() => onDelete(profile.id)}
                     >
                         <Trash2 className="h-4 w-4" />

@@ -727,9 +727,9 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                                                         {...provided.draggableProps}
                                                         {...provided.dragHandleProps}
                                                         style={{ ...provided.draggableProps.style }}
-                                                        className={`p-4 rounded-lg bg-card border transition-all group ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-primary z-50 bg-background' : ''} ${editingBlockId === block.id
-                                                            ? 'ring-2 ring-primary/50 shadow-lg border-primary/50'
-                                                            : 'border-border hover:border-primary/50'
+                                                        className={`p-5 rounded-lg bg-card border transition-all duration-200 group ${snapshot.isDragging ? 'shadow-xl ring-2 ring-primary/60 z-50 scale-[1.02]' : ''} ${editingBlockId === block.id
+                                                            ? 'ring-2 ring-primary shadow-md border-primary'
+                                                            : 'border-border hover:border-primary/40'
                                                             }`}
                                                     >
                                                         <div className="flex flex-col gap-2">
@@ -753,12 +753,12 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                                                                         <SelectItem value="list">List</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
-                                                                <GripVertical className="h-4 w-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors" />
+                                                                <GripVertical className="h-4 w-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors duration-200" />
                                                             </div>
 
                                                             {/* Block Content */}
                                                             <Textarea
-                                                                className="min-h-[100px] text-base mt-1 resize-none"
+                                                                className="min-h-[100px] text-base mt-1 resize-none font-mono leading-relaxed transition-all duration-200"
                                                                 value={block.content}
                                                                 onChange={(e) => handleUpdateBlock(block.id, { content: e.target.value })}
                                                                 onFocus={() => setEditingBlockId(block.id)}
@@ -767,12 +767,12 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                                                             />
 
                                                             {/* Action Buttons */}
-                                                            <div className="border-t pt-4 mt-2">
+                                                            <div className="border-t border-border/50 pt-4 mt-2">
                                                                 <div className="flex flex-wrap gap-3 items-center">
                                                                     <Button
-                                                                        variant="outline"
+                                                                        variant="default"
                                                                         size="sm"
-                                                                        className="text-muted-foreground border-secondary/30 hover:bg-secondary/10 hover:text-secondary font-semibold"
+                                                                        className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium transition-all duration-200"
                                                                         onClick={() => handleExpandWithAI(block.id, block.content, block.type)}
                                                                         disabled={expandingBlockId === block.id || !block.content?.trim()}
                                                                     >
@@ -789,9 +789,9 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                                                                         )}
                                                                     </Button>
                                                                     <Button
-                                                                        variant="ghost"
+                                                                        variant="outline"
                                                                         size="sm"
-                                                                        className="text-muted-foreground hover:text-foreground font-medium"
+                                                                        className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200"
                                                                         onClick={() => handleRegenerateBlock(block.id)}
                                                                         disabled={regeneratingBlockId === block.id || !block.content?.trim()}
                                                                     >
@@ -808,9 +808,9 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                                                                         )}
                                                                     </Button>
                                                                     <Button
-                                                                        variant="ghost"
+                                                                        variant="outline"
                                                                         size="sm"
-                                                                        className="text-muted-foreground hover:text-foreground font-medium"
+                                                                        className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200"
                                                                         onClick={() => handleGenerateBlock(block.id)}
                                                                         disabled={regeneratingBlockId === block.id}
                                                                         title="Generate content based on context"
@@ -821,7 +821,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="sm"
-                                                                        className="text-red-500/80 hover:text-red-500 font-medium"
+                                                                        className="text-destructive/80 hover:text-destructive hover:bg-destructive/10 font-medium transition-all duration-200"
                                                                         onClick={() => handleDeleteBlock(block.id)}
                                                                     >
                                                                         <Trash2 className="mr-2 h-4 w-4" />
@@ -830,7 +830,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                                                                     <Button
                                                                         variant="ghost"
                                                                         size="sm"
-                                                                        className="text-muted-foreground hover:text-foreground font-medium"
+                                                                        className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200"
                                                                         onClick={() => setSelectedBlockForPreview(block)}
                                                                         title="Preview this block"
                                                                     >

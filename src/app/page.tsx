@@ -1,128 +1,207 @@
 import Link from 'next/link';
 import { auth } from '@clerk/nextjs/server';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, CheckCircle2, Sparkles, Zap, Layout, Calendar, Users, Star, Menu } from 'lucide-react';
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { ArrowRight, CheckCircle2, Sparkles, Zap, Layout, Calendar, Clock, TrendingUp, Twitter, Linkedin, Youtube } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import Image from 'next/image';
 
 export default async function Home() {
   const { userId } = await auth();
   const getStartedHref = userId ? '/dashboard' : '/sign-up';
 
   return (
-    <div className="min-h-screen bg-background text-foreground overflow-hidden">
-      {/* Background Gradients */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/20 rounded-full blur-[120px] opacity-50" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-purple-500/20 rounded-full blur-[120px] opacity-50" />
-      </div>
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors">
+      {/* Dotted Background Pattern */}
+      <div
+        className="fixed inset-0 z-0 pointer-events-none opacity-40"
+        style={{
+          backgroundImage: 'radial-gradient(circle, #d1d5db 1px, transparent 1px)',
+          backgroundSize: '24px 24px'
+        }}
+      />
 
       <div className="relative z-10">
         {/* Header */}
         <header className="container mx-auto px-4 py-6 flex justify-between items-center">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-white/80">
-              MuseFlow 
+          <div className="flex items-center space-x-3">
+            <Image src="/logoo.png" alt="MuseFlow Logo" width={60} height={60} className="rounded-lg" />
+            <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              MuseFlow
             </span>
           </div>
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex space-x-8">
-            <Link href="#features" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
+            <Link href="#features" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
               Features
             </Link>
-            <Link href="#workflow" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-              Workflow
+            <Link href="#solutions" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+              Solutions
             </Link>
-            <Link href="#testimonials" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
-              Testimonials
+            <Link href="#resources" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+              Resources
+            </Link>
+            <Link href="#pricing" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+              Pricing
             </Link>
           </nav>
 
-          <div className="hidden md:flex items-center space-x-4">
+          <div className="hidden md:flex items-center space-x-2">
+            <ThemeToggle />
             <Link href="/sign-in">
-              <Button variant="ghost" className="text-muted-foreground hover:text-foreground">Sign In</Button>
+              <Button variant="ghost" className="text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100">Sign in</Button>
             </Link>
             <Link href={getStartedHref}>
-              <Button className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-[0_0_20px_rgba(var(--primary),0.3)]">
-                Get Started
+              <Button className="bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white px-6 shadow-md">
+                Get demo
               </Button>
             </Link>
-          </div>
-
-          {/* Mobile Menu */}
-          <div className="md:hidden">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <Menu className="h-6 w-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-                <nav className="flex flex-col gap-4 mt-8">
-                  <Link href="#features" className="text-lg font-medium hover:text-primary transition-colors">
-                    Features
-                  </Link>
-                  <Link href="#workflow" className="text-lg font-medium hover:text-primary transition-colors">
-                    Workflow
-                  </Link>
-                  <Link href="#testimonials" className="text-lg font-medium hover:text-primary transition-colors">
-                    Testimonials
-                  </Link>
-                  <hr className="my-4 border-border" />
-                  <Link href="/sign-in">
-                    <Button variant="ghost" className="w-full justify-start text-lg">Sign In</Button>
-                  </Link>
-                  <Link href={getStartedHref}>
-                    <Button className="w-full text-lg">Get Started</Button>
-                  </Link>
-                </nav>
-              </SheetContent>
-            </Sheet>
           </div>
         </header>
 
         {/* Hero Section */}
-        <section className="pt-20 pb-32 md:pt-32 md:pb-48 text-center px-4">
-          <div className="container mx-auto max-w-5xl">
-            <div className="inline-flex items-center px-3 py-1 rounded-full border border-primary/20 bg-primary/10 text-primary text-xs font-medium mb-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-              <span className="flex w-2 h-2 rounded-full bg-primary mr-2 animate-pulse" />
-              New: AI Content Scheduling
-            </div>
-            <h1 className="text-5xl md:text-7xl font-bold tracking-tight mb-8 bg-clip-text text-transparent bg-gradient-to-b from-white via-white/90 to-white/50 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-100">
-              Simplify Your Workflow <br />
-              with <span className="text-primary">MuseFlow</span>
-            </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-12 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
-              Generate, refine, and publish compelling content in minutes.
-              The all-in-one platform for modern content creators.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
-              <Link href={getStartedHref}>
-                <Button size="lg" className="h-12 px-8 text-lg bg-primary hover:bg-primary/90 shadow-[0_0_30px_-5px_rgba(var(--primary),0.4)]">
-                  Start for Free
-                  <ArrowRight className="ml-2 w-5 h-5" />
-                </Button>
-              </Link>
-              <Link href="#">
-                <Button size="lg" variant="outline" className="h-12 px-8 text-lg border-primary/20 hover:bg-primary/5">
-                  Watch Demo
-                </Button>
-              </Link>
+        <section className="pt-12 pb-20 md:pt-20 md:pb-32 text-center px-4 relative">
+          <div className="container mx-auto max-w-6xl">
+            {/* Badge */}
+            <div className="inline-flex items-center px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-xs font-medium mb-8">
+              <Sparkles className="w-3 h-3 mr-2" />
+              AI-Powered Content Ideation & Publishing
             </div>
 
-            {/* Abstract Dashboard Preview */}
-            <div className="mt-20 relative mx-auto max-w-4xl animate-in fade-in zoom-in-95 duration-1000 delay-500">
-              <div className="absolute -inset-1 bg-gradient-to-r from-primary to-purple-600 rounded-xl blur opacity-30" />
-              <div className="relative bg-card border border-border rounded-xl shadow-2xl overflow-hidden aspect-video flex items-center justify-center bg-grid-white/[0.02]">
-                <div className="text-center p-8">
-                  <div className="w-16 h-16 bg-primary/20 rounded-2xl mx-auto mb-4 flex items-center justify-center">
-                    <Sparkles className="w-8 h-8 text-primary" />
+            {/* Decorative Elements */}
+            <div className="relative">
+              {/* Sticky Note - Left */}
+              <div className="absolute left-0 md:left-0 top-0 md:top-12 w-48 md:w-56 transform -rotate-6 animate-in fade-in slide-in-from-left duration-700">
+                <div className="bg-yellow-200 rounded-lg shadow-lg p-5 border-t-8 border-yellow-300">
+                  <div className="flex items-center justify-center w-8 h-8 mb-3">
+                    <div className="w-6 h-6 bg-yellow-400 rounded-sm" />
                   </div>
-                  <h3 className="text-2xl font-bold text-foreground mb-2">AI Workspace</h3>
-                  <p className="text-muted-foreground">Your content command center</p>
+                  <p className="text-sm text-gray-800 font-handwriting leading-relaxed italic">
+                    Paste text or links<br />
+                    → Get 5-10 unique<br />
+                    content angles instantly
+                  </p>
+                  <div className="mt-3 flex items-center justify-center">
+                    <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-white" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="absolute left-1/2 -translate-x-1/2 -top-8 md:-top-4 animate-in fade-in zoom-in duration-700 delay-100">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-800 dark:bg-slate-700 rounded-2xl shadow-2xl flex items-center justify-center border border-gray-700 dark:border-gray-600">
+                  <Image
+                    src="/logoo.png"
+                    alt="MuseFlow Logo"
+                    width={64}
+                    height={64}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              </div>
+
+              {/* Best Time Card - Right */}
+              <div className="absolute right-0 md:right-0 top-0 md:top-12 w-48 md:w-56 transform rotate-3 animate-in fade-in slide-in-from-right duration-700 delay-200">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-5 border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    </div>
+                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100">Best Time</h4>
+                  </div>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-2">
+                    <p className="text-xs font-medium text-gray-800 dark:text-gray-200">LinkedIn Post</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Peak Engagement</p>
+                  </div>
+                  <div className="text-center">
+                    <div className="inline-flex items-center px-3 py-1 bg-green-50 dark:bg-green-900/30 rounded-full">
+                      <Clock className="w-3 h-3 text-green-600 dark:text-green-400 mr-1" />
+                      <span className="text-xs font-medium text-green-600 dark:text-green-400">Mon 9:00 AM</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Headline */}
+              <div className="pt-32 md:pt-40 pb-8">
+                <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 text-gray-900 dark:text-gray-100 leading-tight">
+                  Transform Ideas into<br />
+                  <span className="text-gray-400 dark:text-gray-500">Published Content with AI</span>
+                </h1>
+                <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-10">
+                  AI-powered ideation, smart canvas editing, and multi-channel publishing—all in one platform
+                </p>
+                <Link href={getStartedHref}>
+                  <Button size="lg" className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20">
+                    Get free demo
+                  </Button>
+                </Link>
+              </div>
+            </div>
+
+            {/* Preview Cards at Bottom */}
+            <div className="mt-16 md:mt-24 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+              {/* Content Pipeline Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 text-left animate-in fade-in slide-in-from-bottom duration-700 delay-300">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">Content Pipeline</h3>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 bg-orange-100 rounded flex-shrink-0 mt-0.5">
+                      <div className="w-full h-full flex items-center justify-center">
+                        <div className="w-2 h-2 bg-orange-500 rounded-sm" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">AI Idea Generation</p>
+                        <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center">
+                          <span className="text-xs">👤</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">In Progress</p>
+                      <div className="mt-2 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+                        <div className="bg-emerald-500 dark:bg-emerald-400 h-full rounded-full" style={{ width: '60%' }} />
+                      </div>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">60%</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 bg-green-100 rounded flex-shrink-0 mt-0.5">
+                      <div className="w-full h-full flex items-center justify-center">
+                        <CheckCircle2 className="w-3 h-3 text-green-600" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-gray-800 dark:text-gray-200 font-medium">Canvas Editing</p>
+                        <div className="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center">
+                          <span className="text-xs">👤</span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Complete</p>
+                      <div className="mt-2 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
+                        <div className="bg-emerald-500 dark:bg-emerald-400 h-full rounded-full" style={{ width: '100%' }} />
+                      </div>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">100%</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Multi-Channel Export Card */}
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-gray-200 dark:border-gray-700 text-left animate-in fade-in slide-in-from-bottom duration-700 delay-400">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-6">Multi-Channel Export</h3>
+                <div className="flex items-center justify-center gap-4">
+                  <div className="w-16 h-16 bg-white dark:bg-gray-700 rounded-2xl shadow-md flex items-center justify-center border border-gray-100 dark:border-gray-600">
+                    <Twitter className="w-8 h-8 text-blue-400" />
+                  </div>
+                  <div className="w-16 h-16 bg-white dark:bg-gray-700 rounded-2xl shadow-md flex items-center justify-center border border-gray-100 dark:border-gray-600">
+                    <Linkedin className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <div className="w-16 h-16 bg-white dark:bg-gray-700 rounded-2xl shadow-md flex items-center justify-center border border-gray-100 dark:border-gray-600">
+                    <Youtube className="w-8 h-8 text-red-600" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -130,11 +209,11 @@ export default async function Home() {
         </section>
 
         {/* Features Section */}
-        <section id="features" className="py-24 relative">
+        <section id="features" className="py-20 bg-white dark:bg-gray-900">
           <div className="container mx-auto px-4">
             <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-5xl font-bold mb-4">Why Choose ContentAI</h2>
-              <p className="text-muted-foreground max-w-2xl mx-auto">
+              <h2 className="text-3xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-gray-100">Why Choose MuseFlow</h2>
+              <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
                 Everything you need to scale your content production without sacrificing quality.
               </p>
             </div>
@@ -142,136 +221,29 @@ export default async function Home() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
               {[
                 {
-                  icon: <Zap className="w-6 h-6 text-yellow-400" />,
-                  title: "Lightning Fast Generation",
-                  description: "Create blog posts, social media captions, and more in seconds with advanced AI models."
+                  icon: <Zap className="w-6 h-6 text-yellow-500" />,
+                  title: "Lightning Fast",
+                  description: "Create blog posts, social media captions, and more in seconds with advanced AI."
                 },
                 {
-                  icon: <Layout className="w-6 h-6 text-blue-400" />,
-                  title: "Smart Canvas Interface",
-                  description: "Drag, drop, and organize your ideas visually. A flexible workspace for your creativity."
+                  icon: <Layout className="w-6 h-6 text-blue-500" />,
+                  title: "Smart Canvas",
+                  description: "Drag, drop, and organize your ideas visually in a flexible workspace."
                 },
                 {
-                  icon: <Calendar className="w-6 h-6 text-green-400" />,
-                  title: "Intelligent Scheduling",
+                  icon: <Calendar className="w-6 h-6 text-green-500" />,
+                  title: "Auto Schedule",
                   description: "Plan your content calendar and auto-publish to your favorite platforms."
                 }
               ].map((feature, i) => (
-                <div key={i} className="group relative p-8 rounded-2xl bg-card/50 border border-border hover:border-primary/50 transition-all duration-300 hover:shadow-[0_0_30px_-10px_rgba(var(--primary),0.2)]">
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl" />
-                  <div className="relative z-10">
-                    <div className="w-12 h-12 bg-background border border-border rounded-lg flex items-center justify-center mb-6 shadow-sm">
-                      {feature.icon}
-                    </div>
-                    <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-                    <p className="text-muted-foreground leading-relaxed">
-                      {feature.description}
-                    </p>
+                <div key={i} className="p-6 rounded-xl bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:border-slate-400 dark:hover:border-slate-500 hover:shadow-lg transition-all">
+                  <div className="w-12 h-12 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg flex items-center justify-center mb-4">
+                    {feature.icon}
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Workflow Section */}
-        <section id="workflow" className="py-24 bg-secondary/20">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-16">
-              <h2 className="text-3xl md:text-5xl font-bold mb-4">Unlock the Power of ContentAI</h2>
-              <p className="text-muted-foreground">Streamline your process from first thought to final post.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center max-w-6xl mx-auto">
-              <div className="space-y-8">
-                {[
-                  {
-                    step: "01",
-                    title: "Ideation",
-                    desc: "Input a topic or keyword and get dozens of unique angles instantly."
-                  },
-                  {
-                    step: "02",
-                    title: "Creation",
-                    desc: "Use the Smart Canvas to build your content blocks and refine the flow."
-                  },
-                  {
-                    step: "03",
-                    title: "Distribution",
-                    desc: "Schedule and publish directly to your audience with one click."
-                  }
-                ].map((item, i) => (
-                  <div key={i} className="flex gap-6">
-                    <div className="flex-shrink-0 w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg border border-primary/20">
-                      {item.step}
-                    </div>
-                    <div>
-                      <h3 className="text-xl font-bold mb-2">{item.title}</h3>
-                      <p className="text-muted-foreground">{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-primary/20 to-purple-500/20 blur-3xl rounded-full opacity-30" />
-                <div className="relative bg-card border border-border rounded-2xl p-8 shadow-2xl">
-                  {/* Abstract Workflow Visual */}
-                  <div className="flex flex-col gap-4 items-center">
-                    <div className="w-full h-16 bg-secondary/50 rounded-lg animate-pulse" />
-                    <ArrowRight className="text-muted-foreground rotate-90" />
-                    <div className="w-full h-32 bg-secondary/50 rounded-lg animate-pulse delay-100" />
-                    <ArrowRight className="text-muted-foreground rotate-90" />
-                    <div className="flex gap-4 w-full">
-                      <div className="flex-1 h-16 bg-primary/20 rounded-lg animate-pulse delay-200" />
-                      <div className="flex-1 h-16 bg-primary/20 rounded-lg animate-pulse delay-300" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Testimonials */}
-        <section id="testimonials" className="py-24">
-          <div className="container mx-auto px-4">
-            <h2 className="text-3xl md:text-5xl font-bold text-center mb-16">
-              Loved by Creators
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {[
-                {
-                  name: "Alex Rivera",
-                  role: "Marketing Director",
-                  content: "ContentAI has completely transformed how we approach our blog strategy. The ideation tools are a game changer."
-                },
-                {
-                  name: "Sarah Chen",
-                  role: "Freelance Writer",
-                  content: "I can take on twice as many clients now. The workflow is so intuitive, it feels like it was made just for me."
-                },
-                {
-                  name: "Marcus Johnson",
-                  role: "Startup Founder",
-                  content: "Finally, a tool that actually helps me write better, not just faster. The quality of the output is consistently impressive."
-                }
-              ].map((t, i) => (
-                <div key={i} className="bg-card p-6 rounded-xl border border-border hover:border-primary/30 transition-colors">
-                  <div className="flex gap-1 mb-4">
-                    {[1, 2, 3, 4, 5].map((s) => (
-                      <Star key={s} className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                    ))}
-                  </div>
-                  <p className="text-muted-foreground mb-6">"{t.content}"</p>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-secondary flex items-center justify-center font-bold text-secondary-foreground">
-                      {t.name[0]}
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">{t.role}</p>
-                    </div>
-                  </div>
+                  <h3 className="text-xl font-bold mb-2 text-gray-900 dark:text-gray-100">{feature.title}</h3>
+                  <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+                    {feature.description}
+                  </p>
                 </div>
               ))}
             </div>
@@ -279,74 +251,67 @@ export default async function Home() {
         </section>
 
         {/* CTA Section */}
-        <section className="py-24 px-4">
-          <div className="container mx-auto max-w-4xl">
-            <div className="relative rounded-3xl overflow-hidden p-12 text-center border border-primary/20">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-background to-background z-0" />
-              <div className="relative z-10">
-                <div className="w-16 h-16 bg-primary rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-primary/30">
-                  <Sparkles className="w-8 h-8 text-primary-foreground" />
-                </div>
-                <h2 className="text-3xl md:text-5xl font-bold mb-6">
-                  Ready to Transform Your Content?
-                </h2>
-                <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-                  Join thousands of creators who are already saving time and creating better content with ContentAI.
-                </p>
-                <Link href={getStartedHref}>
-                  <Button size="lg" className="h-14 px-10 text-lg bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20">
-                    Get Started for Free
-                  </Button>
-                </Link>
-                <p className="mt-6 text-sm text-muted-foreground">
-                  No credit card required · 14-day free trial
-                </p>
+        <section className="py-20 px-4 bg-gray-50 dark:bg-gray-900">
+          <div className="container mx-auto max-w-3xl text-center">
+            <div className="bg-orange-50 dark:bg-orange-900/10 rounded-3xl p-12 border border-orange-100 dark:border-orange-800/30">
+              <div className="w-16 h-16 bg-slate-800 dark:bg-slate-700 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                 <Image src="/logoo.png" alt="MuseFlow Logo" width={60} height={60} className="rounded-lg" />
               </div>
+              <h2 className="text-3xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-gray-100">
+                Start Creating Smarter Content Today
+              </h2>
+              <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-xl mx-auto">
+                Join creators who generate, refine, and publish content faster with AI
+              </p>
+              <Link href={getStartedHref}>
+                <Button size="lg" className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white shadow-lg shadow-orange-500/30">
+                  Get Started for Free
+                </Button>
+              </Link>
+              <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                No credit card required
+              </p>
             </div>
           </div>
         </section>
 
         {/* Footer */}
-        <footer className="border-t border-border py-12 bg-card/30">
+        <footer className="border-t border-gray-200 dark:border-gray-800 py-12 bg-white dark:bg-gray-900">
           <div className="container mx-auto px-4">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-12">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-8">
               <div className="col-span-2 md:col-span-1">
                 <div className="flex items-center space-x-2 mb-4">
-                  <div className="w-6 h-6 bg-primary rounded flex items-center justify-center">
-                    <Sparkles className="w-3 h-3 text-primary-foreground" />
-                  </div>
-                  <span className="text-lg font-bold">MuseFlow</span>
+                  <Image src="/logoo.png" alt="MuseFlow Logo" width={28} height={28} className="rounded" />
+                  <span className="text-lg font-bold text-gray-900 dark:text-gray-100">MuseFlow</span>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Empowering creators with intelligent tools for the future of content.
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Empowering creators with intelligent tools.
                 </p>
               </div>
               <div>
-                <h4 className="font-bold mb-4">Product</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li><Link href="#" className="hover:text-foreground">Features</Link></li>
-                  <li><Link href="#" className="hover:text-foreground">Pricing</Link></li>
-                  <li><Link href="#" className="hover:text-foreground">Roadmap</Link></li>
+                <h4 className="font-bold mb-3 text-gray-900 dark:text-gray-100">Product</h4>
+                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                  <li><Link href="#" className="hover:text-gray-900">Features</Link></li>
+                  <li><Link href="#" className="hover:text-gray-900">Pricing</Link></li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-bold mb-4">Resources</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li><Link href="#" className="hover:text-foreground">Blog</Link></li>
-                  <li><Link href="#" className="hover:text-foreground">Documentation</Link></li>
-                  <li><Link href="#" className="hover:text-foreground">Community</Link></li>
+                <h4 className="font-bold mb-3 text-gray-900 dark:text-gray-100">Resources</h4>
+                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                  <li><Link href="#" className="hover:text-gray-900">Blog</Link></li>
+                  <li><Link href="#" className="hover:text-gray-900">Documentation</Link></li>
                 </ul>
               </div>
               <div>
-                <h4 className="font-bold mb-4">Legal</h4>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li><Link href="#" className="hover:text-foreground">Privacy</Link></li>
-                  <li><Link href="#" className="hover:text-foreground">Terms</Link></li>
+                <h4 className="font-bold mb-3 text-gray-900 dark:text-gray-100">Legal</h4>
+                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                  <li><Link href="#" className="hover:text-gray-900">Privacy</Link></li>
+                  <li><Link href="#" className="hover:text-gray-900">Terms</Link></li>
                 </ul>
               </div>
             </div>
-            <div className="text-center text-sm text-muted-foreground pt-8 border-t border-border/50">
-              <p>© {new Date().getFullYear()} ContentAI. All rights reserved.</p>
+            <div className="text-center text-sm text-gray-500 dark:text-gray-400 pt-8 border-t border-gray-200 dark:border-gray-800">
+              <p>© {new Date().getFullYear()} MuseFlow. All rights reserved.</p>
             </div>
           </div>
         </footer>
