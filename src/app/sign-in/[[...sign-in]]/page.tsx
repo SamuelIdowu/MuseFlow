@@ -13,7 +13,7 @@ export default function SignInPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn, isLoaded } = useSignIn();
+  const { signIn, isLoaded, setActive } = useSignIn();
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -22,11 +22,27 @@ export default function SignInPage() {
     if (!isLoaded) return;
 
     try {
-      await signIn.create({
+      const result = await signIn.create({
         identifier: email,
         password,
       });
+
+      if (result.status === 'complete') {
+        // Set the active session
+        await setActive({ session: result.createdSessionId });
+        // Redirect to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        // Handle cases where additional verification is needed
+        console.log('Sign-in status:', result.status);
+        // For now, still try to redirect if we have a session
+        if (result.createdSessionId) {
+          await setActive({ session: result.createdSessionId });
+          window.location.href = '/dashboard';
+        }
+      }
     } catch (err: any) {
+      console.error('Sign-in error:', err);
       setError(err.errors?.[0]?.message || 'Failed to sign in');
     }
   };
@@ -36,24 +52,17 @@ export default function SignInPage() {
       <div className="flex w-full flex-col gap-6">
         {/* Header */}
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-semibold text-white">
-            Create an account
-          </h2>
-          {/* Note: In the image it says "Create an account" even on the toggle for Sign up/Sign in potentially? 
-              Actually, usually "Welcome back" for sign in. 
-              The image shows "Create an account" while "Sign up" is selected.
-              I should probably change this text based on mode, but since I am in "Sign In" page,
-              I will use "Welcome back" or similar, OR strict adherence to image if I was on sign up.
-              Let's use "Welcome back" for Sign In context to be logical.
-          */}
-          <h2 className="text-2xl font-semibold text-white">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
             Welcome back
           </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Sign in to continue to MuseFlow
+          </p>
         </div>
 
         {/* Login Form */}
         {error && (
-          <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+          <div className="rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 p-3 text-sm text-red-700 dark:text-red-400">
             {error}
           </div>
         )}
@@ -66,7 +75,7 @@ export default function SignInPage() {
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-12 border-white/10 bg-white/5 text-white placeholder:text-white/40 focus-visible:ring-offset-0 focus-visible:border-white/20"
+              className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:ring-orange-500 focus-visible:border-orange-500"
             />
           </div>
 
@@ -78,13 +87,13 @@ export default function SignInPage() {
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-12 border-white/10 bg-white/5 text-white placeholder:text-white/40 pr-10 focus-visible:ring-offset-0 focus-visible:border-white/20"
+                className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 pr-10 focus-visible:ring-orange-500 focus-visible:border-orange-500"
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-white/40 hover:text-white"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? (
@@ -98,25 +107,25 @@ export default function SignInPage() {
 
           <Link
             href="/auth/forgot-password"
-            className="text-right text-xs font-medium text-white/60 hover:text-white"
+            className="text-right text-xs font-medium text-orange-600 dark:text-orange-400 hover:underline"
           >
             Forgot Password?
           </Link>
 
           <Button
             type="submit"
-            className="h-12 w-full rounded-lg bg-white text-black hover:bg-white/90 font-semibold"
+            className="h-12 w-full rounded-lg bg-orange-600 dark:bg-orange-500 text-white hover:bg-orange-700 dark:hover:bg-orange-600 font-semibold shadow-sm"
           >
             Log In
           </Button>
         </form>
 
-        {/* Divider */}
+        {/* 
         <div className="flex items-center gap-4 text-white/20">
           <Separator className="bg-white/10" />
           <p className="text-xs font-medium whitespace-nowrap">OR SIGN IN WITH</p>
           <Separator className="bg-white/10" />
-        </div>
+        </div> */}
 
         {/* OAuth Buttons */}
         <div className="grid grid-cols-2 gap-3">
@@ -126,7 +135,7 @@ export default function SignInPage() {
             onClick={() => signIn?.authenticateWithRedirect({
               strategy: 'oauth_google',
               redirectUrl: '/dashboard',
-              redirectUrlComplete: '/auth/callback',
+              redirectUrlComplete: '/dashboard',
             })}
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -142,10 +151,10 @@ export default function SignInPage() {
             onClick={() => signIn?.authenticateWithRedirect({
               strategy: 'oauth_github',
               redirectUrl: '/dashboard',
-              redirectUrlComplete: '/auth/callback',
+              redirectUrlComplete: '/dashboard',
             })}
           >
-            <Github className="h-5 w-5 fill-white" />
+            <Github className="h-5 w-5 fill-gray-700 dark:fill-gray-300" />
           </Button>
         </div>
       </div>

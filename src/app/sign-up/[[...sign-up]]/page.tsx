@@ -35,10 +35,10 @@ export default function SignUpPage() {
   // Show loading state while checking auth
   if (!isAuthLoaded || (isAuthLoaded && userId)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-white">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-white border-t-transparent" />
-          <p className="text-white/60">Loading...</p>
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-600 dark:border-orange-400 border-t-transparent" />
+          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
         </div>
       </div>
     );
@@ -126,40 +126,40 @@ export default function SignUpPage() {
 
   if (verifying) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-black text-white">
-        <div className="w-full max-w-md mx-auto space-y-8 p-8 bg-white/5 border border-white/10 rounded-3xl backdrop-blur-xl">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <div className="w-full max-w-md mx-auto space-y-8 p-8 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-xl">
           <div className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 bg-orangege-50 dark:borange-900/30 rounded-full flex items-center justify-center">
                 <span className="text-2xl">✉️</span>
               </div>
             </div>
-            <h2 className="text-2xl font-bold tracking-tight">Check your email</h2>
-            <p className="text-white/60 mt-2">
-              We sent a verification code to <span className="font-medium text-white">{email}</span>
+            <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Check your email</h2>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+              We sent a verification code to <span className="font-medium text-gray-900 dark:text-gray-100">{email}</span>
             </p>
           </div>
 
           {error && (
-            <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+            <div className="rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 p-3 text-sm text-red-700 dark:text-red-400">
               {error}
             </div>
           )}
 
           <form onSubmit={handleVerify} className="space-y-4">
             <div className="space-y-2">
-              <label htmlFor="code" className="text-sm font-medium">Verification Code</label>
+              <label htmlFor="code" className="text-sm font-medium text-gray-900 dark:text-gray-100">Verification Code</label>
               <Input
                 id="code"
                 placeholder="Enter code"
                 value={code}
                 onChange={(e) => setCode(e.target.value)}
-                className="text-center text-lg tracking-widest h-12 border-white/10 bg-white/5 text-white placeholder:text-white/40 focus-visible:ring-offset-0 focus-visible:border-white/20"
+                className="text-center text-lg tracking-widest h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:ring-orange-500"
               />
             </div>
             <Button
               type="submit"
-              className="w-full h-12 rounded-lg bg-white text-black hover:bg-white/90 font-semibold"
+              className="w-full h-12 rounded-lg bg-orange-600 dark:bg-orange-500 text-white hover:bg-orange-700 dark:hover:bg-orange-600 font-semibold shadow-sm"
               disabled={pending || !code}
             >
               {pending ? 'Verifying...' : 'Verify Email'}
@@ -175,20 +175,23 @@ export default function SignUpPage() {
       <div className="flex w-full flex-col gap-6">
         {/* Header */}
         <div className="flex flex-col gap-1">
-          <h2 className="text-2xl font-semibold text-white">
+          <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
             Create an account
           </h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Get started with MuseFlow today
+          </p>
         </div>
 
         {/* OAuth Buttons */}
         <div className="grid grid-cols-2 gap-3">
           <Button
             variant="outline"
-            className="h-12 border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white border-0"
+            className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
             onClick={() => signUp?.authenticateWithRedirect({
               strategy: 'oauth_google',
               redirectUrl: '/dashboard',
-              redirectUrlComplete: '/auth/callback',
+              redirectUrlComplete: '/dashboard',
             })}
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24">
@@ -200,27 +203,27 @@ export default function SignUpPage() {
           </Button>
           <Button
             variant="outline"
-            className="h-12 border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white border-0"
+            className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
             onClick={() => signUp?.authenticateWithRedirect({
               strategy: 'oauth_github',
               redirectUrl: '/dashboard',
-              redirectUrlComplete: '/auth/callback',
+              redirectUrlComplete: '/dashboard',
             })}
           >
-            <Github className="h-5 w-5 fill-white" />
+            <Github className="h-5 w-5 fill-gray-700 dark:fill-gray-300" />
           </Button>
         </div>
 
-        {/* Divider */}
+        {/*
         <div className="flex items-center gap-4 text-white/20">
           <Separator className="bg-white/10" />
           <p className="text-xs font-medium whitespace-nowrap">OR SIGN UP WITH</p>
           <Separator className="bg-white/10" />
-        </div>
+        </div> */}
 
         {/* Signup Form */}
         {error && (
-          <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-3 text-sm text-red-400">
+          <div className="rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 p-3 text-sm text-red-700 dark:text-red-400">
             {error}
           </div>
         )}
@@ -230,13 +233,13 @@ export default function SignUpPage() {
             <div className="flex flex-col gap-2">
               <Input
                 placeholder="First name"
-                className="h-12 border-white/10 bg-white/5 text-white placeholder:text-white/40 focus-visible:ring-offset-0 focus-visible:border-white/20"
+                className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:ring-orange-500"
               />
             </div>
             <div className="flex flex-col gap-2">
               <Input
                 placeholder="Last name"
-                className="h-12 border-white/10 bg-white/5 text-white placeholder:text-white/40 focus-visible:ring-offset-0 focus-visible:border-white/20"
+                className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:ring-orange-500"
               />
             </div>
           </div>
@@ -248,7 +251,7 @@ export default function SignUpPage() {
               placeholder="Enter your email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="h-12 border-white/10 bg-white/5 text-white placeholder:text-white/40 focus-visible:ring-offset-0 focus-visible:border-white/20"
+              className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:ring-orange-500"
             />
           </div>
 
@@ -260,13 +263,13 @@ export default function SignUpPage() {
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="h-12 border-white/10 bg-white/5 text-white placeholder:text-white/40 pr-10 focus-visible:ring-offset-0 focus-visible:border-white/20"
+                className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 pr-10 focus-visible:ring-orange-500"
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-white/40 hover:text-white"
+                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? (
@@ -285,21 +288,21 @@ export default function SignUpPage() {
               placeholder="Confirm Password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="h-12 border-white/10 bg-white/5 text-white placeholder:text-white/40 focus-visible:ring-offset-0 focus-visible:border-white/20"
+              className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:ring-orange-500"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-white/60 mt-1">
-            <span className={`flex items-center gap-1.5 ${hasMinLength ? 'text-green-400' : ''}`}>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400 mt-1">
+            <span className={`flex items-center gap-1.5 ${hasMinLength ? 'text-green-600 dark:text-green-400 font-medium' : ''}`}>
               8+ chars
             </span>
-            <span className={`flex items-center gap-1.5 ${hasUppercase ? 'text-green-400' : ''}`}>
+            <span className={`flex items-center gap-1.5 ${hasUppercase ? 'text-green-600 dark:text-green-400 font-medium' : ''}`}>
               Uppercase
             </span>
-            <span className={`flex items-center gap-1.5 ${hasNumber ? 'text-green-400' : ''}`}>
+            <span className={`flex items-center gap-1.5 ${hasNumber ? 'text-green-600 dark:text-green-400 font-medium' : ''}`}>
               Number
             </span>
-            <span className={`flex items-center gap-1.5 ${hasSpecialChar ? 'text-green-400' : ''}`}>
+            <span className={`flex items-center gap-1.5 ${hasSpecialChar ? 'text-green-600 dark:text-green-400 font-medium' : ''}`}>
               Special char
             </span>
           </div>
@@ -308,17 +311,17 @@ export default function SignUpPage() {
             <input
               type="checkbox"
               id="terms"
-              className="mt-1 h-4 w-4 rounded border-white/20 bg-white/5 text-blue-600 focus:ring-blue-600 focus:ring-offset-0"
+              className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-orange-600 focus:ring-orange-500"
               checked={termsAccepted}
               onChange={(e) => setTermsAccepted(e.target.checked)}
             />
-            <label htmlFor="terms" className="text-xs text-white/60">
+            <label htmlFor="terms" className="text-xs text-gray-600 dark:text-gray-400">
               I agree to the{' '}
-              <Link href="#" className="font-medium text-white hover:underline">
+              <Link href="#" className="font-medium text-orange-600 dark:text-orange-400 hover:underline">
                 Terms of Service
               </Link>{' '}
               and{' '}
-              <Link href="#" className="font-medium text-white hover:underline">
+              <Link href="#" className="font-medium text-orange-600 dark:text-orange-400 hover:underline">
                 Privacy Policy
               </Link>.
             </label>
@@ -326,16 +329,16 @@ export default function SignUpPage() {
 
           <Button
             type="submit"
-            className="h-12 w-full rounded-lg bg-white text-black hover:bg-white/90 font-semibold mt-2"
+            className="h-12 w-full rounded-lg bg-orange-600 dark:bg-orange-500 text-white hover:bg-orange-700 dark:hover:bg-orange-600 font-semibold mt-2 shadow-sm"
             disabled={!hasMinLength || !hasNumber || !hasUppercase || !hasSpecialChar || !passwordsMatch || !termsAccepted || pending}
           >
             {pending ? 'Creating Account...' : 'Create an account'}
           </Button>
         </form>
 
-        <p className="text-center text-xs text-white/40">
+        <p className="text-center text-xs text-gray-500 dark:text-gray-400">
           Already have an account?{' '}
-          <Link href="/sign-in" className="text-white hover:underline">
+          <Link href="/sign-in" className="text-orange-600 dark:text-orange-400 hover:underline">
             Sign In
           </Link>
         </p>

@@ -53,7 +53,7 @@ export default async function Home() {
             </Link>
             <Link href={getStartedHref}>
               <Button className="bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white px-6 shadow-md">
-                Get demo
+                Get Started
               </Button>
             </Link>
           </div>
@@ -134,7 +134,7 @@ export default async function Home() {
                 </p>
                 <Link href={getStartedHref}>
                   <Button size="lg" className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20">
-                    Get free demo
+                    Get started for free 
                   </Button>
                 </Link>
               </div>
