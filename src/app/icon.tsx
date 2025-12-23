@@ -1,6 +1,8 @@
 import { ImageResponse } from 'next/og';
 
-// Image metadata
+// 1. Add this line to force the Edge runtime
+export const runtime = 'edge';
+
 export const size = {
     width: 50,
     height: 50,
@@ -8,9 +10,10 @@ export const size = {
 
 export const contentType = 'image/png';
 
-// Image generation
 export default async function Icon() {
-    // Load the logo image
+    // Ensure the path is correct relative to this file. 
+    // If your file is in `src/app/icon.tsx`, use '../../public/...'
+    // If your file is in `app/icon.tsx` (root), use '../public/...'
     const logoData = await fetch(
         new URL('../../public/logoo.png', import.meta.url)
     ).then((res) => res.arrayBuffer());
@@ -27,6 +30,7 @@ export default async function Icon() {
                     backgroundColor: 'transparent',
                 }}
             >
+                {/* 2. Use standard ArrayBuffer to Base64 (Buffer is sometimes limited in Edge) */}
                 <img
                     src={`data:image/png;base64,${Buffer.from(logoData).toString('base64')}`}
                     alt="MuseFlow"
