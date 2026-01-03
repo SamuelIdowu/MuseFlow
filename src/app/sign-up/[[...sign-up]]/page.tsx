@@ -81,17 +81,27 @@ export default function SignUpPage() {
       setVerifying(true);
     } catch (err: any) {
       console.error(JSON.stringify(err, null, 2));
-      const errorMessage = err.errors?.[0]?.message || 'Failed to create account';
 
-      // Handle "Session already exists" error
-      if (errorMessage.toLowerCase().includes('session already exists') || err.status === 403) {
+      const msg1 = err.errors?.[0]?.message || '';
+      const msg2 = err.message || '';
+      const fullError = JSON.stringify(err).toLowerCase();
+
+      const isSessionError =
+        msg1.toLowerCase().includes('session already exists') ||
+        msg1.toLowerCase().includes("you're already signed in") ||
+        msg2.toLowerCase().includes('session already exists') ||
+        msg2.toLowerCase().includes("you're already signed in") ||
+        fullError.includes('session already exists') ||
+        err.status === 403;
+
+      if (isSessionError) {
         console.log('Session already exists, redirecting to dashboard...');
-        // Force hard navigation to ensure auth state is picked up
         window.location.href = '/dashboard';
         return;
       }
 
-      setError(errorMessage);
+      const displayMessage = msg1 || 'Failed to create account';
+      setError(displayMessage);
       setPending(false);
     }
   };

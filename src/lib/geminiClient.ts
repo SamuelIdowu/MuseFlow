@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Profile } from "@/types/profile";
 import { CONTENT_TYPES } from "@/types/content";
+import { fetchUrlContent, extractUrls, isValidUrl } from "./urlUtils";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -8,7 +9,7 @@ const model = genAI.getGenerativeModel({
   model: "gemini-2.5-flash",
 });
 
-function buildProfileContext(profile?: Profile | null): string {
+async function buildProfileContext(profile?: Profile | null): Promise<string> {
   if (!profile) return "";
 
   let context = `\n\nTarget Audience Profile:\n`;
@@ -20,7 +21,14 @@ function buildProfileContext(profile?: Profile | null): string {
   }
 
   if (profile.samples && profile.samples.length > 0) {
-    context += `- Writing Style Samples:\n${profile.samples.map(s => `  "${s}"`).join('\n')}\n`;
+    const processedSamples = await Promise.all(profile.samples.map(async (s) => {
+      if (isValidUrl(s)) {
+        const content = await fetchUrlContent(s);
+        return content ? `  "Style Sample from ${s}: ${content.substring(0, 2000)}..."` : `  "${s}"`;
+      }
+      return `  "${s}"`;
+    }));
+    context += `- Writing Style Samples:\n${processedSamples.join('\n')}\n`;
   }
 
   context += `\nIMPORTANT: Ensure the generated content strictly adheres to this profile's niche, tone, and style.\n`;
@@ -42,7 +50,18 @@ export async function generateChatResponse(input: string, activeProfile?: Profil
   }
 
   try {
-    const profileContext = buildProfileContext(activeProfile);
+    const profileContext = await buildProfileContext(activeProfile);
+
+    // Check for URLs in input
+    const urls = extractUrls(input);
+    let urlContext = "";
+    if (urls.length > 0) {
+      const contents = await Promise.all(urls.map(async url => {
+        const content = await fetchUrlContent(url);
+        return content ? `\nContent from ${url}:\n${content}\n` : "";
+      }));
+      urlContext = contents.join("");
+    }
 
     // Format history for the prompt
     let historyContext = "";
@@ -83,6 +102,7 @@ export async function generateChatResponse(input: string, activeProfile?: Profil
     ${contentTypeInstruction}
     ${historyContext}
     User Input: "${input}"
+    ${urlContext ? `\nAdditional Context from URLs:\n${urlContext}` : ""}
     
     Task: Generate a comprehensive, engaging, and conversational response based on the user's input.
     - If there is chat history, treat the User Input as a follow-up instruction to refine, expand, or modify the previous context.
@@ -124,7 +144,17 @@ export async function expandContentBlock(
   }
 
   try {
-    const profileContext = buildProfileContext(activeProfile);
+    const profileContext = await buildProfileContext(activeProfile);
+
+    // If content to expand is a URL, fetch it
+    let contentToExpand = content;
+    if (isValidUrl(content)) {
+      const fetched = await fetchUrlContent(content);
+      if (fetched) {
+        contentToExpand = fetched;
+        canvasTitle = canvasTitle || `Content from ${content}`;
+      }
+    }
 
     let contextPart = canvasTitle ? `Context: Writing a content piece titled "${canvasTitle}".\n` : "";
 
@@ -159,7 +189,7 @@ export async function expandContentBlock(
       contextPart += "\n";
     }
 
-    const prompt = `${contextPart}Task: Expand the following ${blockType} block: "${content}".${profileContext}${contentTypeInstruction}
+    const prompt = `${contextPart}Task: Expand the following ${blockType} block: "${contentToExpand}".${profileContext}${contentTypeInstruction}
     Instructions: Make it more detailed, engaging, and comprehensive while maintaining the original meaning. Ensure the tone fits the overall article title and aligns with the context of the other blocks provided above.
     Return only the expanded content without additional commentary.`;
 
@@ -194,7 +224,7 @@ export async function generateContentBlock(
   }
 
   try {
-    const profileContext = buildProfileContext(activeProfile);
+    const profileContext = await buildProfileContext(activeProfile);
     let contextPart = canvasTitle ? `Context: Writing a content piece titled "${canvasTitle}".\n` : "";
 
     if (contextBlocks && contextBlocks.length > 0) {
@@ -259,7 +289,7 @@ export async function suggestBestTime(
   }
 
   try {
-    const profileContext = buildProfileContext(activeProfile);
+    const profileContext = await buildProfileContext(activeProfile);
     const prompt = `Based on the content and context provided, suggest the best time to post this content for maximum engagement:
     Content: "${content}"
     Context: "${context || "General content for social media"}".${profileContext}
@@ -295,7 +325,7 @@ export async function formatForChannel(
   }
 
   try {
-    const profileContext = buildProfileContext(activeProfile);
+    const profileContext = await buildProfileContext(activeProfile);
     const channelInstructions: Record<string, string> = {
       linkedin:
         "Format this content for LinkedIn. Keep it professional, engaging, and include relevant hashtags. 2000 character max.",
@@ -320,5 +350,64 @@ export async function formatForChannel(
     console.error("Error formatting for channel with Gemini:", error);
     // Return original content in case of error
     return content;
+  }
+}
+
+export async function generateCampaignContent(
+  topic: string,
+  activeProfile?: Profile | null,
+  count: number = 10,
+  platform: string = 'linkedin',
+  tone: string = 'professional',
+  userInstruction: string = '',
+  context: string = ''
+): Promise<any[]> {
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
+    console.error("GEMINI_API_KEY is not set for generateCampaignContent");
+    return Array(count).fill({ content: `Simulated post about ${topic}` });
+  }
+
+  try {
+    const profileContext = await buildProfileContext(activeProfile);
+    const platformInstructions = platform === 'x'
+      ? "Twitter/X posts (max 280 chars)"
+      : "LinkedIn posts (short-form, professional but engaging)";
+
+    const prompt = `Task: Generate a campaign of ${count} distinct content pieces about "${topic}".
+    Platform: ${platformInstructions}
+    Tone: ${tone}
+    ${userInstruction ? `Additional Instructions: ${userInstruction}` : ''}
+    ${context ? `Context Material: ${context.substring(0, 15000)}` : ''}
+    ${profileContext}
+
+    Requirements:
+    1. Create exactly ${count} distinct posts.
+    2. Vary the angles (e.g., educational, controversial, personal story, question/engagement, promotional).
+    3. Ensure the tone matches the profile.
+    4. Return the result strictly as a valid JSON array of objects, where each object has a "content" field and a "type" field (e.g., "educational", "story", etc.).
+    
+    Example Output Format:
+    [
+      { "content": "Post 1 text...", "type": "educational" },
+      { "content": "Post 2 text...", "type": "story" }
+    ]
+
+    DO NOT include markdown formatting like \`\`\`json \`\`\`. Just return the raw JSON string.`;
+
+    const result = await model.generateContent(prompt);
+    const response = result.response;
+
+    if (!response) {
+      throw new Error("No response from Gemini");
+    }
+
+    const text = response.text().trim();
+    // Clean up markdown code blocks if present
+    const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+
+    return JSON.parse(cleanText);
+  } catch (error) {
+    console.error("Error generating campaign content:", error);
+    return [];
   }
 }

@@ -227,6 +227,43 @@ export interface Database {
         }
         Relationships: []
       }
+      saved_campaigns: {
+        Row: {
+          id: string
+          user_id: string
+          topic: string
+          platform: string
+          tone: string
+          posts: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          topic: string
+          platform: string
+          tone: string
+          posts: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          topic?: string
+          platform?: string
+          tone?: string
+          posts?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_campaigns_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never

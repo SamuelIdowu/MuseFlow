@@ -25,6 +25,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { CONTENT_TYPES } from "@/types/content";
+import { FileContextUploader } from "@/components/ui/file-context-uploader";
 
 interface ProfileFormDialogProps {
     open: boolean;
@@ -100,6 +101,10 @@ export function ProfileFormDialog({
 
     const handleRemoveSample = (index: number) => {
         setSamples((prev) => prev.filter((_, i) => i !== index));
+    };
+
+    const handleFileExtracted = (text: string) => {
+        setSamples((prev) => [...prev, text]);
     };
 
     const handleSubmit = async () => {
@@ -266,14 +271,22 @@ export function ProfileFormDialog({
                             </div>
                         ))}
 
+                    </div>
+
+                    <div className="flex gap-2">
                         <Button
                             type="button"
                             variant="outline"
                             onClick={handleAddSample}
-                            className="w-full"
+                            className="flex-1"
                         >
-                            Add Sample
+                            Add Details Manually
                         </Button>
+                        <FileContextUploader
+                            onTextExtracted={handleFileExtracted}
+                            label="Import from File"
+                            className="flex-1"
+                        />
                     </div>
                 </div>
 

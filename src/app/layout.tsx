@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
 import { ClerkProvider } from "@clerk/nextjs";
 import { ThemeProvider } from "@/components/theme-provider";
+import InstallPrompt from "@/components/InstallPrompt";
 import "./globals.css";
 
 const inter = Inter({
@@ -15,6 +16,15 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "MuseFlow - AI Content Ideation Platform",
   description: "Your AI content co-pilot for ideation and publishing",
+  manifest: "/manifest.json",
+};
+
+export const viewport: Viewport = {
+  themeColor: "#000000",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
 };
 
 export default function RootLayout({
@@ -42,6 +52,7 @@ export default function RootLayout({
                 duration: 4000,
               }}
             />
+            <InstallPrompt />
           </ThemeProvider>
         </body>
       </html>

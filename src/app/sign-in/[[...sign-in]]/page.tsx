@@ -43,7 +43,14 @@ export default function SignInPage() {
       }
     } catch (err: any) {
       console.error('Sign-in error:', err);
-      setError(err.errors?.[0]?.message || 'Failed to sign in');
+      const errorMessage = err.errors?.[0]?.message || 'Failed to sign in';
+
+      if (errorMessage === "You're already signed in.") {
+        window.location.href = '/dashboard';
+        return;
+      }
+
+      setError(errorMessage);
     }
   };
 

@@ -728,7 +728,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                                                         {...provided.dragHandleProps}
                                                         style={{ ...provided.draggableProps.style }}
                                                         className={`p-5 rounded-lg bg-card border transition-all duration-200 group ${snapshot.isDragging ? 'shadow-xl ring-2 ring-primary/60 z-50 scale-[1.02]' : ''} ${editingBlockId === block.id
-                                                            ? 'ring-2 ring-primary shadow-md border-primary'
+                                                            ? 'ring-1 ring-primary/50 shadow-sm border-primary/50'
                                                             : 'border-border hover:border-primary/40'
                                                             }`}
                                                     >

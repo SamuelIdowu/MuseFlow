@@ -1,9 +1,11 @@
 'use server';
 
+
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { Database } from './database.types';
 import { createSupabaseServiceClient, ensureSupabaseUser } from './supabaseServerClient';
 import { Profile } from '@/types/profile';
+import { generateCampaignContent } from './geminiClient';
 
 export async function getDashboardStats() {
   // Get Clerk authentication

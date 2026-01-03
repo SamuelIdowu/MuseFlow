@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/select";
 import { CONTENT_TYPES } from "@/types/content";
 import { saveToIdeasAction } from '@/lib/dashboardServerActions';
+import { FileContextUploader } from "@/components/ui/file-context-uploader";
 
 // Types
 interface DashboardClientProps {
@@ -398,6 +399,13 @@ export function DashboardClient({
                 ))}
               </SelectContent>
             </Select>
+
+            <FileContextUploader
+              onTextExtracted={(text) => setInputText((prev) => prev + (prev ? "\n\n" : "") + text)}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+            />
           </div>
 
           <div className="relative rounded-xl border bg-background shadow-sm focus-within:ring-1 focus-within:ring-ring transition-all">

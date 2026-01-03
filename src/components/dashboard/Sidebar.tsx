@@ -2,7 +2,7 @@
 
 import { cn } from '@/lib/utils';
 
-import { Home, FileText, Calendar, User, Settings, SquarePen, MessageSquare, Plus, Trash2 } from 'lucide-react';
+import { Home, FileText, Calendar, User, Settings, SquarePen, MessageSquare, Plus, Trash2, Megaphone } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -40,6 +40,11 @@ const navItems = [
     title: 'Canvas',
     href: '/dashboard/canvas',
     icon: SquarePen,
+  },
+  {
+    title: 'Campaigns',
+    href: '/dashboard/campaigns',
+    icon: Megaphone,
   },
   {
     title: 'Schedule',
@@ -82,15 +87,12 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void }) {
     try {
       await deleteIdeaAction(id);
       toast.success("Chat deleted");
-
-      // If deleting current chat, redirect to new chat
       if (currentChatId === id) {
         window.location.href = '/dashboard';
       }
     } catch (error) {
       console.error("Failed to delete chat", error);
       toast.error("Failed to delete chat");
-      // Re-fetch to restore state if failed
       const chats = await getRecentChats();
       setRecentChats(chats);
     }
