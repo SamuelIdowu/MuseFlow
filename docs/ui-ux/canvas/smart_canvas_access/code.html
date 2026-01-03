@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SmartCanvas AI - Create New Content</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+        .group:hover .group-hover\:block {
+            display: block;
+        }
+        .group:hover .group-hover\:opacity-100 {
+            opacity: 1;
+        }
+    </style>
+<script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#13a4ec",
+              "background-light": "#f6f7f8",
+              "background-dark": "#111c22",
+              "surface-dark": "#1a2831",
+              "surface-light": "#ffffff",
+              "text-light-primary": "#111827",
+              "text-dark-primary": "#ffffff",
+              "text-light-secondary": "#6b7280",
+              "text-dark-secondary": "#92b7c9",
+              "border-light": "#e5e7eb",
+              "border-dark": "#233c48"
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.5rem", "lg": "0.75rem", "xl": "1rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-text-light-primary dark:text-text-dark-primary">
+<div class="flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="w-64 flex-shrink-0 bg-surface-light dark:bg-surface-dark p-4 flex flex-col justify-between border-r border-border-light dark:border-border-dark">
+<div class="flex flex-col gap-6">
+<div class="flex gap-3 items-center px-2">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" data-alt="SmartCanvas AI Logo with abstract shapes" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCoR4RwiChk0KJAekEI7-_Z0sAak_VApRQDPswyeNM-g9ej5_7z5OEjkB0o8qzLBtwI0agHkOvY7a_xixZZOFzWoItm7iansKUP1ZFPYs_299EDWrinb7IZjTHgO6dZMK-FU8xcE_vQ7H3ryHZmmbQJ2yZMbuAmlukuNPlizxHMC_xLnaNiWxVNSINXeWAMoqgpSqyvUFhksY1aAmKsn_ENhDzrRFbZSyJyhJ6PdLPmiP-kFSWVOz9iKxRcFr70eoOY5AeyN1FOnQ");'></div>
+<div class="flex flex-col">
+<h1 class="text-text-light-primary dark:text-text-dark-primary text-base font-bold leading-normal">SmartCanvas AI</h1>
+<p class="text-text-light-secondary dark:text-text-dark-secondary text-sm font-normal leading-normal">Content Platform</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-light-secondary dark:text-text-dark-secondary hover:bg-gray-100 dark:hover:bg-border-dark" href="#">
+<span class="material-symbols-outlined text-2xl">dashboard</span>
+<p class="text-sm font-medium leading-normal">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/10 dark:bg-border-dark" href="#">
+<span class="material-symbols-outlined text-2xl text-primary dark:text-white" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+<p class="text-sm font-bold leading-normal text-primary dark:text-white">Create Content</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-light-secondary dark:text-text-dark-secondary hover:bg-gray-100 dark:hover:bg-border-dark" href="#">
+<span class="material-symbols-outlined text-2xl">bar_chart</span>
+<p class="text-sm font-medium leading-normal">Analytics</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-light-secondary dark:text-text-dark-secondary hover:bg-gray-100 dark:hover:bg-border-dark" href="#">
+<span class="material-symbols-outlined text-2xl">calendar_month</span>
+<p class="text-sm font-medium leading-normal">Content Planner</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-light-secondary dark:text-text-dark-secondary hover:bg-gray-100 dark:hover:bg-border-dark" href="#">
+<span class="material-symbols-outlined text-2xl">settings</span>
+<p class="text-sm font-medium leading-normal">Settings</p>
+</a>
+</nav>
+</div>
+<div class="flex flex-col gap-2">
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors">
+<span class="truncate">Upgrade Plan</span>
+</button>
+<div class="flex flex-col gap-1 mt-2">
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-light-secondary dark:text-text-dark-secondary hover:bg-gray-100 dark:hover:bg-border-dark" href="#">
+<span class="material-symbols-outlined text-2xl">help</span>
+<p class="text-sm font-medium leading-normal">Help Center</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg text-text-light-secondary dark:text-text-dark-secondary hover:bg-gray-100 dark:hover:bg-border-dark" href="#">
+<span class="material-symbols-outlined text-2xl">logout</span>
+<p class="text-sm font-medium leading-normal">Log Out</p>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 p-8 overflow-y-auto">
+<div class="max-w-7xl mx-auto">
+<!-- PageHeading -->
+<div class="flex flex-wrap justify-between items-center gap-4 mb-8">
+<div class="flex flex-col gap-2">
+<p class="text-text-light-primary dark:text-text-dark-primary text-4xl font-black leading-tight tracking-[-0.033em]">Choose a Starting Point</p>
+<p class="text-text-light-secondary dark:text-text-dark-secondary text-base font-normal leading-normal">Select a smart template or start from a blank canvas to begin.</p>
+</div>
+<button class="flex min-w-[84px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-6 bg-border-light dark:bg-border-dark text-text-light-primary dark:text-text-dark-primary text-sm font-bold leading-normal tracking-[0.015em] hover:bg-gray-200 dark:hover:bg-gray-700/50 transition-colors">
+<span class="material-symbols-outlined text-xl mr-2">add</span>
+<span class="truncate">Start with a Blank Canvas</span>
+</button>
+</div>
+<!-- SearchBar & Chips -->
+<div class="flex flex-col gap-4 mb-8">
+<div class="w-full">
+<label class="flex flex-col min-w-40 h-12">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark focus-within:ring-2 focus-within:ring-primary">
+<div class="text-text-light-secondary dark:text-text-dark-secondary flex items-center justify-center pl-4">
+<span class="material-symbols-outlined text-2xl">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden text-text-light-primary dark:text-text-dark-primary focus:outline-0 focus:ring-0 border-none bg-transparent h-full placeholder:text-text-light-secondary dark:placeholder:text-text-dark-secondary pl-2 text-base font-normal leading-normal" placeholder="Search for templates by keyword (e.g., 'blog post', 'social media')" value=""/>
+</div>
+</label>
+</div>
+<div class="flex gap-3 overflow-x-auto pb-2">
+<div class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-primary/10 dark:bg-border-dark px-4 cursor-pointer">
+<p class="text-primary dark:text-white text-sm font-medium leading-normal">All Templates</p>
+</div>
+<div class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark px-4 cursor-pointer hover:border-primary/50 dark:hover:border-primary/50">
+<p class="text-text-light-primary dark:text-text-dark-primary text-sm font-medium leading-normal">Blog &amp; Articles</p>
+</div>
+<div class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark px-4 cursor-pointer hover:border-primary/50 dark:hover:border-primary/50">
+<p class="text-text-light-primary dark:text-text-dark-primary text-sm font-medium leading-normal">Social Media</p>
+</div>
+<div class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark px-4 cursor-pointer hover:border-primary/50 dark:hover:border-primary/50">
+<p class="text-text-light-primary dark:text-text-dark-primary text-sm font-medium leading-normal">Email Marketing</p>
+</div>
+<div class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark px-4 cursor-pointer hover:border-primary/50 dark:hover:border-primary/50">
+<p class="text-text-light-primary dark:text-text-dark-primary text-sm font-medium leading-normal">Website Copy</p>
+</div>
+<div class="flex h-9 shrink-0 items-center justify-center gap-x-2 rounded-full bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark px-4 cursor-pointer hover:border-primary/50 dark:hover:border-primary/50">
+<p class="text-text-light-primary dark:text-text-dark-primary text-sm font-medium leading-normal">Ad Copy</p>
+</div>
+</div>
+</div>
+<!-- ImageGrid / Template Gallery -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+<div class="group flex flex-col gap-3 pb-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+<div class="relative w-full bg-center bg-no-repeat aspect-video bg-cover" data-alt="Abstract colorful gradient representing a blog post" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCkwRsJDLwJi1HHCY8cPrzp4-rYSJ7hUegcq_DIRFvO7cr40bW2-Wuh_fBbXghEUQ-kZDfMAZKMYxW5SqVAL542zuUwqEkyyxSunppEmIoY0a9WEYgzGbdoC5XJrI_g_A4SCjpN0cVULXo8e-ma5H-nlUyO4mtXf5Jrq-oLTmnjFav2u70S3odiXAAslV8F0gp_wlgaT8VqZpg5DHlfpnvHAYBM2iWiavuQr2kXU0YK-yjoa-EO80aOidxDt4oslRBzfYWKxGcFqA");'>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+<button class="bg-white/20 backdrop-blur-sm text-white px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/30">Preview</button>
+<button class="bg-primary text-white px-4 py-2 text-sm font-bold rounded-lg hover:bg-primary/90">Use Template</button>
+</div>
+</div>
+<div class="px-4 pb-2">
+<p class="text-text-light-primary dark:text-text-dark-primary text-base font-bold leading-normal">SEO Optimized Blog Post</p>
+<p class="text-text-light-secondary dark:text-text-dark-secondary text-sm font-normal leading-normal mt-1">A structure designed to rank, with blocks for keywords, intro, and H2 sections.</p>
+</div>
+</div>
+<div class="group flex flex-col gap-3 pb-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+<div class="relative w-full bg-center bg-no-repeat aspect-video bg-cover" data-alt="Abstract blue and purple gradient" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAQn_FeN28v1SB0C8nlkDGpJeRzMx4QGI3YJ_xdV8axyBZOQwRMfnInvomsRwbTGpva_4CiJu6B6Ns1y7HH3FF8pBhhQ4fHtOi4P6enVfxxilwBLKQkB5DuHedrX-mFBx4x03SYz4hcb6xLGv5E66EsgoMAOEHRMpQB2H6QxD9bVxmbUHl4_RxmZ_9B6fWv7fKP3mhgIApsdZqhIYE2d3PbO-fxdUi5fqYbl3gfb6YsuzLRaWRk3MO63Zac_kcGZv6Op2RNtvN5iQ");'>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+<button class="bg-white/20 backdrop-blur-sm text-white px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/30">Preview</button>
+<button class="bg-primary text-white px-4 py-2 text-sm font-bold rounded-lg hover:bg-primary/90">Use Template</button>
+</div>
+</div>
+<div class="px-4 pb-2">
+<p class="text-text-light-primary dark:text-text-dark-primary text-base font-bold leading-normal">LinkedIn Thought Leadership Post</p>
+<p class="text-text-light-secondary dark:text-text-dark-secondary text-sm font-normal leading-normal mt-1">Engage your professional network with this proven post format.</p>
+</div>
+</div>
+<div class="group flex flex-col gap-3 pb-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+<div class="relative w-full bg-center bg-no-repeat aspect-video bg-cover" data-alt="Abstract pink and blue gradient for an email campaign" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAcBcWVyUmLpUbUShShrCcECA6IB_v0KTFDSPP3tzjn0htoihFcLCtOirwbuE8Ad8Ojgt1Wcqwqja8wKXsDJZfIrALV87OuI9r35trRMANW5M-FIOllTLc3BIPdYKNWvrNtolipJtz8TvXLx7MurnB4KFqq0XtsxWypCFu9KdH-CH4W1eFOl4i1PxiaNCtL7LcV4ZHc89Noj9wLHvVgMdZTqLlE-Zcb1gEp8Nzs6oFnCKpFtWshq2dGVktZBnFvhxKegFCzYuwq2Q");'>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+<button class="bg-white/20 backdrop-blur-sm text-white px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/30">Preview</button>
+<button class="bg-primary text-white px-4 py-2 text-sm font-bold rounded-lg hover:bg-primary/90">Use Template</button>
+</div>
+</div>
+<div class="px-4 pb-2">
+<p class="text-text-light-primary dark:text-text-dark-primary text-base font-bold leading-normal">Promotional Email Campaign</p>
+<p class="text-text-light-secondary dark:text-text-dark-secondary text-sm font-normal leading-normal mt-1">Announce new products or special offers to your mailing list.</p>
+</div>
+</div>
+<div class="group flex flex-col gap-3 pb-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+<div class="relative w-full bg-center bg-no-repeat aspect-video bg-cover" data-alt="Geometric pattern in shades of teal" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAgnWiF3igcbOGG2p4MF4lJ2HYKAqJii773ImDJ8dwPGgcTHuVL02sepjhyWNha9A-lssTH1YHqYiGEJA0gCtCr-qrYFIadeGnZuBN-m1PmQFUM6z56zJ3WTfh2O5qwR3OTFj7h-vG36hQn0q329RQuwtji4WiFmi5TZm81q_I68DSEXIkBiIglVo_t95EHw8okzrP5VHVG9_7zHJOsW25dLeLXXQNDF5R7KCj6Fbgt3nmU1HgL8FyPBWd2SnwPguHc07_a9uRsyw");'>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+<button class="bg-white/20 backdrop-blur-sm text-white px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/30">Preview</button>
+<button class="bg-primary text-white px-4 py-2 text-sm font-bold rounded-lg hover:bg-primary/90">Use Template</button>
+</div>
+</div>
+<div class="px-4 pb-2">
+<p class="text-text-light-primary dark:text-text-dark-primary text-base font-bold leading-normal">How-To Guide Template</p>
+<p class="text-text-light-secondary dark:text-text-dark-secondary text-sm font-normal leading-normal mt-1">A step-by-step format to guide your audience through a process.</p>
+</div>
+</div>
+<div class="group flex flex-col gap-3 pb-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+<div class="relative w-full bg-center bg-no-repeat aspect-video bg-cover" data-alt="Vibrant red and orange abstract background for an ad" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBfPHcI5Lcr1KBPfp2-rJP5KEyYMvTVSTwV5I1N06E_llAU_PKNkuqJHcBbbCxEwobrKLo6T3MiLxFASkQdr3YOeqD6dRGKoGsV69baOrkpJqxHsQuUyxlE4vdvWuBF7ZJcneEPNxeEQ0-saKLBjWjB3FCBdAzhf68U0K9gBsFlefZnm4WkcOY3BaTZwk7-hzPOtdEfYvcvo9AQqjDhLyunKDkPhn7z9eOlB0FLbn-NrmHeP7sS_rMLm1gsGtmAB5VMR9nYXhlvbQ");'>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+<button class="bg-white/20 backdrop-blur-sm text-white px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/30">Preview</button>
+<button class="bg-primary text-white px-4 py-2 text-sm font-bold rounded-lg hover:bg-primary/90">Use Template</button>
+</div>
+</div>
+<div class="px-4 pb-2">
+<p class="text-text-light-primary dark:text-text-dark-primary text-base font-bold leading-normal">Facebook Ad Copy</p>
+<p class="text-text-light-secondary dark:text-text-dark-secondary text-sm font-normal leading-normal mt-1">High-converting copy structure for social media advertising.</p>
+</div>
+</div>
+<div class="group flex flex-col gap-3 pb-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+<div class="relative w-full bg-center bg-no-repeat aspect-video bg-cover" data-alt="Dynamic lines on a dark background for a product announcement" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCc2WgTU7_hVO5iCETNHuffzYTnCN8Znls0vWXfv6OTL1M01wNSQzGX_Khv3v7IpsHKKhI43IRLR7DCIt8eKr0ZBiQLpMxQHbZH3HQzYuTNdk7iGV0cNB01XEXqfV1jcPIYAL1-ZujT6JL5EZwK7Kny7pJqiXHlKRd1_iHcd3V4LvIlr7E8CTBhiqBfoQ80y6c9vnsOkz6ZrO9qAl41RdQMHcBDhWOw4es4arrIk7QvZPssIHH4i5oZh9AkAOOdVamw9WePcekInw");'>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+<button class="bg-white/20 backdrop-blur-sm text-white px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/30">Preview</button>
+<button class="bg-primary text-white px-4 py-2 text-sm font-bold rounded-lg hover:bg-primary/90">Use Template</button>
+</div>
+</div>
+<div class="px-4 pb-2">
+<p class="text-text-light-primary dark:text-text-dark-primary text-base font-bold leading-normal">New Product Announcement</p>
+<p class="text-text-light-secondary dark:text-text-dark-secondary text-sm font-normal leading-normal mt-1">Generate buzz with a compelling announcement for your latest release.</p>
+</div>
+</div>
+<div class="group flex flex-col gap-3 pb-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+<div class="relative w-full bg-center bg-no-repeat aspect-video bg-cover" data-alt="Soft pastel abstract waves" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuA0Ps4i-1BVSw_b_D8Cqb5YqUFcR9zbn0WxrrpLlSwRhvQUuocLZeLQZFbv2NyBdoheE7boE1RWxrnW0rpHb0aYw8W7CKJk_cU-7qrj3t2MKwbJuGjBObdizDn2Mku9imD9tiB88r8-ACb1psuPwtt_63oodPW5MFd8_1kg1WAud3GfPMWq9oCVrc68I_2ZfuO4za_z-vkHwXgyj_uj6SDOkO8GybWt5A9Xkp-ZFQflnMHtMJ2MJfVa7Vu89quzrhJ3J_luXGtqtQ");'>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+<button class="bg-white/20 backdrop-blur-sm text-white px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/30">Preview</button>
+<button class="bg-primary text-white px-4 py-2 text-sm font-bold rounded-lg hover:bg-primary/90">Use Template</button>
+</div>
+</div>
+<div class="px-4 pb-2">
+<p class="text-text-light-primary dark:text-text-dark-primary text-base font-bold leading-normal">Case Study Template</p>
+<p class="text-text-light-secondary dark:text-text-dark-secondary text-sm font-normal leading-normal mt-1">Showcase customer success stories with a problem-solution-result format.</p>
+</div>
+</div>
+<div class="group flex flex-col gap-3 pb-3 rounded-xl bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+<div class="relative w-full bg-center bg-no-repeat aspect-video bg-cover" data-alt="Cool blue liquid swirl pattern" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuAJXiH0FtpYWfEroX2WIC-3PRtjmODQLA_72LoDcN9LoUOXvWxd6luPlS36m4IoicSPqC08rrtgfyiy2xg6_gHgPWsFZOYPSZDH2sjDxrTWNGzHMAIVKd7jq_R7ATUnyJgk1sjpz1W-AwnVNIbIGZzq3Zw69qwiADeLE5WXp2AVhrQ0ZyydJwKszMbAuvJ2LVlPDtsjuyJMulCgfdMTM8q1z1rmgJuzBfkq4_FW6OTxuVvFv7T3Bs2tKquBMQd34SKAqkywAmzEuw");'>
+<div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-2">
+<button class="bg-white/20 backdrop-blur-sm text-white px-4 py-2 text-sm font-semibold rounded-lg hover:bg-white/30">Preview</button>
+<button class="bg-primary text-white px-4 py-2 text-sm font-bold rounded-lg hover:bg-primary/90">Use Template</button>
+</div>
+</div>
+<div class="px-4 pb-2">
+<p class="text-text-light-primary dark:text-text-dark-primary text-base font-bold leading-normal">Landing Page Copy</p>
+<p class="text-text-light-secondary dark:text-text-dark-secondary text-sm font-normal leading-normal mt-1">Structure your hero section, features, and CTA for maximum conversion.</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

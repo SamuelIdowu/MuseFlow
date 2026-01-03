@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Content Profiles Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#13a4ec",
+              "background-light": "#f6f7f8",
+              "background-dark": "#101c22",
+            },
+            fontFamily: {
+              "display": ["Manrope", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+    </style>
+</head>
+<body class="bg-background-light dark:bg-background-dark font-display text-gray-800 dark:text-gray-200">
+<div class="flex h-screen">
+<!-- SideNavBar -->
+<aside class="flex w-64 flex-col bg-white dark:bg-[#111c22] p-4 border-r border-gray-200 dark:border-gray-800">
+<div class="flex flex-col justify-between h-full">
+<div class="flex flex-col gap-4">
+<div class="flex items-center gap-3">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10" data-alt="AIPublish Logo" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDF666Spytn8nOHNzULv0PYDgCjmkgTAJptI1S_H2qS1NawueMmE1l-oh-zYtC_Njq7LBX3SHRlmHLaVzS2_Lx_ohwM9aCqk9CxOLQj8EZ6VXtXS_p89qJ83A7QUpM4o7LLD-Og1r1CgFceQdn-jLGwRegDN9a6qd0t96y6a-U9-yGlGIHbsh-D4fxWoYVhutor0_XcGhUH2rEkZbzBw_tcKo0oUwq6CzKlCn61jdWIvXjXNgPBSfNntTsdeotWOOOnW0uVXvhgDA");'></div>
+<div class="flex flex-col">
+<h1 class="text-gray-900 dark:text-white text-base font-bold leading-normal">AIPublish</h1>
+<p class="text-gray-500 dark:text-[#92b7c9] text-sm font-normal leading-normal">Workspace</p>
+</div>
+</div>
+<nav class="flex flex-col gap-2 mt-4">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-primary/20 rounded-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<p class="text-sm font-medium leading-normal">Dashboard</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-primary/20 rounded-lg" href="#">
+<span class="material-symbols-outlined">lightbulb</span>
+<p class="text-sm font-medium leading-normal">Content Ideation</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 rounded-lg bg-primary/20 text-primary dark:bg-primary/30" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person</span>
+<p class="text-sm font-bold leading-normal">Content Profiles</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-primary/20 rounded-lg" href="#">
+<span class="material-symbols-outlined">send</span>
+<p class="text-sm font-medium leading-normal">Publishing</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-primary/20 rounded-lg" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<p class="text-sm font-medium leading-normal">Analytics</p>
+</a>
+</nav>
+</div>
+<div class="flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-primary/20 rounded-lg" href="#">
+<span class="material-symbols-outlined">settings</span>
+<p class="text-sm font-medium leading-normal">Settings</p>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-primary/20 rounded-lg" href="#">
+<span class="material-symbols-outlined">help</span>
+<p class="text-sm font-medium leading-normal">Help</p>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 overflow-y-auto">
+<div class="p-6 md:p-8 lg:p-10">
+<div class="max-w-7xl mx-auto">
+<!-- PageHeading -->
+<div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+<div class="flex flex-col gap-2">
+<h1 class="text-gray-900 dark:text-white text-4xl font-black leading-tight tracking-[-0.033em]">Content Profiles</h1>
+<p class="text-gray-500 dark:text-[#92b7c9] text-base font-normal leading-normal">Manage your brand identities. The active profile will guide the AI in generating new content.</p>
+</div>
+<button class="flex items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors">
+<span class="material-symbols-outlined text-base">add_circle</span>
+<span class="truncate">Create New Profile</span>
+</button>
+</div>
+<!-- SearchBar -->
+<div class="mb-8">
+<label class="flex flex-col w-full">
+<div class="flex w-full flex-1 items-stretch rounded-lg h-12 bg-white dark:bg-[#233c48] border border-gray-200 dark:border-gray-700 focus-within:ring-2 focus-within:ring-primary">
+<div class="text-gray-400 dark:text-[#92b7c9] flex items-center justify-center pl-4">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden text-gray-900 dark:text-white focus:outline-0 focus:ring-0 border-none bg-transparent h-full placeholder:text-gray-400 dark:placeholder:text-[#92b7c9] px-4 pl-2 text-base font-normal leading-normal" placeholder="Find a profile by name..." value=""/>
+</div>
+</label>
+</div>
+<!-- ImageGrid adapted to Profile Cards -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Active Profile Card -->
+<div class="flex flex-col gap-4 rounded-xl border-2 border-primary bg-primary/5 dark:bg-primary/10 p-4 relative">
+<div class="absolute top-4 right-4 flex items-center gap-2 bg-primary/20 text-primary dark:text-primary-300 text-xs font-bold px-2 py-1 rounded-full">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<span>Active</span>
+</div>
+<div class="flex flex-col">
+<p class="text-gray-900 dark:text-white text-lg font-bold leading-normal">Tech Startup Blog</p>
+<p class="text-gray-500 dark:text-[#92b7c9] text-sm font-normal leading-normal">Niche: B2B SaaS</p>
+</div>
+<div>
+<h3 class="text-gray-600 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Tone &amp; Keywords</h3>
+<div class="flex flex-wrap gap-2">
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full">Professional</span>
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full">Witty</span>
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full">AI</span>
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full">Growth</span>
+</div>
+</div>
+<div class="flex items-center gap-2 mt-auto pt-4 border-t border-primary/20 dark:border-primary/30">
+<button class="flex-1 flex items-center justify-center gap-2 rounded-lg h-9 px-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-bold leading-normal hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+<span class="material-symbols-outlined text-base">edit</span>
+<span>Edit</span>
+</button>
+<button class="flex-1 flex items-center justify-center gap-2 rounded-lg h-9 px-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-bold leading-normal hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+<span class="material-symbols-outlined text-base">delete</span>
+<span>Delete</span>
+</button>
+</div>
+</div>
+<!-- Standard Profile Card -->
+<div class="flex flex-col gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111c22] p-4">
+<div class="flex flex-col">
+<p class="text-gray-900 dark:text-white text-lg font-bold leading-normal">Eco-Friendly Living</p>
+<p class="text-gray-500 dark:text-[#92b7c9] text-sm font-normal leading-normal">Niche: Sustainability</p>
+</div>
+<div>
+<h3 class="text-gray-600 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Tone &amp; Keywords</h3>
+<div class="flex flex-wrap gap-2">
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full">Casual</span>
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full">Informative</span>
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full">Green</span>
+</div>
+</div>
+<div class="flex flex-col gap-2 mt-auto pt-4 border-t border-gray-200 dark:border-gray-800">
+<button class="w-full flex items-center justify-center gap-2 rounded-lg h-9 px-3 bg-primary text-white text-sm font-bold leading-normal hover:bg-primary/90 transition-colors">
+<span>Set as Active</span>
+</button>
+<div class="flex items-center gap-2">
+<button class="flex-1 flex items-center justify-center gap-2 rounded-lg h-9 px-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-bold leading-normal hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+<span class="material-symbols-outlined text-base">edit</span>
+<span>Edit</span>
+</button>
+<button class="flex-1 flex items-center justify-center gap-2 rounded-lg h-9 px-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-bold leading-normal hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+<span class="material-symbols-outlined text-base">delete</span>
+<span>Delete</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Standard Profile Card -->
+<div class="flex flex-col gap-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111c22] p-4">
+<div class="flex flex-col">
+<p class="text-gray-900 dark:text-white text-lg font-bold leading-normal">Personal Finance Tips</p>
+<p class="text-gray-500 dark:text-[#92b7c9] text-sm font-normal leading-normal">Niche: Millennial Finance</p>
+</div>
+<div>
+<h3 class="text-gray-600 dark:text-gray-400 text-xs font-semibold uppercase tracking-wider mb-2">Tone &amp; Keywords</h3>
+<div class="flex flex-wrap gap-2">
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full">Authoritative</span>
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full">Simple</span>
+<span class="bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium px-2.5 py-1 rounded-full">Investing</span>
+</div>
+</div>
+<div class="flex flex-col gap-2 mt-auto pt-4 border-t border-gray-200 dark:border-gray-800">
+<button class="w-full flex items-center justify-center gap-2 rounded-lg h-9 px-3 bg-primary text-white text-sm font-bold leading-normal hover:bg-primary/90 transition-colors">
+<span>Set as Active</span>
+</button>
+<div class="flex items-center gap-2">
+<button class="flex-1 flex items-center justify-center gap-2 rounded-lg h-9 px-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-bold leading-normal hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+<span class="material-symbols-outlined text-base">edit</span>
+<span>Edit</span>
+</button>
+<button class="flex-1 flex items-center justify-center gap-2 rounded-lg h-9 px-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-bold leading-normal hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+<span class="material-symbols-outlined text-base">delete</span>
+<span>Delete</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- EmptyState (example for a scenario with no profiles) -->
+<div class="pt-16 hidden">
+<div class="flex flex-col items-center gap-6">
+<div class="text-primary">
+<svg class="lucide lucide-archive" fill="none" height="96" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="1" viewbox="0 0 24 24" width="96" xmlns="http://www.w3.org/2000/svg"><rect height="5" rx="1" width="20" x="2" y="3"></rect><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"></path><path d="M10 12h4"></path></svg>
+</div>
+<div class="flex max-w-md flex-col items-center gap-2 text-center">
+<p class="text-gray-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">No profiles yet</p>
+<p class="text-gray-500 dark:text-[#92b7c9] text-sm font-normal leading-normal">Create your first Content Profile to start generating tailored ideas.</p>
+</div>
+<button class="flex items-center justify-center gap-2 overflow-hidden rounded-lg h-10 px-4 bg-primary text-white text-sm font-bold leading-normal tracking-[0.015em] hover:bg-primary/90 transition-colors">
+<span class="material-symbols-outlined text-base">add_circle</span>
+<span class="truncate">Create New Profile</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>
