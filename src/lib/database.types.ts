@@ -17,6 +17,8 @@ export interface Database {
           type: string | null
           content: string
           order_index: number
+          position_x: number
+          position_y: number
           meta: Json | null
           created_at: string
           updated_at: string
@@ -28,6 +30,8 @@ export interface Database {
           type?: string | null
           content: string
           order_index?: number
+          position_x?: number
+          position_y?: number
           meta?: Json | null
           created_at?: string
           updated_at?: string
@@ -39,6 +43,8 @@ export interface Database {
           type?: string | null
           content?: string
           order_index?: number
+          position_x?: number
+          position_y?: number
           meta?: Json | null
           created_at?: string
           updated_at?: string
@@ -54,6 +60,61 @@ export interface Database {
             foreignKeyName: "canvas_blocks_user_id_fkey"
             columns: ["user_id"]
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      canvas_edges: {
+        Row: {
+          id: string
+          canvas_id: string
+          user_id: string
+          source_block_id: string
+          target_block_id: string
+          label: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          canvas_id: string
+          user_id: string
+          source_block_id: string
+          target_block_id: string
+          label?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          canvas_id?: string
+          user_id?: string
+          source_block_id?: string
+          target_block_id?: string
+          label?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvas_edges_canvas_id_fkey"
+            columns: ["canvas_id"]
+            referencedRelation: "canvas_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_edges_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_edges_source_block_id_fkey"
+            columns: ["source_block_id"]
+            referencedRelation: "canvas_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_edges_target_block_id_fkey"
+            columns: ["target_block_id"]
+            referencedRelation: "canvas_blocks"
             referencedColumns: ["id"]
           }
         ]
@@ -211,18 +272,39 @@ export interface Database {
           id: string
           email: string
           clerk_id: string
+          stripe_customer_id: string | null
+          flutterwave_customer_id: string | null
+          flutterwave_transaction_ref: string | null
+          flutterwave_plan_id: string | null
+          subscription_status: string | null
+          current_period_end: string | null
+          subscription_plan: string | null
           created_at: string
         }
         Insert: {
           id?: string
           email: string
           clerk_id: string
+          stripe_customer_id?: string | null
+          flutterwave_customer_id?: string | null
+          flutterwave_transaction_ref?: string | null
+          flutterwave_plan_id?: string | null
+          subscription_status?: string | null
+          current_period_end?: string | null
+          subscription_plan?: string | null
           created_at?: string
         }
         Update: {
           id?: string
           email?: string
           clerk_id?: string
+          stripe_customer_id?: string | null
+          flutterwave_customer_id?: string | null
+          flutterwave_transaction_ref?: string | null
+          flutterwave_plan_id?: string | null
+          subscription_status?: string | null
+          current_period_end?: string | null
+          subscription_plan?: string | null
           created_at?: string
         }
         Relationships: []
@@ -258,6 +340,95 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "saved_campaigns_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      subscriptions: {
+        Row: {
+          id: string
+          user_id: string
+          status: string | null
+          price_id: string | null
+          cancel_at_period_end: boolean | null
+          current_period_end: string | null
+          created_at: string
+          ended_at: string | null
+          cancel_at: string | null
+          canceled_at: string | null
+          trial_start: string | null
+          trial_end: string | null
+        }
+        Insert: {
+          id: string
+          user_id: string
+          status?: string | null
+          price_id?: string | null
+          cancel_at_period_end?: boolean | null
+          current_period_end?: string | null
+          created_at?: string
+          ended_at?: string | null
+          cancel_at?: string | null
+          canceled_at?: string | null
+          trial_start?: string | null
+          trial_end?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          status?: string | null
+          price_id?: string | null
+          cancel_at_period_end?: boolean | null
+          current_period_end?: string | null
+          created_at?: string
+          ended_at?: string | null
+          cancel_at?: string | null
+          canceled_at?: string | null
+          trial_start?: string | null
+          trial_end?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      usage_tracking: {
+        Row: {
+          id: string
+          user_id: string
+          metric: string
+          count: number
+          period_start: string
+          period_end: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          metric: string
+          count?: number
+          period_start: string
+          period_end: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          metric?: string
+          count?: number
+          period_start?: string
+          period_end?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_tracking_user_id_fkey"
             columns: ["user_id"]
             referencedRelation: "users"
             referencedColumns: ["id"]

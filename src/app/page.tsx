@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowRight, CheckCircle2, Sparkles, Zap, Layout, Calendar, Clock, TrendingUp, Twitter, Linkedin, Youtube } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import Image from 'next/image';
+import { PricingSection } from '@/components/pricing/PricingSection';
 
 export default async function Home() {
   const { userId } = await auth();
@@ -134,7 +135,7 @@ export default async function Home() {
                 </p>
                 <Link href={getStartedHref}>
                   <Button size="lg" className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20">
-                    Get started for free 
+                    Get started for free
                   </Button>
                 </Link>
               </div>
@@ -250,30 +251,10 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* CTA Section */}
-        <section className="py-20 px-4 bg-gray-50 dark:bg-gray-900">
-          <div className="container mx-auto max-w-3xl text-center">
-            <div className="bg-orange-50 dark:bg-orange-900/10 rounded-3xl p-12 border border-orange-100 dark:border-orange-800/30">
-              <div className="w-16 h-16 bg-slate-800 dark:bg-slate-700 rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                 <Image src="/logoo.png" alt="MuseFlow Logo" width={60} height={60} className="rounded-lg" />
-              </div>
-              <h2 className="text-3xl md:text-5xl font-bold mb-4 text-gray-900 dark:text-gray-100">
-                Start Creating Smarter Content Today
-              </h2>
-              <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-xl mx-auto">
-                Join creators who generate, refine, and publish content faster with AI
-              </p>
-              <Link href={getStartedHref}>
-                <Button size="lg" className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white shadow-lg shadow-orange-500/30">
-                  Get Started for Free
-                </Button>
-              </Link>
-              <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">
-                No credit card required
-              </p>
-            </div>
-          </div>
-        </section>
+        
+
+        {/* Pricing Section */}
+        <PricingSection />
 
         {/* Footer */}
         <footer className="border-t border-gray-200 dark:border-gray-800 py-12 bg-white dark:bg-gray-900">

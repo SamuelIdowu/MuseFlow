@@ -357,15 +357,37 @@ export async function getCanvasDataAction() {
     throw new Error('Failed to fetch canvas blocks');
   }
 
-  return blocksData.map((block) => ({
-    id: block.id,
-    type: block.type || "paragraph",
-    content: block.content,
-    order: block.order_index,
-  }));
+  // Fetch canvas edges
+  const { data: edgesData, error: edgesError } = await supabase
+    .from("canvas_edges")
+    .select("*")
+    .eq("canvas_id", canvasSession.id);
+
+  if (edgesError) {
+    console.error("Error fetching canvas edges:", edgesError);
+    // Don't fail completely if edges fail, just return empty?
+    // adhering to strict error handling for now
+    throw new Error('Failed to fetch canvas edges');
+  }
+
+  return {
+    blocks: blocksData.map((block) => ({
+      id: block.id,
+      type: block.type || "paragraph",
+      content: block.content,
+      order: block.order_index,
+      position: { x: block.position_x || 0, y: block.position_y || 0 }, // Default to 0,0
+    })),
+    edges: edgesData.map((edge) => ({
+      id: edge.id,
+      source: edge.source_block_id,
+      target: edge.target_block_id,
+      label: edge.label,
+    }))
+  };
 }
 
-export async function addCanvasBlockAction(block: { type: string; content: string; order: number }) {
+export async function addCanvasBlockAction(block: { type: string; content: string; order: number; position?: { x: number; y: number } }) {
   const { userId } = await auth();
   const user = await currentUser();
 
@@ -400,6 +422,8 @@ export async function addCanvasBlockAction(block: { type: string; content: strin
       type: block.type,
       content: block.content,
       order_index: block.order,
+      position_x: block.position?.x || 0,
+      position_y: block.position?.y || 0,
     }])
     .select()
     .single();
@@ -408,10 +432,13 @@ export async function addCanvasBlockAction(block: { type: string; content: strin
     console.error('Error adding canvas block:', error);
     throw new Error('Failed to add block');
   }
-  return data;
+  return {
+    ...data,
+    position: { x: data.position_x, y: data.position_y }
+  };
 }
 
-export async function updateCanvasBlockAction(id: string, updates: { content?: string; type?: string }) {
+export async function updateCanvasBlockAction(id: string, updates: { content?: string; type?: string; position?: { x: number; y: number } }) {
   const { userId } = await auth();
   const user = await currentUser(); // Need user to ensure ownership via RLS-like check or just user_id
 
@@ -425,15 +452,100 @@ export async function updateCanvasBlockAction(id: string, updates: { content?: s
 
   const supabase = createSupabaseServiceClient();
 
+  const dbUpdates: any = { ...updates };
+  if (updates.position) {
+    dbUpdates.position_x = updates.position.x;
+    dbUpdates.position_y = updates.position.y;
+    delete dbUpdates.position;
+  }
+
   const { error } = await supabase
     .from("canvas_blocks")
-    .update(updates)
+    .update(dbUpdates)
     .eq("id", id)
     .eq("user_id", supabaseUserId); // Ensure ownership
 
   if (error) {
     console.error('Error updating canvas block:', error);
     throw new Error('Failed to update block');
+  }
+}
+
+export async function addEdgeAction(edge: { source: string; target: string; label?: string }) {
+  const { userId } = await auth();
+  const user = await currentUser();
+
+  if (!userId || !user) throw new Error('User not authenticated');
+
+  const email = user.emailAddresses[0]?.emailAddress;
+  if (!email) throw new Error('User has no email address');
+
+  const supabaseUserId = await ensureSupabaseUser(userId, email);
+  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
+
+  const supabase = createSupabaseServiceClient();
+
+  // Get canvas/verify block ownership ideally, but finding canvas_id from one block is safer
+  // We can assume source block belongs to user, find its canvas_id.
+  const { data: sourceBlock, error: blockError } = await supabase
+    .from('canvas_blocks')
+    .select('canvas_id')
+    .eq('id', edge.source)
+    .eq('user_id', supabaseUserId)
+    .single();
+
+  if (blockError || !sourceBlock) {
+    throw new Error('Source block not found or access denied');
+  }
+
+  const { data, error } = await supabase
+    .from('canvas_edges')
+    .insert({
+      canvas_id: sourceBlock.canvas_id,
+      user_id: supabaseUserId,
+      source_block_id: edge.source,
+      target_block_id: edge.target,
+      label: edge.label,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error adding edge:', error);
+    throw new Error('Failed to add edge');
+  }
+
+  return {
+    id: data.id,
+    source: data.source_block_id,
+    target: data.target_block_id,
+    label: data.label,
+  };
+}
+
+export async function deleteEdgeAction(id: string) {
+  const { userId } = await auth();
+  const user = await currentUser();
+
+  if (!userId || !user) throw new Error('User not authenticated');
+
+  const email = user.emailAddresses[0]?.emailAddress;
+  if (!email) throw new Error('User has no email address');
+
+  const supabaseUserId = await ensureSupabaseUser(userId, email);
+  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
+
+  const supabase = createSupabaseServiceClient();
+
+  const { error } = await supabase
+    .from('canvas_edges')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', supabaseUserId);
+
+  if (error) {
+    console.error('Error deleting edge:', error);
+    throw new Error('Failed to delete edge');
   }
 }
 

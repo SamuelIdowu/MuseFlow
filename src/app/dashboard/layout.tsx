@@ -5,9 +5,10 @@ import { useUser, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { UserNav } from "@/components/dashboard/UserNav";
 import { Sidebar } from "@/components/dashboard/Sidebar";
+import { HistorySidebar } from "@/components/dashboard/HistorySidebar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu } from "lucide-react";
+import { Menu, History as HistoryIcon } from "lucide-react";
 
 export default function DashboardLayout({
   children,
@@ -15,6 +16,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const { isSignedIn, isLoaded } = useAuth();
 
   if (!isLoaded) {
@@ -48,7 +50,7 @@ export default function DashboardLayout({
 
       <div className="flex flex-col flex-1 overflow-hidden lg:pl-0">
         <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background p-4">
-          <div className="lg:hidden">
+          <div className="flex items-center gap-2 lg:hidden">
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -59,13 +61,38 @@ export default function DashboardLayout({
                 <Sidebar onNavClick={() => setIsMobileOpen(false)} />
               </SheetContent>
             </Sheet>
+            <h1 className="text-xl font-semibold">Dashboard</h1>
           </div>
-          <div className="flex items-center gap-4">
-            <h1 className="text-xl font-semibold lg:hidden">Dashboard</h1>
+
+          {/* Mobile Right Sidebar Trigger */}
+          <div className="lg:hidden">
+            <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+              <SheetTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <HistoryIcon className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="p-0 w-80">
+                <HistorySidebar onNavClick={() => setIsHistoryOpen(false)} />
+              </SheetContent>
+            </Sheet>
           </div>
-          <UserNav />
+
+
+          <div className="hidden lg:flex items-center gap-4 ml-auto">
+            {/* Desktop Hader Items if any */}
+            <UserNav />
+          </div>
+          <div className="lg:hidden">
+            <UserNav />
+          </div>
         </header>
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 w-full max-w-full">{children}</main>
+      </div>
+
+      {/* Desktop Right Sidebar */}
+      <div className="hidden xl:block h-full">
+        <HistorySidebar className="h-full" />
       </div>
     </div>
   );

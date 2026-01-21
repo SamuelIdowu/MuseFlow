@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { Profile } from "@/types/profile";
 import { CONTENT_TYPES, CATEGORIES } from "@/types/content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
     DropdownMenu,
@@ -14,37 +13,41 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-} from "@/components/ui/dialog";
-import { PlusCircle, Sparkles, RefreshCw, Trash2, Loader2, GripVertical, Eye, EyeOff, Download, FileText, FileCode, FileType, Save, Maximize2 } from "lucide-react";
+import { Trash2, Loader2, Eye, Download, FileText, FileCode, FileType, Save, PlusCircle } from "lucide-react";
 import { toast } from "react-hot-toast";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import {
     getCanvasDataAction,
     addCanvasBlockAction,
     updateCanvasBlockAction,
     deleteCanvasBlockAction,
-    reorderCanvasBlocksAction,
     clearCanvasAction,
-    saveToIdeasAction
+    saveToIdeasAction,
+    addEdgeAction,
+    deleteEdgeAction
 } from "@/lib/dashboardServerActions";
-import { DragDropContext, Droppable, Draggable, DropResult, DroppableProvided, DraggableProvided, DraggableStateSnapshot } from "react-beautiful-dnd";
-import { StrictModeDroppable } from "@/components/StrictModeDroppable"; // We might need to create this or inline it
 
+import {
+    ReactFlow,
+    Background,
+    Controls,
+    useNodesState,
+    useEdgesState,
+    addEdge,
+    Connection,
+    Edge,
+    Node,
+    NodeChange,
+    EdgeChange,
+    applyNodeChanges,
+    applyEdgeChanges
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 
-interface Block {
-    id: string;
-    type: string;
-    content: string;
-    order: number;
-    title?: string;
-}
+import CustomNode, { BlockData } from "@/components/dashboard/canvas/CustomNode";
+
+const nodeTypes = {
+    custom: CustomNode,
+};
 
 interface CanvasPageClientProps {
     activeProfile: Profile | null;
@@ -52,7 +55,11 @@ interface CanvasPageClientProps {
 
 export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     const searchParams = useSearchParams();
-    const [blocks, setBlocks] = useState<Block[]>([]);
+
+    // React Flow State
+    const [nodes, setNodes, onNodesChangeState] = useNodesState<Node<BlockData>>([]);
+    const [edges, setEdges, onEdgesChangeState] = useEdgesState<Edge>([]);
+
     const [loading, setLoading] = useState(true);
     const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
     const [expandingBlockId, setExpandingBlockId] = useState<string | null>(null);
@@ -60,91 +67,181 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     const [pageTitle, setPageTitle] = useState(searchParams.get("title") || "My New Article");
     const [selectedContentTypeId, setSelectedContentTypeId] = useState<string>(CONTENT_TYPES[0]?.id || 'linkedin_post');
     const [showPreview, setShowPreview] = useState(false);
-    const [selectedBlockForPreview, setSelectedBlockForPreview] = useState<Block | null>(null);
+
     const saveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+    const positionSaveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
     useEffect(() => {
-        const contextParam = searchParams.get("context");
-        if (contextParam) {
-            fetchBlocksWithContext(contextParam);
-        } else {
-            fetchBlocks();
-        }
+        fetchBlocks();
     }, []);
 
-    const fetchBlocksWithContext = async (context: string) => {
+    const fetchBlocks = async () => {
         try {
             setLoading(true);
-            const fetchedBlocks = await getCanvasDataAction();
-            if (fetchedBlocks.length === 0 && context) {
-                // Pre-populate with a paragraph block containing the context
-                try {
-                    const addedBlock = await addCanvasBlockAction({
-                        type: "paragraph",
-                        content: context,
-                        order: 0
-                    });
+            const { blocks: fetchedBlocks, edges: fetchedEdges } = await getCanvasDataAction();
 
-                    setBlocks([{
-                        id: addedBlock.id,
-                        type: addedBlock.type || "paragraph",
-                        content: addedBlock.content,
-                        order: addedBlock.order_index,
-                        title: "Idea Context"
-                    }]);
-                } catch (addError) {
-                    console.error("Error creating initial block:", addError);
-                    toast.error("Failed to initialize canvas with content");
-                    // Fallback to empty blocks
-                    setBlocks([]);
+            // Check if we need initial layout (if all are at 0,0)
+            const needsLayout = fetchedBlocks.length > 1 && fetchedBlocks.every(b => b.position.x === 0 && b.position.y === 0);
+
+            const initialNodes = fetchedBlocks.map((block: any, index: number) => ({
+                id: block.id,
+                type: 'custom',
+                position: needsLayout ? { x: 250, y: index * 300 } : block.position,
+                data: {
+                    id: block.id,
+                    type: block.type || "paragraph",
+                    content: block.content,
+                    order: block.order, // Keep for reference
+                    onUpdate: handleUpdateBlock,
+                    onExpand: handleExpandWithAI,
+                    onRegenerate: handleRegenerateBlock,
+                    isEditing: false, // Will be managed by local state/context if needed, or derived
+                    isExpanding: false,
+                    isRegenerating: false,
+                    setEditingId: setEditingBlockId
                 }
-            } else {
-                setBlocks(fetchedBlocks.map((block: any) => ({
-                    ...block,
-                    title: block.title || `${block.type} block`,
-                })) as Block[]);
-            }
+            }));
+
+            // Hydrate extra state for UI (loading spinners)
+            // We pass the *current* state values to the node data. 
+            // NOTE: Since nodes are state, we need to update them when expandingBlockId etc changes.
+            // This is handled by a separate effect or by updating nodes when those states change.
+
+            setNodes(initialNodes);
+            setEdges(fetchedEdges || []);
         } catch (error) {
-            console.error("Error fetching/initializing canvas:", error);
+            console.error("Error fetching canvas blocks:", error);
             toast.error("Failed to load canvas");
         } finally {
             setLoading(false);
         }
     };
 
-    const fetchBlocks = async () => {
-        try {
-            setLoading(true);
-            const fetchedBlocks = await getCanvasDataAction();
-            setBlocks(fetchedBlocks.map((block: any) => ({
-                ...block,
-                title: block.title || `${block.type} block`,
-            })) as Block[]);
-        } catch (error) {
-            console.error("Error fetching canvas blocks:", error);
-            toast.error("Failed to load canvas blocks");
-        } finally {
-            setLoading(false);
-        }
-    };
+    // Update node data when loading states change
+    useEffect(() => {
+        setNodes((nds) => nds.map((node) => ({
+            ...node,
+            data: {
+                ...node.data,
+                isEditing: node.id === editingBlockId,
+                isExpanding: node.id === expandingBlockId,
+                isRegenerating: node.id === regeneratingBlockId,
+                setEditingId: setEditingBlockId
+            }
+        })));
+    }, [editingBlockId, expandingBlockId, regeneratingBlockId, setNodes]);
+
+
+    const onNodesChange = useCallback(
+        (changes: NodeChange<Node<BlockData>>[]) => {
+            onNodesChangeState(changes);
+
+            // Handle position updates
+            changes.forEach((change) => {
+                if (change.type === 'position' && change.dragging) {
+                    // Debounce save
+                    const node = nodes.find(n => n.id === change.id); // This might be stale during drag, but good enough for ID?
+                    // Actually `change` has the ID.
+                    if (change.position) {
+                        const id = change.id;
+                        if (positionSaveTimeouts.current[id]) {
+                            clearTimeout(positionSaveTimeouts.current[id]);
+                        }
+                        positionSaveTimeouts.current[id] = setTimeout(() => {
+                            // We need to get the latest position from the node state, 
+                            // but inside this timeout `nodes` might be stale if we don't use functional update or ref.
+                            // Better to trust the resize/drag end event, but `change.position` is partial.
+                            // Simplest: just trigger an update with the new position if we know it.
+                            // But ReactFlow handles state. We just sync to DB.
+
+                            // Let's rely on the latest node state *at the time of save*.
+                            // But we can't access it easily without a ref.
+                            // For now, let's just assume the user stops dragging eventually.
+                            // We should probably use `onNodeDragStop` instead for DB sync.
+                        }, 1000);
+                    }
+                }
+            });
+        },
+        [onNodesChangeState, nodes]
+    );
+
+    const onNodeDragStop = useCallback((event: any, node: Node) => {
+        updateCanvasBlockAction(node.id, {
+            position: { x: node.position.x, y: node.position.y }
+        }).catch(err => console.error("Failed to save position", err));
+    }, []);
+
+    const onEdgesChange = useCallback(
+        (changes: EdgeChange[]) => {
+            onEdgesChangeState(changes);
+            changes.forEach(change => {
+                if (change.type === 'remove') {
+                    deleteEdgeAction(change.id).catch(err => console.error("Failed to delete edge", err));
+                }
+            });
+        },
+        [onEdgesChangeState]
+    );
+
+    const onConnect = useCallback(
+        async (params: Connection) => {
+            if (!params.source || !params.target) return;
+
+            // Optimistic update
+            setEdges((eds) => addEdge(params, eds));
+
+            try {
+                await addEdgeAction({
+                    source: params.source,
+                    target: params.target
+                });
+            } catch (error) {
+                console.error("Failed to create edge", error);
+                toast.error("Failed to connect nodes");
+                // Revert? (Complex without ID)
+            }
+        },
+        [setEdges]
+    );
 
     const handleAddBlock = async () => {
         try {
+            // Position: Center of viewport or relative to last node?
+            // For now: offset from last node or default 100,100
+            const lastNode = nodes[nodes.length - 1];
+            const position = lastNode ? { x: lastNode.position.x, y: lastNode.position.y + 350 } : { x: 250, y: 100 };
+
             const newBlock = {
                 type: "paragraph",
                 content: "",
-                order: blocks.length,
+                order: nodes.length,
+                position
             };
 
             const addedBlock = await addCanvasBlockAction(newBlock);
-            setBlocks([...blocks, {
+
+            const newNode: Node<BlockData> = {
                 id: addedBlock.id,
-                type: addedBlock.type || "paragraph",
-                content: addedBlock.content,
-                order: addedBlock.order_index,
-                title: "New Block",
-            }]);
-            setEditingBlockId(addedBlock.id);
+                type: 'custom',
+                position: addedBlock.position,
+                data: {
+                    id: addedBlock.id,
+                    type: addedBlock.type || "paragraph",
+                    content: addedBlock.content || "",
+                    order: addedBlock.order_index,
+                    title: undefined,
+                    onUpdate: handleUpdateBlock,
+                    onExpand: handleExpandWithAI,
+                    onRegenerate: handleRegenerateBlock,
+                    isEditing: false,
+                    isExpanding: false,
+                    isRegenerating: false,
+                    setEditingId: setEditingBlockId
+                }
+            };
+
+            setNodes((nds) => [...nds, newNode]);
             toast.success("Block added");
         } catch (error) {
             console.error("Error adding block:", error);
@@ -152,18 +249,23 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         }
     };
 
-    const handleUpdateBlock = (id: string, updates: Partial<Block>) => {
+    const handleUpdateBlock = async (id: string, updates: any) => {
         // Optimistic update
-        setBlocks(prevBlocks => prevBlocks.map(block =>
-            block.id === id ? { ...block, ...updates } : block
-        ));
+        setNodes((nds) => nds.map((node) => {
+            if (node.id === id) {
+                return {
+                    ...node,
+                    data: { ...node.data, ...updates }
+                };
+            }
+            return node;
+        }));
 
         // Debounce content updates
         if (updates.content !== undefined) {
             if (saveTimeouts.current[id]) {
                 clearTimeout(saveTimeouts.current[id]);
             }
-
             saveTimeouts.current[id] = setTimeout(async () => {
                 try {
                     await updateCanvasBlockAction(id, { content: updates.content });
@@ -185,16 +287,20 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         }
     };
 
-    const handleDeleteBlock = async (id: string) => {
-        try {
-            await deleteCanvasBlockAction(id);
-            setBlocks(blocks.filter(block => block.id !== id));
-            toast.success("Block deleted");
-        } catch (error) {
-            console.error("Error deleting block:", error);
-            toast.error("Failed to delete block");
+    // Deleting handled by selecting node + Backspace (React Flow default).
+    // But we need to listen to onNodesDelete to remove from DB.
+    const onNodesDelete = useCallback(async (deletedNodes: Node[]) => {
+        for (const node of deletedNodes) {
+            try {
+                await deleteCanvasBlockAction(node.id);
+                toast.success("Block deleted");
+            } catch (error) {
+                console.error("Error deleting block:", error);
+                toast.error("Failed to delete block");
+            }
         }
-    };
+    }, []);
+
 
     const handleClearCanvas = async () => {
         if (!confirm("Are you sure you want to clear the entire canvas? This cannot be undone.")) return;
@@ -202,7 +308,8 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         try {
             setLoading(true);
             await clearCanvasAction();
-            setBlocks([]);
+            setNodes([]);
+            setEdges([]);
             toast.success("Canvas cleared");
         } catch (error) {
             console.error("Error clearing canvas:", error);
@@ -212,28 +319,6 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         }
     };
 
-    const handleDragEnd = async (result: DropResult) => {
-        if (!result.destination) return;
-
-        const items = Array.from(blocks);
-        const [reorderedItem] = items.splice(result.source.index, 1);
-        items.splice(result.destination.index, 0, reorderedItem);
-
-        // Update state immediately
-        const updatedBlocks = items.map((block, index) => ({
-            ...block,
-            order: index
-        }));
-        setBlocks(updatedBlocks);
-
-        // Persist to server
-        try {
-            await reorderCanvasBlocksAction(updatedBlocks.map(b => ({ id: b.id, order: b.order })));
-        } catch (error) {
-            console.error("Error reordering blocks:", error);
-            toast.error("Failed to save new order");
-        }
-    };
 
     const handleExpandWithAI = async (id: string, content: string, blockType: string) => {
         if (!content?.trim()) {
@@ -243,33 +328,29 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
 
         try {
             setExpandingBlockId(id);
+            // Construct context from all other nodes
+            const contextBlocks = nodes
+                .filter(n => n.id !== id)
+                .map(n => ({ type: n.data.type, content: n.data.content }));
+
             const response = await fetch('/api/canvas/expand', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     block_content: content,
                     block_type: blockType,
                     canvas_title: pageTitle,
                     active_profile: activeProfile,
                     contentTypeId: selectedContentTypeId,
-                    context_blocks: blocks
-                        .filter(b => b.id !== id) // Exclude current block
-                        .map(b => ({ type: b.type, content: b.content })),
+                    context_blocks: contextBlocks,
                 }),
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to expand content');
-            }
+            if (!response.ok) throw new Error('Failed to expand content');
 
             const data = await response.json();
-
-            // Update the block with expanded content
             await handleUpdateBlock(id, { content: data.expanded_content });
-            toast.success('Content expanded successfully!');
+            toast.success('Content expanded!');
         } catch (error: any) {
             console.error('Error expanding content:', error);
             toast.error(error.message || 'Failed to expand content');
@@ -278,81 +359,43 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         }
     };
 
-    const handleRegenerateBlock = async (blockId: string) => {
-        const block = blocks.find(b => b.id === blockId);
-        if (!block) return;
+    const handleRegenerateBlock = async (id: string) => {
+        const node = nodes.find(n => n.id === id);
+        if (!node) return;
+        const content = node.data.content as string;
 
-        if (!block.content.trim()) {
-            toast.error('Block content is empty. Add some text first.');
+        if (!content?.trim()) {
+            toast.error('Block content is empty.');
             return;
         }
 
         try {
-            setRegeneratingBlockId(blockId);
+            setRegeneratingBlockId(id);
+            const contextBlocks = nodes
+                .filter(n => n.id !== id)
+                .map(n => ({ type: n.data.type, content: n.data.content }));
 
             const response = await fetch('/api/canvas/expand', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    block_content: `Rewrite this differently while keeping the same meaning: ${block.content}`,
-                    block_type: block.type,
+                    block_content: `Rewrite this differently: ${content}`,
+                    block_type: node.data.type,
                     canvas_title: pageTitle,
                     active_profile: activeProfile,
                     contentTypeId: selectedContentTypeId,
-                    context_blocks: blocks
-                        .filter(b => b.id !== blockId) // Exclude current block
-                        .map(b => ({ type: b.type, content: b.content })),
+                    context_blocks: contextBlocks,
                 })
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to regenerate content');
-            }
+            if (!response.ok) throw new Error('Failed to regenerate content');
 
             const data = await response.json();
-            await handleUpdateBlock(blockId, { content: data.expanded_content });
+            await handleUpdateBlock(id, { content: data.expanded_content });
             toast.success('Content regenerated!');
         } catch (error: any) {
             console.error('Error regenerating content:', error);
             toast.error(error.message || 'Failed to regenerate content');
-        } finally {
-            setRegeneratingBlockId(null);
-        }
-    };
-
-    const handleGenerateBlock = async (blockId: string) => {
-        const block = blocks.find(b => b.id === blockId);
-        if (!block) return;
-
-        try {
-            setRegeneratingBlockId(blockId); // Reuse regenerating state for loading spinner
-
-            const response = await fetch('/api/canvas/generate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    block_type: block.type,
-                    canvas_title: pageTitle,
-                    active_profile: activeProfile,
-                    contentTypeId: selectedContentTypeId,
-                    context_blocks: blocks
-                        .filter(b => b.id !== blockId) // Exclude current block
-                        .map(b => ({ type: b.type, content: b.content })),
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to generate content');
-            }
-
-            const data = await response.json();
-            await handleUpdateBlock(blockId, { content: data.generated_content });
-            toast.success('Content generated!');
-        } catch (error: any) {
-            console.error('Error generating content:', error);
-            toast.error(error.message || 'Failed to generate content');
         } finally {
             setRegeneratingBlockId(null);
         }
@@ -376,12 +419,15 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
 
     const convertToMarkdown = (): string => {
         let markdown = `# ${pageTitle}\n\n`;
+        // Sort nodes by Y position
+        const sortedNodes = [...nodes].sort((a, b) => a.position.y - b.position.y);
 
-        blocks.forEach((block) => {
-            const content = block.content.trim();
+        sortedNodes.forEach((node) => {
+            const content = (node.data.content as string || '').trim();
+            const type = node.data.type as string;
             if (!content) return;
 
-            switch (block.type) {
+            switch (type) {
                 case "heading":
                     markdown += `## ${content}\n\n`;
                     break;
@@ -402,7 +448,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                     break;
                 case "list":
                     const items = content.split('\n').filter(i => i.trim());
-                    items.forEach(item => {
+                    items.forEach((item: string) => {
                         markdown += `- ${item.trim()}\n`;
                     });
                     markdown += '\n';
@@ -415,146 +461,27 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         return markdown;
     };
 
-    const convertToHTML = (): string => {
-        let html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${pageTitle}</title>
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            line-height: 1.6;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
-            color: #333;
-        }
-        h1 { font-size: 2.5rem; margin-bottom: 1rem; }
-        h2 { font-size: 2rem; margin-top: 2rem; margin-bottom: 1rem; }
-        h3 { font-size: 1.5rem; margin-top: 1.5rem; margin-bottom: 0.75rem; }
-        p { margin-bottom: 1rem; }
-        blockquote {
-            border-left: 4px solid #ddd;
-            padding-left: 1rem;
-            margin: 1rem 0;
-            color: #666;
-            font-style: italic;
-        }
-        ul { margin-bottom: 1rem; }
-        hr { margin: 2rem 0; border: none; border-top: 2px solid #ddd; }
-        .cta { font-weight: bold; font-size: 1.2rem; text-align: center; margin: 2rem 0; }
-    </style>
-</head>
-<body>
-    <h1>${pageTitle}</h1>
-`;
-
-        blocks.forEach((block) => {
-            const content = block.content.trim();
-            if (!content) return;
-
-            const escapedContent = content
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
-
-            switch (block.type) {
-                case "heading":
-                    html += `    <h2>${escapedContent}</h2>\n`;
-                    break;
-                case "hook":
-                    html += `    <blockquote><strong>Hook:</strong> ${escapedContent}</blockquote>\n`;
-                    break;
-                case "problem":
-                    html += `    <h3>Problem</h3>\n    <p>${escapedContent}</p>\n`;
-                    break;
-                case "solution":
-                    html += `    <h3>Solution</h3>\n    <p>${escapedContent}</p>\n`;
-                    break;
-                case "call-to-action":
-                    html += `    <hr>\n    <p class="cta">${escapedContent}</p>\n`;
-                    break;
-                case "quote":
-                    html += `    <blockquote>${escapedContent}</blockquote>\n`;
-                    break;
-                case "list":
-                    const items = content.split('\n').filter(i => i.trim());
-                    html += '    <ul>\n';
-                    items.forEach(item => {
-                        html += `        <li>${item.trim()}</li>\n`;
-                    });
-                    html += '    </ul>\n';
-                    break;
-                default:
-                    html += `    <p>${escapedContent}</p>\n`;
-            }
-        });
-
-        html += `</body>
-</html>`;
-        return html;
-    };
-
-    const convertToPlainText = (): string => {
-        let text = `${pageTitle}\n${'='.repeat(pageTitle.length)}\n\n`;
-
-        blocks.forEach((block) => {
-            const content = block.content.trim();
-            if (!content) return;
-
-            switch (block.type) {
-                case "heading":
-                    text += `\n${content}\n${'-'.repeat(content.length)}\n\n`;
-                    break;
-                case "hook":
-                case "quote":
-                    text += `"${content}"\n\n`;
-                    break;
-                case "problem":
-                    text += `PROBLEM:\n${content}\n\n`;
-                    break;
-                case "solution":
-                    text += `SOLUTION:\n${content}\n\n`;
-                    break;
-                case "call-to-action":
-                    text += `\n*** ${content} ***\n\n`;
-                    break;
-                case "default":
-                    text += `${content}\n\n`;
-            }
-        });
-
-        return text;
-    };
-
-    const handleExport = (format: 'markdown' | 'html' | 'text') => {
+    const handleExport = (format: 'markdown' | 'text') => {
         let content: string;
         let filename: string;
         let mimeType: string;
 
+        // Simple export only support markdown/text for now due to HTML complexity with nodes
         switch (format) {
             case 'markdown':
                 content = convertToMarkdown();
                 filename = `${pageTitle.replace(/\s+/g, '-').toLowerCase()}.md`;
                 mimeType = 'text/markdown';
                 break;
-            case 'html':
-                content = convertToHTML();
-                filename = `${pageTitle.replace(/\s+/g, '-').toLowerCase()}.html`;
-                mimeType = 'text/html';
-                break;
             case 'text':
-                content = convertToPlainText();
+                content = convertToMarkdown(); // Simplify to same for now, or strip md
                 filename = `${pageTitle.replace(/\s+/g, '-').toLowerCase()}.txt`;
                 mimeType = 'text/plain';
                 break;
+            default:
+                return;
         }
 
-        // Create blob and download
         const blob = new Blob([content], { type: mimeType });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -564,9 +491,9 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-
         toast.success(`Exported as ${format.toUpperCase()}`);
     };
+
 
     if (loading) {
         return (
@@ -580,322 +507,68 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     }
 
     return (
-        <div className="flex flex-col gap-6 w-full max-w-full overflow-hidden">
-            {/* Main Canvas Area */}
-            <div className="flex-1 space-y-6 overflow-y-auto pr-2 transition-all">
-                {/* Page Heading */}
-                <div className="flex flex-col gap-3">
-                    <div className="flex flex-col md:flex-row items-start justify-between gap-4">
-                        <Input
-                            className="text-4xl md:text-[72px] font-bold leading-tight bg-transparent border-none py-2 md:py-5 focus-visible:ring-0 focus-visible:ring-offset-0 w-full md:flex-1 h-auto"
-                            type="text"
-                            value={pageTitle}
-                            onChange={(e) => setPageTitle(e.target.value)}
-                        />
-                        <div className="flex flex-wrap items-center gap-2 pt-1 w-full md:w-auto">
-                            {/* Clear Canvas Button */}
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleClearCanvas}
-                                className="text-muted-foreground hover:text-destructive"
-                                title="Clear all blocks"
-                            >
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-
-                            {/* Output Type Selector */}
-                            <div className="w-[280px]">
-                                <Select
-                                    value={selectedContentTypeId}
-                                    onValueChange={setSelectedContentTypeId}
-                                >
-                                    <SelectTrigger className="w-full h-9">
-                                        <SelectValue placeholder="Output Type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {CATEGORIES.map(category => (
-                                            <div key={category}>
-                                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                                                    {category}
-                                                </div>
-                                                {CONTENT_TYPES.filter(t => t.category === category).map(type => (
-                                                    <SelectItem key={type.id} value={type.id}>
-                                                        {type.label}
-                                                    </SelectItem>
-                                                ))}
-                                            </div>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            {/* Save to Ideas Button */}
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={handleSaveCanvasToIdeas}
-                                title="Save entire canvas to Ideas"
-                            >
-                                <Save className="mr-2 h-4 w-4" />
-                                Save to Ideas
-                            </Button>
-
-                            {/* Export Dropdown */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="sm">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        Export
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleExport('markdown')}>
-                                        <FileCode className="mr-2 h-4 w-4" />
-                                        Markdown (.md)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleExport('html')}>
-                                        <FileType className="mr-2 h-4 w-4" />
-                                        HTML (.html)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleExport('text')}>
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        Plain Text (.txt)
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-
-                            {/* Preview Toggle */}
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setShowPreview(true)}
-                                className="hidden md:flex"
-                            >
-                                <Eye className="mr-2 h-4 w-4" />
-                                Preview
-                            </Button>
-                            {/* Mobile Preview Toggle (Icon Only) */}
-                            <Button
-                                variant="outline"
-                                size="icon"
-                                onClick={() => setShowPreview(true)}
-                                className="md:hidden"
-                            >
-                                <Eye className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                        <p className="text-muted-foreground text-sm font-normal leading-normal">
-                            Use the canvas below to build your content. Drag blocks to reorder.
-                        </p>
-                        {activeProfile && (
-                            <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20">
-                                Active: {activeProfile.profile_name}
-                            </span>
-                        )}
+        <div className="flex flex-col h-[calc(100vh-100px)] w-full">
+            {/* Header / Toolbar */}
+            <div className="flex flex-col gap-3 mb-4 px-4 sticky top-0 z-10 bg-background/80 backdrop-blur-sm pb-2 border-b">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                    <Input
+                        className="text-2xl font-bold bg-transparent border-none focus-visible:ring-0 w-full md:w-auto min-w-[300px]"
+                        type="text"
+                        value={pageTitle}
+                        onChange={(e) => setPageTitle(e.target.value)}
+                    />
+                    <div className="flex items-center gap-2">
+                        <Button variant="ghost" size="sm" onClick={handleClearCanvas} title="Clear all">
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={handleSaveCanvasToIdeas}>
+                            <Save className="mr-2 h-4 w-4" /> Save Interest
+                        </Button>
+                        <Button onClick={handleAddBlock} size="sm">
+                            <PlusCircle className="mr-2 h-4 w-4" /> Add Block
+                        </Button>
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                    <Download className="mr-2 h-4 w-4" /> Export
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleExport('markdown')}>
+                                    <FileCode className="mr-2 h-4 w-4" /> Markdown
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleExport('text')}>
+                                    <FileText className="mr-2 h-4 w-4" /> Text
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
-
-                {/* Content Blocks */}
-                <div className="flex flex-col gap-4">
-                    <DragDropContext onDragEnd={handleDragEnd}>
-                        <StrictModeDroppable droppableId="canvas-blocks">
-                            {(provided: DroppableProvided) => (
-                                <div
-                                    {...provided.droppableProps}
-                                    ref={provided.innerRef}
-                                    className="flex flex-col gap-4"
-                                >
-                                    {blocks.length === 0 ? (
-                                        <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                                            <p className="text-muted-foreground mb-4">
-                                                No content blocks yet. Add your first block to get started.
-                                            </p>
-                                            <Button onClick={handleAddBlock}>
-                                                <PlusCircle className="mr-2 h-4 w-4" />
-                                                Add First Block
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        blocks.map((block, index) => (
-                                            <Draggable key={block.id} draggableId={block.id} index={index}>
-                                                {(provided: DraggableProvided, snapshot: DraggableStateSnapshot) => (
-                                                    <div
-                                                        ref={provided.innerRef}
-                                                        {...provided.draggableProps}
-                                                        {...provided.dragHandleProps}
-                                                        style={{ ...provided.draggableProps.style }}
-                                                        className={`p-5 rounded-lg bg-card border transition-all duration-200 group ${snapshot.isDragging ? 'shadow-xl ring-2 ring-primary/60 z-50 scale-[1.02]' : ''} ${editingBlockId === block.id
-                                                            ? 'ring-1 ring-primary/50 shadow-sm border-primary/50'
-                                                            : 'border-border hover:border-primary/40'
-                                                            }`}
-                                                    >
-                                                        <div className="flex flex-col gap-2">
-                                                            {/* Block Type */}
-                                                            <div className="mb-2 flex justify-between items-center">
-                                                                <Select
-                                                                    value={block.type}
-                                                                    onValueChange={(value) => handleUpdateBlock(block.id, { type: value })}
-                                                                >
-                                                                    <SelectTrigger className="w-48 h-8 text-primary font-semibold uppercase text-sm border-none bg-transparent shadow-none focus:ring-0 py-2">
-                                                                        <SelectValue />
-                                                                    </SelectTrigger>
-                                                                    <SelectContent>
-                                                                        <SelectItem value="hook">Hook</SelectItem>
-                                                                        <SelectItem value="heading">Heading</SelectItem>
-                                                                        <SelectItem value="problem">Problem</SelectItem>
-                                                                        <SelectItem value="solution">Solution</SelectItem>
-                                                                        <SelectItem value="call-to-action">Call to Action</SelectItem>
-                                                                        <SelectItem value="paragraph">Paragraph</SelectItem>
-                                                                        <SelectItem value="quote">Quote</SelectItem>
-                                                                        <SelectItem value="list">List</SelectItem>
-                                                                    </SelectContent>
-                                                                </Select>
-                                                                <GripVertical className="h-4 w-4 text-muted-foreground/30 group-hover:text-muted-foreground transition-colors duration-200" />
-                                                            </div>
-
-                                                            {/* Block Content */}
-                                                            <Textarea
-                                                                className="min-h-[100px] text-base mt-1 resize-none font-mono leading-relaxed transition-all duration-200"
-                                                                value={block.content}
-                                                                onChange={(e) => handleUpdateBlock(block.id, { content: e.target.value })}
-                                                                onFocus={() => setEditingBlockId(block.id)}
-                                                                onBlur={() => setEditingBlockId(null)}
-                                                                placeholder="Click to add content..."
-                                                            />
-
-                                                            {/* Action Buttons */}
-                                                            <div className="border-t border-border/50 pt-4 mt-2">
-                                                                <div className="flex flex-wrap gap-3 items-center">
-                                                                    <Button
-                                                                        variant="default"
-                                                                        size="sm"
-                                                                        className="bg-primary text-primary-foreground hover:bg-primary/90 font-medium transition-all duration-200"
-                                                                        onClick={() => handleExpandWithAI(block.id, block.content, block.type)}
-                                                                        disabled={expandingBlockId === block.id || !block.content?.trim()}
-                                                                    >
-                                                                        {expandingBlockId === block.id ? (
-                                                                            <>
-                                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                                Expanding...
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <Sparkles className="mr-2 h-4 w-4" />
-                                                                                Expand with AI
-                                                                            </>
-                                                                        )}
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200"
-                                                                        onClick={() => handleRegenerateBlock(block.id)}
-                                                                        disabled={regeneratingBlockId === block.id || !block.content?.trim()}
-                                                                    >
-                                                                        {regeneratingBlockId === block.id ? (
-                                                                            <>
-                                                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                                                                Regenerating...
-                                                                            </>
-                                                                        ) : (
-                                                                            <>
-                                                                                <RefreshCw className="mr-2 h-4 w-4" />
-                                                                                Regenerate
-                                                                            </>
-                                                                        )}
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="outline"
-                                                                        size="sm"
-                                                                        className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200"
-                                                                        onClick={() => handleGenerateBlock(block.id)}
-                                                                        disabled={regeneratingBlockId === block.id}
-                                                                        title="Generate content based on context"
-                                                                    >
-                                                                        <Sparkles className="mr-2 h-4 w-4" />
-                                                                        Generate
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="text-destructive/80 hover:text-destructive hover:bg-destructive/10 font-medium transition-all duration-200"
-                                                                        onClick={() => handleDeleteBlock(block.id)}
-                                                                    >
-                                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                                        Delete
-                                                                    </Button>
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        className="text-muted-foreground hover:text-foreground font-medium transition-all duration-200"
-                                                                        onClick={() => setSelectedBlockForPreview(block)}
-                                                                        title="Preview this block"
-                                                                    >
-                                                                        <Maximize2 className="mr-2 h-4 w-4" />
-                                                                        Expand
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </Draggable>
-                                        ))
-                                    )}
-                                    {provided.placeholder}
-                                </div>
-                            )}
-                        </StrictModeDroppable>
-                    </DragDropContext>
-
-                    {/* Add Block Button */}
-                    <button
-                        onClick={handleAddBlock}
-                        className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border py-6 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-                    >
-                        <PlusCircle className="h-5 w-5" />
-                        <span className="font-semibold">Add Block</span>
-                    </button>
-                </div>
+                {activeProfile && (
+                    <span className="text-xs text-muted-foreground">
+                        Active Profile: {activeProfile.profile_name}
+                    </span>
+                )}
             </div>
 
-            {/* Preview Modal */}
-            <Dialog open={showPreview} onOpenChange={setShowPreview}>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Content Preview</DialogTitle>
-                        <DialogDescription>
-                            Live preview of your content
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="prose prose-slate dark:prose-invert max-w-none mt-4">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {convertToMarkdown()}
-                        </ReactMarkdown>
-                    </div>
-                </DialogContent>
-            </Dialog>
-
-            {/* Single Block Preview Modal */}
-            <Dialog open={!!selectedBlockForPreview} onOpenChange={(open) => !open && setSelectedBlockForPreview(null)}>
-                <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-                    <DialogHeader>
-                        <DialogTitle>Block Preview</DialogTitle>
-                        <DialogDescription>
-                            Previewing content for {selectedBlockForPreview?.title || "selected block"}
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="prose prose-slate dark:prose-invert max-w-none mt-4">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                            {selectedBlockForPreview?.content || ""}
-                        </ReactMarkdown>
-                    </div>
-                </DialogContent>
-            </Dialog>
-
-        </div >
+            {/* React Flow Canvas */}
+            <div className="flex-1 w-full bg-slate-50 dark:bg-slate-900 overflow-hidden relative border rounded-lg shadow-inner">
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    onNodeDragStop={onNodeDragStop}
+                    onNodesDelete={onNodesDelete}
+                    nodeTypes={nodeTypes as any}
+                    fitView
+                    className="bg-slate-50 dark:bg-slate-900"
+                >
+                    <Background />
+                    <Controls />
+                </ReactFlow>
+            </div>
+        </div>
     );
 }

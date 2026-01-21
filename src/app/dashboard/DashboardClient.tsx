@@ -5,10 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { ArrowUp, Sparkles, User, FileText, Zap, Calendar, Users, GripVertical, Edit } from 'lucide-react';
+import { ArrowUp, Sparkles, User, FileText, Zap, Calendar, Users, GripVertical, Edit, Settings, Share, Image as ImageIcon, Paperclip, Mic } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'react-hot-toast';
 import { apiCall } from '@/lib/apiClient';
@@ -94,20 +93,23 @@ export function DashboardClient({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll to bottom of chat
+  // Auto-scroll to bottom of chat
   useEffect(() => {
     if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
+      scrollAreaRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isLoading]);
 
-  const handleValuesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  // Auto-resize textarea when input changes
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+    }
+  }, [inputText]);
+
+  const handleValuesChange = (e: React.ChangeEvent<HTMLTextAreaElement> | { target: { value: string } }) => {
     setInputText(e.target.value);
-    // Auto-resize textarea
-    e.target.style.height = 'auto';
-    e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -212,81 +214,161 @@ export function DashboardClient({
   const isEmptyState = messages.length === 0;
 
   return (
-    <div className="flex flex-col h-full max-w-5xl mx-auto w-full">
-      {/* Chat Area */}
-      <ScrollArea className="flex-1 px-4" ref={scrollAreaRef} >
-        <div className="py-6 space-y-8 min-h-full flex flex-col">
+    <div className="flex flex-col w-full bg-background relative transition-colors duration-500">
+
+      {/* Background Gradients (Orb Effect) */}
+      {isEmptyState && (
+        <>
+          <div className="absolute top-[20%] left-[50%] -translate-x-1/2 w-[300px] h-[300px] bg-primary/20 rounded-full blur-[100px] pointer-events-none" />
+          <div className="absolute top-[10%] left-[40%] -translate-x-1/2 w-[200px] h-[200px] bg-orange-500/20 rounded-full blur-[80px] pointer-events-none" />
+        </>
+      )}
+
+      {/* Header Controls (Only visible in empty state or always? Design implies always but let's stick to empty state context for the "Dashboard" feel) */}
+      <div className="flex items-center justify-between p-4 z-10">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" className="rounded-full bg-muted/50 border hover:bg-muted/80 text-sm font-medium">
+            {activeProfile ? activeProfile.profile_name : 'ChatGPT v4.0'}
+            {/* Using profile name as the "Model" equivalent */}
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="rounded-full bg-muted/50 border hover:bg-muted/80">
+            <span className="mr-2">Configuration</span> <Settings className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" className="rounded-full bg-muted/50 border hover:bg-muted/80">
+            <span className="mr-2">Export</span> <Share className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 w-full">
+        <div className="flex flex-col min-h-full">
 
           {isEmptyState ? (
-            <div className="flex-1 flex flex-col justify-center items-center text-center space-y-8 mt-10 md:mt-20">
-              <div className="space-y-4 max-w-2xl">
-                <h1 className="text-4xl font-semibold tracking-tighter sm:text-5xl">
-                  What do you want to create?
+            <div className="flex-1 flex flex-col items-center justify-center p-4 md:p-8 space-y-10 max-w-5xl mx-auto w-full z-10">
+
+              {/* Hero Section */}
+              <div className="flex flex-col items-center space-y-6 text-center mt-10">
+                {/* Orb Visual */}
+                <div className="relative w-24 h-24 mb-4">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary to-orange-600 rounded-full blur-sm animate-pulse" />
+                  <div className="absolute inset-1 bg-gradient-to-tr from-primary/80 to-orange-500 rounded-full shadow-inner border border-white/20" />
+                  <div className="absolute top-2 right-4 w-6 h-6 bg-white/30 rounded-full blur-[2px]" />
+                </div>
+
+                <h1 className="text-4xl md:text-5xl font-semibold tracking-tight text-foreground/90">
+                  Ready to Create Something New?
                 </h1>
+              </div>
 
-                {/* Active Profile Context */}
-                <div className="flex flex-col items-center gap-2">
-                  <p className="text-xl text-muted-foreground font-light">
-                    {activeProfile
-                      ? `Generating for ${activeProfile.profile_name}`
-                      : "Select a profile to get started with tailored content"}
-                  </p>
+              {/* Quick Actions */}
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                <Button variant="outline" className="rounded-full border-muted-foreground/20 bg-background/40 hover:bg-background/60 backdrop-blur-sm h-10 px-6">
+                  Create Image <ImageIcon className="ml-2 h-4 w-4 text-purple-400" />
+                </Button>
+                <Button variant="outline" className="rounded-full border-muted-foreground/20 bg-background/40 hover:bg-background/60 backdrop-blur-sm h-10 px-6" onClick={() => handleValuesChange({ target: { value: "Brainstorm " } } as any)}>
+                  Brainstorm <Sparkles className="ml-2 h-4 w-4 text-yellow-400" />
+                </Button>
+                <Button variant="outline" className="rounded-full border-muted-foreground/20 bg-background/40 hover:bg-background/60 backdrop-blur-sm h-10 px-6" onClick={() => handleValuesChange({ target: { value: "Make a plan for " } } as any)}>
+                  Make a plan <FileText className="ml-2 h-4 w-4 text-blue-400" />
+                </Button>
+              </div>
 
-                  {activeProfile && (
-                    <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-muted-foreground mt-1 bg-muted/30 px-3 py-1.5 rounded-full border">
-                      {activeProfile.niche && (
-                        <>
-                          <span className="font-medium text-foreground">Niche:</span>
-                          <span>{activeProfile.niche}</span>
-                          <div className="h-3 w-px bg-border mx-1" />
-                        </>
-                      )}
-                      {activeProfile.tone_config && (
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium text-foreground">Tone:</span>
-                          <span>P: {activeProfile.tone_config.professionalism}/10</span>
-                          <span className="w-1 h-1 rounded-full bg-muted-foreground/30" />
-                          <span>C: {activeProfile.tone_config.casualness}/10</span>
-                        </div>
-                      )}
+              {/* Center Input Area (Replaces bottom sticky input for empty state) */}
+              <div className="w-full max-w-3xl relative group">
+                <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 to-orange-500/20 rounded-2xl blur opacity-75 group-hover:opacity-100 transition duration-1000"></div>
+                <div className="relative bg-muted/40 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden flex flex-col p-2 space-y-2 shadow-2xl">
+                  <Textarea
+                    ref={textareaRef}
+                    placeholder="Ask Anything..."
+                    className="min-h-[60px] max-h-[200px] w-full resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-4 py-3 text-lg placeholder:text-muted-foreground/70"
+                    value={inputText}
+                    onChange={handleValuesChange}
+                    onKeyDown={handleKeyDown}
+                    disabled={isLoading}
+                  />
+
+                  <div className="flex items-center justify-between px-2 pb-1">
+                    <div className="flex items-center gap-1">
+                      <FileContextUploader
+                        onTextExtracted={(text) => setInputText((prev) => prev + (prev ? "\n\n" : "") + text)}
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
+                      />
+                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-8 w-8 rounded-full">
+                        <Settings className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-8 w-8 rounded-full">
+                        <GripVertical className="h-4 w-4" />
+                      </Button>
                     </div>
-                  )}
+
+                    <div className="flex items-center gap-2">
+                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-9 w-9 rounded-full bg-background/20">
+                        <Mic className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        className={`h-9 w-9 rounded-full transition-all duration-300 ${inputText.trim() ? 'bg-purple-600 hover:bg-purple-700 text-white' : 'bg-muted/50 text-muted-foreground'}`}
+                        onClick={handleGenerateIdeas}
+                        disabled={!inputText.trim() || isLoading}
+                      >
+                        <ArrowUp className="h-5 w-5" />
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Data Cards for Empty State */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-4xl mt-8">
+              {/* Feature Cards */}
+              {/* Stats Cards (Restored) */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full max-w-5xl mt-8">
                 {initialStats ? (
                   <>
-                    <div className="bg-muted/30 border rounded-xl p-4 flex flex-col items-center justify-center hover:bg-muted/50 transition-colors">
-                      <Sparkles className="h-6 w-6 mb-2 text-primary" />
-                      <span className="text-2xl font-bold">{initialStats.ideasCount}</span>
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Ideas</span>
+                    <div className="bg-muted/20 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center hover:bg-muted/30 transition-all duration-300 hover:border-white/10 group">
+                      <div className="p-3 bg-purple-500/10 rounded-full mb-3 group-hover:bg-purple-500/20 transition-colors">
+                        <Sparkles className="h-6 w-6 text-purple-400" />
+                      </div>
+                      <span className="text-3xl font-bold tracking-tight">{initialStats.ideasCount}</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium mt-1">Ideas</span>
                     </div>
-                    <div className="bg-muted/30 border rounded-xl p-4 flex flex-col items-center justify-center hover:bg-muted/50 transition-colors">
-                      <FileText className="h-6 w-6 mb-2 text-blue-500" />
-                      <span className="text-2xl font-bold">{initialStats.contentCount}</span>
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Content</span>
+
+                    <div className="bg-muted/20 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center hover:bg-muted/30 transition-all duration-300 hover:border-white/10 group">
+                      <div className="p-3 bg-blue-500/10 rounded-full mb-3 group-hover:bg-blue-500/20 transition-colors">
+                        <FileText className="h-6 w-6 text-blue-400" />
+                      </div>
+                      <span className="text-3xl font-bold tracking-tight">{initialStats.contentCount}</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium mt-1">Content</span>
                     </div>
-                    <div className="bg-muted/30 border rounded-xl p-4 flex flex-col items-center justify-center hover:bg-muted/50 transition-colors">
-                      <Calendar className="h-6 w-6 mb-2 text-green-500" />
-                      <span className="text-2xl font-bold">{initialStats.scheduledCount}</span>
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Scheduled</span>
+
+                    <div className="bg-muted/20 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center hover:bg-muted/30 transition-all duration-300 hover:border-white/10 group">
+                      <div className="p-3 bg-green-500/10 rounded-full mb-3 group-hover:bg-green-500/20 transition-colors">
+                        <Calendar className="h-6 w-6 text-green-400" />
+                      </div>
+                      <span className="text-3xl font-bold tracking-tight">{initialStats.scheduledCount}</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium mt-1">Scheduled</span>
                     </div>
-                    <div className="bg-muted/30 border rounded-xl p-4 flex flex-col items-center justify-center hover:bg-muted/50 transition-colors">
-                      <Users className="h-6 w-6 mb-2 text-orange-500" />
-                      <span className="text-2xl font-bold">{initialStats.profileCount}</span>
-                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Profiles</span>
+
+                    <div className="bg-muted/20 border border-white/5 rounded-2xl p-6 flex flex-col items-center justify-center hover:bg-muted/30 transition-all duration-300 hover:border-white/10 group">
+                      <div className="p-3 bg-orange-500/10 rounded-full mb-3 group-hover:bg-orange-500/20 transition-colors">
+                        <Users className="h-6 w-6 text-orange-400" />
+                      </div>
+                      <span className="text-3xl font-bold tracking-tight">{initialStats.profileCount}</span>
+                      <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium mt-1">Profiles</span>
                     </div>
                   </>
                 ) : (
-                  <div className="col-span-4 text-center text-muted-foreground text-sm">Loading stats...</div>
+                  <div className="col-span-full text-center text-muted-foreground text-sm py-10">Loading stats...</div>
                 )}
               </div>
 
             </div>
           ) : (
-            <div className="space-y-8 pb-4">
+            /* Standard Chat View */
+            <div className="space-y-8 pb-4 p-4 md:p-6 max-w-4xl mx-auto w-full">
               {messages.map((message) => (
                 <div
                   key={message.id}
@@ -300,7 +382,7 @@ export function DashboardClient({
 
                   <div className={`flex flex-col max-w-[85%] ${message.role === 'user' ? 'items-end' : 'items-start'}`}>
                     <div className={`px-4 py-3 rounded-2xl ${message.role === 'user'
-                      ? 'bg-primary text-primary-foreground rounded-tr-sm'
+                      ? 'bg-muted/40 border border-border/50 text-foreground rounded-tr-sm'
                       : 'bg-muted/40 border rounded-tl-sm'
                       }`}>
                       <div className="prose dark:prose-invert text-sm leading-relaxed whitespace-pre-wrap">
@@ -325,7 +407,7 @@ export function DashboardClient({
 
                   {message.role === 'user' && (
                     <Avatar className="h-8 w-8 mt-1 border">
-                      <AvatarImage src="" /> {/* Add user image if available */}
+                      <AvatarImage src="" />
                       <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
                     </Avatar>
                   )}
@@ -342,25 +424,28 @@ export function DashboardClient({
                   </div>
                 </div>
               )}
+              {/* Spacer for bottom input in chat mode */}
+              <div className="h-32"></div>
+              <div ref={scrollAreaRef} />
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Edit Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="max-w-6xl  flex flex-col">
+        <DialogContent className="max-w-6xl  flex flex-col h-[90vh]">
           <DialogHeader>
             <DialogTitle>Review Content</DialogTitle>
             <DialogDescription>
               Edit the generated content before saving or opening in Canvas.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 py-4">
+          <div className="flex-1 py-4 overflow-hidden flex flex-col">
             <Textarea
               value={editingContent}
               onChange={(e) => setEditingContent(e.target.value)}
-              className="min-h-[70vh] resize-none font-mono text-sm leading-relaxed"
+              className="flex-1 resize-none font-mono text-sm leading-relaxed"
             />
           </div>
           <DialogFooter className="gap-2 sm:gap-0">
@@ -381,59 +466,37 @@ export function DashboardClient({
         </DialogContent>
       </Dialog>
 
-      {/* Input Area */}
-      <div className="p-4 bg-background/80 backdrop-blur-sm sticky bottom-0 z-10 transition-all duration-300">
-        <div className="max-w-3xl mx-auto space-y-2">
-          {/* Controls Bar */}
-          <div className="flex items-center gap-2">
-            <Select value={selectedContentType} onValueChange={setSelectedContentType}>
-              <SelectTrigger className="w-[200px] h-8 text-xs">
-                <SelectValue placeholder="Content Type (Optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="general">General Response</SelectItem>
-                {CONTENT_TYPES.map((type) => (
-                  <SelectItem key={type.id} value={type.id}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <FileContextUploader
-              onTextExtracted={(text) => setInputText((prev) => prev + (prev ? "\n\n" : "") + text)}
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-            />
+      {/* Chat Input Area (Only shown when NOT empty states / active chat) */}
+      {!isEmptyState && (
+        <div className="p-4 bg-background/80 backdrop-blur-sm sticky bottom-0 z-10 transition-all duration-300 border-t">
+          <div className="max-w-3xl mx-auto space-y-2">
+            <div className="relative rounded-xl border bg-background shadow-sm focus-within:ring-1 focus-within:ring-ring transition-all">
+              <Textarea
+                ref={textareaRef}
+                placeholder={activeProfile ? `Generate ideas for ${activeProfile.profile_name}...` : "Ask anything..."}
+                className="min-h-[60px] max-h-[200px] w-full resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-4 py-4 pr-12 text-base shadow-none"
+                value={inputText}
+                onChange={handleValuesChange}
+                onKeyDown={handleKeyDown}
+                disabled={isLoading}
+              />
+              <Button
+                size="icon"
+                className="absolute right-2 bottom-2 h-8 w-8 rounded-lg transition-transform hover:scale-105 active:scale-95"
+                onClick={handleGenerateIdeas}
+                disabled={!inputText.trim() || isLoading}
+              >
+                <ArrowUp className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-
-          <div className="relative rounded-xl border bg-background shadow-sm focus-within:ring-1 focus-within:ring-ring transition-all">
-            <Textarea
-              ref={textareaRef}
-              placeholder={activeProfile ? `Generate ideas for ${activeProfile.profile_name}...` : "Ask anything..."}
-              className="min-h-[60px] max-h-[200px] w-full resize-none border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 px-4 py-4 pr-12 text-base shadow-none"
-              value={inputText}
-              onChange={handleValuesChange}
-              onKeyDown={handleKeyDown}
-              disabled={isLoading}
-            />
-            <Button
-              size="icon"
-              className="absolute right-2 bottom-2 h-8 w-8 rounded-lg transition-transform hover:scale-105 active:scale-95"
-              onClick={handleGenerateIdeas}
-              disabled={!inputText.trim() || isLoading}
-            >
-              <ArrowUp className="h-4 w-4" />
-            </Button>
+          <div className="text-center mt-2">
+            <p className="text-[10px] text-muted-foreground">
+              AI can make mistakes. Check important info.
+            </p>
           </div>
         </div>
-        <div className="text-center mt-2">
-          <p className="text-[10px] text-muted-foreground">
-            {isLoading ? "Generating ideas..." : "AI can make mistakes. Check important info."}
-          </p>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

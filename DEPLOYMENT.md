@@ -23,6 +23,37 @@ You will need to configure the following environment variables in your Vercel pr
 | `NEXT_PUBLIC_APP_URL` | The URL of your deployed application (e.g., `https://your-project.vercel.app`) |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | (Optional) Stripe Publishable Key |
 | `STRIPE_SECRET_KEY` | (Optional) Stripe Secret Key |
+| `STRIPE_WEBHOOK_SECRET` | Stripe Webhook Signing Secret (starts with `whsec_`) |
+| `NEXT_PUBLIC_STRIPE_PRICE_ID_PRO` | Stripe Price ID for the Pro plan (Live Mode) |
+| `NEXT_PUBLIC_STRIPE_PRICE_ID_BUSINESS` | Stripe Price ID for the Business plan (Live Mode) |
+
+## Stripe Production Setup
+
+If you are using Stripe, follow these additional steps to switch from **Test Mode** to **Live Mode**:
+
+1.  **Activate Account**: Complete your business profile in the Stripe Dashboard to activate your account.
+2.  **Switch to Live Mode**: Toggle the "Test Mode" switch to **Live** in the top-right corner of the Stripe Dashboard.
+3.  **Get Live API Keys**:
+    - Go to **Developers > API keys**.
+    - Reveal your **Live Secret Key** (`sk_live_...`) and **Live Publishable Key** (`pk_live_...`).
+    - Update these in your Vercel Environment Variables (`STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_PUBLISHABLE_KEY`).
+4.  **Recreate Products & Prices**:
+    - **Important**: Products and Prices from Test Mode are **NOT** automatically copied to Live Mode.
+    - Go to **Product Catalog** and recreate your "Pro" and "Business" plans manually.
+    - Copy the **new Price IDs** (e.g., `price_...`) for the Live versions.
+    - Update `NEXT_PUBLIC_STRIPE_PRICE_ID_PRO` and `NEXT_PUBLIC_STRIPE_PRICE_ID_BUSINESS` env vars with these new IDs.
+5.  **Configure Live Webhook**:
+    - Go to **Developers > Webhooks**.
+    - Add a new endpoint.
+    - **Endpoint URL**: `https://your-production-domain.com/api/webhooks/stripe`
+    - **Events to listen for**:
+         - `checkout.session.completed`
+        - `invoice.payment_succeeded`
+        - `customer.subscription.updated`
+        - `customer.subscription.deleted`
+    - Click **Add endpoint**.
+    - Reveal the **Signing secret** (`whsec_...`) in the top-right of the webhook page.
+    - Add this to your Vercel Environment Variables as `STRIPE_WEBHOOK_SECRET`.
 
 ## Deployment Steps
 

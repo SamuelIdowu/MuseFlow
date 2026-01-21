@@ -78,7 +78,7 @@ export default function SettingsPage() {
                 onCheckedChange={() => handleNotificationChange('email')}
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>Push Notifications</Label>
@@ -89,7 +89,7 @@ export default function SettingsPage() {
                 onCheckedChange={() => handleNotificationChange('push')}
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>Content Suggestions</Label>
@@ -100,7 +100,7 @@ export default function SettingsPage() {
                 onCheckedChange={() => handleNotificationChange('content_suggestions')}
               />
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>Schedule Reminders</Label>
@@ -124,8 +124,8 @@ export default function SettingsPage() {
           <CardContent className="space-y-4">
             <div>
               <Label>Default Publishing Channel</Label>
-              <Select 
-                value={settings.content.default_channel} 
+              <Select
+                value={settings.content.default_channel}
                 onValueChange={(value) => handleContentChange('default_channel', value)}
               >
                 <SelectTrigger>
@@ -139,7 +139,7 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
             </div>
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <Label>Auto-save Content</Label>
@@ -150,11 +150,11 @@ export default function SettingsPage() {
                 onCheckedChange={(checked) => handleContentChange('auto_save', checked)}
               />
             </div>
-            
+
             <div>
               <Label>AI Tone Preference</Label>
-              <Select 
-                value={settings.content.ai_tone} 
+              <Select
+                value={settings.content.ai_tone}
                 onValueChange={(value) => handleContentChange('ai_tone', value)}
               >
                 <SelectTrigger>
@@ -166,6 +166,26 @@ export default function SettingsPage() {
                   <SelectItem value="casual">Casual</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Billing & Subscription</CardTitle>
+            <CardDescription>
+              Manage your plan and billing details
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label>Current Plan</Label>
+                <p className="text-sm text-muted-foreground">View your plan and usage</p>
+              </div>
+              <Button variant="outline" asChild>
+                <a href="/dashboard/settings/billing">Manage Billing</a>
+              </Button>
             </div>
           </CardContent>
         </Card>
