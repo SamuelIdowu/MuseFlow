@@ -1,20 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Check, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUser, useClerk } from '@clerk/nextjs';
-import { useRouter, useSearchParams } from 'next/navigation';
-import toast from 'react-hot-toast';
-import { useFlutterwave, closePaymentModal } from 'flutterwave-react-v3';
+import { useUser } from '@clerk/nextjs';
+import SubscribeButton from './SubscribeButton';
 
 export default function PricingPage() {
-    const { isSignedIn, user } = useUser();
-    const { openSignIn } = useClerk();
-    const router = useRouter();
-    const [loading, setLoading] = useState<string | null>(null);
+    const { isSignedIn } = useUser();
 
     const plans = [
         {
@@ -37,6 +30,7 @@ export default function PricingPage() {
             buttonText: isSignedIn ? 'Current Plan' : 'Get Started',
             buttonVariant: 'outline',
             priceId: null, // Free plan logic usually internal
+            amount: 0,
         },
         {
             name: 'Pro',
@@ -57,7 +51,8 @@ export default function PricingPage() {
             buttonText: 'Subscribe to Pro',
             buttonVariant: 'default',
             popular: true,
-            priceId: process.env.NEXT_PUBLIC_FLUTTERWAVE_PLAN_ID_PRO,
+            priceId: process.env.NEXT_PUBLIC_FLUTTERWAVE_PLAN_ID_PRO || '',
+            amount: 9,
         },
         {
             name: 'Business',
@@ -74,96 +69,10 @@ export default function PricingPage() {
             notIncluded: [],
             buttonText: 'Subscribe to Business',
             buttonVariant: 'outline',
-            priceId: process.env.NEXT_PUBLIC_FLUTTERWAVE_PLAN_ID_BUSINESS,
+            priceId: process.env.NEXT_PUBLIC_FLUTTERWAVE_PLAN_ID_BUSINESS || '',
+            amount: 29,
         },
     ];
-
-    const handleFlutterwavePayment = useFlutterwave({
-        public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
-        tx_ref: Date.now().toString(),
-        amount: 0,
-        currency: 'USD',
-        payment_options: 'card,mobilemoney,ussd',
-        customer: {
-            email: user?.emailAddresses[0]?.emailAddress || '',
-            phone_number: '',
-            name: user?.fullName || '',
-        },
-        customizations: {
-            title: 'AI Content Tool Subscription',
-            description: 'Payment for subscription',
-            logo: 'https://st2.depositphotos.com/4403291/7418/v/450/depositphotos_74189661-stock-illustration-online-shop-log.jpg',
-        },
-        payment_plan: '0'
-    } as any);
-
-    const handleSubscribe = async (planCode: string | null | undefined) => {
-        if (!isSignedIn) {
-            openSignIn();
-            return;
-        }
-
-        if (!planCode) {
-            router.push('/dashboard');
-            return;
-        }
-
-        setLoading(planCode);
-
-        const config = {
-            public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
-            tx_ref: Date.now().toString(),
-            amount: planCode === process.env.NEXT_PUBLIC_FLUTTERWAVE_PLAN_ID_PRO ? 9 : 29,
-            currency: 'USD',
-            payment_options: 'card,mobilemoney,ussd',
-            customer: {
-                email: user?.emailAddresses[0]?.emailAddress || '',
-                phone_number: '',
-                name: user?.fullName || '',
-            },
-            payment_plan: planCode,
-            customizations: {
-                title: `AI Content Tool - ${planCode === process.env.NEXT_PUBLIC_FLUTTERWAVE_PLAN_ID_PRO ? 'Pro' : 'Business'} Plan`,
-                description: 'Monthly Subscription',
-                logo: 'https://st2.depositphotos.com/4403291/7418/v/450/depositphotos_74189661-stock-illustration-online-shop-log.jpg',
-            },
-        };
-
-        handleFlutterwavePayment({
-            callback: async (response) => {
-                closePaymentModal();
-                if (response.status === "successful") {
-                    const toastId = toast.loading("Verifying payment...");
-                    try {
-                        const verifyRes = await fetch('/api/flutterwave/verify', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ transaction_id: response.transaction_id })
-                        });
-
-                        if (verifyRes.ok) {
-                            toast.dismiss(toastId);
-                            toast.success("Subscription activated!");
-                            window.location.href = '/dashboard';
-                        } else {
-                            toast.dismiss(toastId);
-                            toast.error("Payment verification failed.");
-                        }
-                    } catch (err) {
-                        console.error(err);
-                        toast.dismiss(toastId);
-                        toast.error("Verification error");
-                    }
-                } else {
-                    toast.error("Payment failed. Please try again.");
-                }
-            },
-            onClose: () => {
-                setLoading(null);
-            },
-            ...config
-        });
-    };
 
     return (
         <div className="py-24 px-4 md:px-6">
@@ -209,14 +118,14 @@ export default function PricingPage() {
                             </ul>
                         </CardContent>
                         <CardFooter>
-                            <Button
-                                className="w-full"
+                            <SubscribeButton
+                                planId={plan.priceId}
+                                amount={plan.amount}
+                                planName={plan.name}
+                                buttonText={plan.buttonText}
                                 variant={plan.buttonVariant as any}
-                                onClick={() => handleSubscribe(plan.priceId)}
-                                disabled={loading === plan.priceId}
-                            >
-                                {loading === plan.priceId ? 'Processing...' : plan.buttonText}
-                            </Button>
+                                className="w-full"
+                            />
                         </CardFooter>
                     </Card>
                 ))}
