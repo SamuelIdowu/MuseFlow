@@ -1,31 +1,16 @@
 'use client';
 
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import Link from 'next/link';
 import { useSignUp, useAuth } from '@clerk/nextjs';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, Github, CheckCircle, X } from 'lucide-react';
 import { AuthCard } from '@/components/auth/AuthCard';
 
 export default function SignUpPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const { signUp, isLoaded: isSignUpLoaded, setActive } = useSignUp();
+  const { signUp, isLoaded: isSignUpLoaded } = useSignUp();
   const { userId, isLoaded: isAuthLoaded } = useAuth();
   const router = useRouter();
-  const [error, setError] = useState('');
-  const [termsAccepted, setTermsAccepted] = useState(false);
-  const [pending, setPending] = useState(false);
-
-  const [verifying, setVerifying] = useState(false);
-  const [code, setCode] = useState('');
-  const [resending, setResending] = useState(false);
-  const [resendSuccess, setResendSuccess] = useState(false);
 
   // Redirect if already signed in
   useEffect(() => {
@@ -46,373 +31,42 @@ export default function SignUpPage() {
     );
   }
 
-  // Password validation checks
-  const hasMinLength = password.length >= 8;
-  const hasUppercase = /[A-Z]/.test(password);
-  const hasNumber = /\d/.test(password);
-  const hasSpecialChar = /[^A-Za-z0-9]/.test(password);
-  const passwordsMatch = password === confirmPassword;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('Signup form submitted');
-
-    if (!isSignUpLoaded) {
-      console.log('Clerk signUp object not loaded yet');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      return;
-    }
-
-    if (!termsAccepted) {
-      setError('Please accept the Terms of Service');
-      return;
-    }
-
-    setPending(true);
-    setError('');
-
-    try {
-      console.log('Creating signup attempt with email:', email);
-
-      // Check if there's an existing signup in progress that hasn't been completed
-      if (signUp.status === 'missing_requirements' && signUp.emailAddress === email) {
-        console.log('Continuing existing signup attempt');
-      } else {
-        await signUp.create({
-          emailAddress: email,
-          password,
-        });
-      }
-
-      console.log('Signup created successfully, preparing verification');
-
-      // After successful sign up, send email verification
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-      console.log('Verification email prepared');
-
-      setPending(false);
-      setVerifying(true);
-    } catch (err: any) {
-      console.error('Signup error:', JSON.stringify(err, null, 2));
-
-      const msg1 = err.errors?.[0]?.message || '';
-      const msg2 = err.message || '';
-      const fullError = JSON.stringify(err).toLowerCase();
-
-      const isSessionError =
-        msg1.toLowerCase().includes('session already exists') ||
-        msg1.toLowerCase().includes("you're already signed in") ||
-        msg2.toLowerCase().includes('session already exists') ||
-        msg2.toLowerCase().includes("you're already signed in") ||
-        fullError.includes('session already exists') ||
-        err.status === 403;
-
-      if (isSessionError) {
-        console.log('Session already exists, redirecting to dashboard...');
-        window.location.href = '/dashboard';
-        return;
-      }
-
-      const displayMessage = msg1 || msg2 || 'Failed to create account';
-      setError(displayMessage);
-    } finally {
-      // Ensure pending state is always cleared on error
-      if (!verifying) { // Only clear if we didn't successfully move to verifying state
-        setPending(false);
-      }
-    }
-  };
-
-  const handleResendEmail = async () => {
-    if (!isSignUpLoaded || resending) return;
-
-    setResending(true);
-    setError('');
-    setResendSuccess(false);
-
-    try {
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-      console.log('Verification email resent');
-      setResendSuccess(true);
-      // Reset success message after 3 seconds
-      setTimeout(() => setResendSuccess(false), 3000);
-    } catch (err: any) {
-      console.error('Resend error:', JSON.stringify(err, null, 2));
-      setError(err.errors?.[0]?.message || 'Failed to resend code');
-    } finally {
-      setResending(false);
-    }
-  };
-
-  const handleVerify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isSignUpLoaded) return;
-
-    setPending(true);
-    setError('');
-
-    try {
-      const completeSignUp = await signUp.attemptEmailAddressVerification({
-        code,
-      });
-
-      if (completeSignUp.status !== 'complete') {
-        console.log(JSON.stringify(completeSignUp, null, 2));
-        setError('Verification failed. Please try again.');
-        setPending(false);
-      } else {
-        await setActive({ session: completeSignUp.createdSessionId });
-        // Redirect handled by middleware or router
-        window.location.href = '/dashboard';
-      }
-    } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
-      setError(err.errors?.[0]?.message || 'Verification failed');
-      setPending(false);
-    }
-  };
-
-  if (verifying) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="w-full max-w-md mx-auto space-y-8 p-8 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-xl">
-          <div className="text-center">
-            <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 bg-orange-50 dark:borange-900/30 rounded-full flex items-center justify-center">
-                <span className="text-2xl">✉️</span>
-              </div>
-            </div>
-            <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Check your email</h2>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">
-              We sent a verification code to <span className="font-medium text-gray-900 dark:text-gray-100">{email}</span>
-            </p>
-          </div>
-
-          {error && (
-            <div className="rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 p-3 text-sm text-red-700 dark:text-red-400">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleVerify} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="code" className="text-sm font-medium text-gray-900 dark:text-gray-100">Verification Code</label>
-              <Input
-                id="code"
-                placeholder="Enter code"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                className="text-center text-lg tracking-widest h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:ring-orange-500"
-              />
-            </div>
-            <Button
-              type="submit"
-              className="w-full h-12 rounded-lg bg-orange-600 dark:bg-orange-500 text-white hover:bg-orange-700 dark:hover:bg-orange-600 font-semibold shadow-sm"
-              disabled={pending || !code}
-            >
-              {pending ? 'Verifying...' : 'Verify Email'}
-            </Button>
-          </form>
-
-          {resendSuccess && (
-            <div className="rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 p-3 text-sm text-green-700 dark:text-green-400 text-center">
-              ✓ Code sent! Check your email.
-            </div>
-          )}
-
-          <Button
-            type="button"
-            variant="ghost"
-            className="w-full text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-            onClick={handleResendEmail}
-            disabled={resending}
-          >
-            {resending ? 'Resending...' : "Didn't receive the code? Resend"}
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <AuthCard mode="sign-up">
       <div className="flex w-full flex-col gap-6">
         {/* Header */}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-2 text-center">
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
             Create an account
           </h2>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Get started with MuseFlow today
+            Sign up with Google to get started with MuseFlow
           </p>
         </div>
 
-        {/* OAuth Buttons */}
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
-            onClick={() => signUp?.authenticateWithRedirect({
-              strategy: 'oauth_google',
-              redirectUrl: '/dashboard',
-              redirectUrlComplete: '/dashboard',
-            })}
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-            </svg>
-          </Button>
-          <Button
-            variant="outline"
-            className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600"
-            onClick={() => signUp?.authenticateWithRedirect({
-              strategy: 'oauth_github',
-              redirectUrl: '/dashboard',
-              redirectUrlComplete: '/dashboard',
-            })}
-          >
-            <Github className="h-5 w-5 fill-gray-700 dark:fill-gray-300" />
-          </Button>
-        </div>
-
-        {/*
-        <div className="flex items-center gap-4 text-white/20">
-          <Separator className="bg-white/10" />
-          <p className="text-xs font-medium whitespace-nowrap">OR SIGN UP WITH</p>
-          <Separator className="bg-white/10" />
-        </div> */}
-
-        {/* Signup Form */}
-        {error && (
-          <div className="rounded-lg bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 p-3 text-sm text-red-700 dark:text-red-400">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
-          {/* Clerk CAPTCHA Widget Container - Required for Smart CAPTCHA */}
-          <div id="clerk-captcha" className="hidden" />
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-2">
-              <Input
-                placeholder="First name"
-                className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:ring-orange-500"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Input
-                placeholder="Last name"
-                className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:ring-orange-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:ring-orange-500"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 pr-10 focus-visible:ring-orange-500"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <Input
-              id="confirm-password"
-              type="password"
-              placeholder="Confirm Password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="h-12 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 focus-visible:ring-orange-500"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400 mt-1">
-            <span className={`flex items-center gap-1.5 ${hasMinLength ? 'text-green-600 dark:text-green-400 font-medium' : 'text-red-500 dark:text-red-400'}`}>
-              {hasMinLength ? <CheckCircle className="h-4 w-4" /> : <X className="h-4 w-4" />}
-              8+ chars
-            </span>
-            <span className={`flex items-center gap-1.5 ${hasUppercase ? 'text-green-600 dark:text-green-400 font-medium' : 'text-red-500 dark:text-red-400'}`}>
-              {hasUppercase ? <CheckCircle className="h-4 w-4" /> : <X className="h-4 w-4" />}
-              Uppercase
-            </span>
-            <span className={`flex items-center gap-1.5 ${hasNumber ? 'text-green-600 dark:text-green-400 font-medium' : 'text-red-500 dark:text-red-400'}`}>
-              {hasNumber ? <CheckCircle className="h-4 w-4" /> : <X className="h-4 w-4" />}
-              Number
-            </span>
-            <span className={`flex items-center gap-1.5 ${hasSpecialChar ? 'text-green-600 dark:text-green-400 font-medium' : 'text-red-500 dark:text-red-400'}`}>
-              {hasSpecialChar ? <CheckCircle className="h-4 w-4" /> : <X className="h-4 w-4" />}
-              Special char
-            </span>
-          </div>
-
-          <div className="flex items-start gap-3 mt-2">
-            <input
-              type="checkbox"
-              id="terms"
-              className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-orange-600 focus:ring-orange-500"
-              checked={termsAccepted}
-              onChange={(e) => setTermsAccepted(e.target.checked)}
-            />
-            <label htmlFor="terms" className="text-xs text-gray-600 dark:text-gray-400">
-              I agree to the{' '}
-              <Link href="#" className="font-medium text-orange-600 dark:text-orange-400 hover:underline">
-                Terms of Service
-              </Link>{' '}
-              and{' '}
-              <Link href="#" className="font-medium text-orange-600 dark:text-orange-400 hover:underline">
-                Privacy Policy
-              </Link>.
-            </label>
-          </div>
-
-          <Button
-            type="submit"
-            className="h-12 w-full rounded-lg bg-orange-600 dark:bg-orange-500 text-white hover:bg-orange-700 dark:hover:bg-orange-600 font-semibold mt-2 shadow-sm"
-            disabled={!hasMinLength || !hasNumber || !hasUppercase || !hasSpecialChar || !passwordsMatch || !termsAccepted || pending}
-          >
-            {pending ? 'Creating Account...' : 'Create an account'}
-          </Button>
-        </form>
+        {/* Google OAuth Button */}
+        <Button
+          variant="outline"
+          className="h-12 w-full border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-600 font-medium"
+          onClick={() => signUp?.authenticateWithRedirect({
+            strategy: 'oauth_google',
+            redirectUrl: '/dashboard',
+            redirectUrlComplete: '/dashboard',
+          })}
+          disabled={!isSignUpLoaded}
+        >
+          <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+          </svg>
+          Continue with Google
+        </Button>
 
         <p className="text-center text-xs text-gray-500 dark:text-gray-400">
           Already have an account?{' '}
-          <Link href="/sign-in" className="text-orange-600 dark:text-orange-400 hover:underline">
+          <Link href="/sign-in" className="text-orange-600 dark:text-orange-400 hover:underline font-medium">
             Sign In
           </Link>
         </p>

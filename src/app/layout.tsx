@@ -39,7 +39,7 @@ export const metadata: Metadata = {
     title: "MuseFlow - AI Content Ideation Platform",
     description: "Your AI content co-pilot for ideation and publishing",
     creator: "@MuseFlow",
-    images: ["/opengraph-image.png"],
+    images: ["/x-opengraph-image.png"],
   },
 };
 
