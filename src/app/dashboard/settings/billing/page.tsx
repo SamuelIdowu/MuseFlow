@@ -8,6 +8,7 @@ import { SubscriptionManageButton } from './SubscriptionManageButton';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { ensureSupabaseUser } from '@/lib/supabaseServerClient';
+import { FEATURES } from '@/lib/featureFlags';
 
 export default async function BillingPage() {
     const { userId } = await auth();
@@ -47,6 +48,41 @@ export default async function BillingPage() {
     const planName = subscription
         ? (subscription.price_id === process.env.NEXT_PUBLIC_FLUTTERWAVE_PLAN_ID_BUSINESS ? 'Business' : 'Pro')
         : 'Free';
+
+    // FEATURE FLAG: When payments are disabled, show simplified view
+    if (!FEATURES.PAYMENTS_ENABLED) {
+        return (
+            <div className="space-y-6">
+                <div>
+                    <h3 className="text-lg font-medium">Billing & Subscription</h3>
+                    <p className="text-sm text-muted-foreground">
+                        Billing is currently disabled. All features are available to you.
+                    </p>
+                </div>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>All Features Unlocked</CardTitle>
+                        <CardDescription>
+                            You have access to all features without any restrictions.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium">Status:</span>
+                            <Badge variant="default" className="bg-green-600 hover:bg-green-700">All Access</Badge>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                            <div className="flex items-center text-green-600">
+                                <CheckCircle2 className="mr-2 h-4 w-4" />
+                                Unlimited AI Generations, Profiles, Canvas Sessions, and Campaigns
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">

@@ -75,6 +75,9 @@ export default function SignInPage() {
         )}
 
         <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
+          {/* Clerk CAPTCHA Widget Container - Required for Smart CAPTCHA */}
+          <div id="clerk-captcha" className="hidden" />
+
           <div className="flex flex-col gap-2">
             <Input
               id="email"
@@ -138,7 +141,7 @@ export default function SignInPage() {
         <div className="grid grid-cols-2 gap-3">
           <Button
             variant="outline"
-            className="h-12 border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white border-0"
+            className="h-12 border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white border-0 cursor-pointer"
             onClick={() => signIn?.authenticateWithRedirect({
               strategy: 'oauth_google',
               redirectUrl: '/dashboard',
@@ -154,7 +157,7 @@ export default function SignInPage() {
           </Button>
           <Button
             variant="outline"
-            className="h-12 border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white border-0"
+            className="h-12 border-white/10 bg-white/5 text-white hover:bg-white/10 hover:text-white border-0 cursor-pointer"
             onClick={() => signIn?.authenticateWithRedirect({
               strategy: 'oauth_github',
               redirectUrl: '/dashboard',

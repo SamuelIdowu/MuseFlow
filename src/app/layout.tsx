@@ -17,6 +17,21 @@ export const metadata: Metadata = {
   title: "MuseFlow - AI Content Ideation Platform",
   description: "Your AI content co-pilot for ideation and publishing",
   manifest: "/manifest.json",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"),
+  openGraph: {
+    title: "MuseFlow - AI Content Ideation Platform",
+    description: "Your AI content co-pilot for ideation and publishing",
+    url: "/",
+    siteName: "MuseFlow",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "MuseFlow - AI Content Ideation Platform",
+    description: "Your AI content co-pilot for ideation and publishing",
+    creator: "@MuseFlow",
+  },
 };
 
 export const viewport: Viewport = {

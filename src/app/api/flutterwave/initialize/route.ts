@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server';
+import { FEATURES } from '@/lib/featureFlags';
 // import flw from '@/lib/flutterwave';
 
 export async function POST(req: Request) {
+    // FEATURE FLAG: When payments are disabled, return success without processing
+    if (!FEATURES.PAYMENTS_ENABLED) {
+        return NextResponse.json({ 
+            message: 'Payments are currently disabled.',
+            disabled: true 
+        }, { status: 200 });
+    }
+
     try {
         const body = await req.json();
         const { plan, email, userId } = body;

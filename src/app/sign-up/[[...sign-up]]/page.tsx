@@ -24,6 +24,8 @@ export default function SignUpPage() {
 
   const [verifying, setVerifying] = useState(false);
   const [code, setCode] = useState('');
+  const [resending, setResending] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
 
   // Redirect if already signed in
   useEffect(() => {
@@ -53,8 +55,12 @@ export default function SignUpPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Signup form submitted');
 
-    if (!isSignUpLoaded) return;
+    if (!isSignUpLoaded) {
+      console.log('Clerk signUp object not loaded yet');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -70,17 +76,28 @@ export default function SignUpPage() {
     setError('');
 
     try {
-      await signUp.create({
-        emailAddress: email,
-        password,
-      });
+      console.log('Creating signup attempt with email:', email);
+
+      // Check if there's an existing signup in progress that hasn't been completed
+      if (signUp.status === 'missing_requirements' && signUp.emailAddress === email) {
+        console.log('Continuing existing signup attempt');
+      } else {
+        await signUp.create({
+          emailAddress: email,
+          password,
+        });
+      }
+
+      console.log('Signup created successfully, preparing verification');
 
       // After successful sign up, send email verification
       await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      console.log('Verification email prepared');
+
       setPending(false);
       setVerifying(true);
     } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
+      console.error('Signup error:', JSON.stringify(err, null, 2));
 
       const msg1 = err.errors?.[0]?.message || '';
       const msg2 = err.message || '';
@@ -100,9 +117,34 @@ export default function SignUpPage() {
         return;
       }
 
-      const displayMessage = msg1 || 'Failed to create account';
+      const displayMessage = msg1 || msg2 || 'Failed to create account';
       setError(displayMessage);
-      setPending(false);
+    } finally {
+      // Ensure pending state is always cleared on error
+      if (!verifying) { // Only clear if we didn't successfully move to verifying state
+        setPending(false);
+      }
+    }
+  };
+
+  const handleResendEmail = async () => {
+    if (!isSignUpLoaded || resending) return;
+
+    setResending(true);
+    setError('');
+    setResendSuccess(false);
+
+    try {
+      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+      console.log('Verification email resent');
+      setResendSuccess(true);
+      // Reset success message after 3 seconds
+      setTimeout(() => setResendSuccess(false), 3000);
+    } catch (err: any) {
+      console.error('Resend error:', JSON.stringify(err, null, 2));
+      setError(err.errors?.[0]?.message || 'Failed to resend code');
+    } finally {
+      setResending(false);
     }
   };
 
@@ -140,7 +182,7 @@ export default function SignUpPage() {
         <div className="w-full max-w-md mx-auto space-y-8 p-8 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-xl">
           <div className="text-center">
             <div className="flex justify-center mb-4">
-              <div className="w-12 h-12 bg-orangege-50 dark:borange-900/30 rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 bg-orange-50 dark:borange-900/30 rounded-full flex items-center justify-center">
                 <span className="text-2xl">✉️</span>
               </div>
             </div>
@@ -175,6 +217,22 @@ export default function SignUpPage() {
               {pending ? 'Verifying...' : 'Verify Email'}
             </Button>
           </form>
+
+          {resendSuccess && (
+            <div className="rounded-lg bg-green-50 dark:bg-green-500/10 border border-green-200 dark:border-green-500/20 p-3 text-sm text-green-700 dark:text-green-400 text-center">
+              ✓ Code sent! Check your email.
+            </div>
+          )}
+
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-full text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+            onClick={handleResendEmail}
+            disabled={resending}
+          >
+            {resending ? 'Resending...' : "Didn't receive the code? Resend"}
+          </Button>
         </div>
       </div>
     );
@@ -239,6 +297,8 @@ export default function SignUpPage() {
         )}
 
         <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
+          {/* Clerk CAPTCHA Widget Container - Required for Smart CAPTCHA */}
+          <div id="clerk-captcha" className="hidden" />
           <div className="grid grid-cols-2 gap-4">
             <div className="flex flex-col gap-2">
               <Input
@@ -303,16 +363,20 @@ export default function SignUpPage() {
           </div>
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-gray-600 dark:text-gray-400 mt-1">
-            <span className={`flex items-center gap-1.5 ${hasMinLength ? 'text-green-600 dark:text-green-400 font-medium' : ''}`}>
+            <span className={`flex items-center gap-1.5 ${hasMinLength ? 'text-green-600 dark:text-green-400 font-medium' : 'text-red-500 dark:text-red-400'}`}>
+              {hasMinLength ? <CheckCircle className="h-4 w-4" /> : <X className="h-4 w-4" />}
               8+ chars
             </span>
-            <span className={`flex items-center gap-1.5 ${hasUppercase ? 'text-green-600 dark:text-green-400 font-medium' : ''}`}>
+            <span className={`flex items-center gap-1.5 ${hasUppercase ? 'text-green-600 dark:text-green-400 font-medium' : 'text-red-500 dark:text-red-400'}`}>
+              {hasUppercase ? <CheckCircle className="h-4 w-4" /> : <X className="h-4 w-4" />}
               Uppercase
             </span>
-            <span className={`flex items-center gap-1.5 ${hasNumber ? 'text-green-600 dark:text-green-400 font-medium' : ''}`}>
+            <span className={`flex items-center gap-1.5 ${hasNumber ? 'text-green-600 dark:text-green-400 font-medium' : 'text-red-500 dark:text-red-400'}`}>
+              {hasNumber ? <CheckCircle className="h-4 w-4" /> : <X className="h-4 w-4" />}
               Number
             </span>
-            <span className={`flex items-center gap-1.5 ${hasSpecialChar ? 'text-green-600 dark:text-green-400 font-medium' : ''}`}>
+            <span className={`flex items-center gap-1.5 ${hasSpecialChar ? 'text-green-600 dark:text-green-400 font-medium' : 'text-red-500 dark:text-red-400'}`}>
+              {hasSpecialChar ? <CheckCircle className="h-4 w-4" /> : <X className="h-4 w-4" />}
               Special char
             </span>
           </div>

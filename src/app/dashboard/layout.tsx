@@ -58,7 +58,7 @@ export default function DashboardLayout({
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-72">
-                <Sidebar onNavClick={() => setIsMobileOpen(false)} />
+                <Sidebar onNavClick={() => setIsMobileOpen(false)} defaultCollapsed={false} />
               </SheetContent>
             </Sheet>
             <h1 className="text-xl font-semibold">Dashboard</h1>

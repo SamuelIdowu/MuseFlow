@@ -34,21 +34,27 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Missing svix headers' }, { status: 400 });
       }
 
-      const clerkSecretKey = process.env.CLERK_PUBLISHABLE_KEY;
-      if (!clerkSecretKey) {
-        console.error('Missing Clerk publishable key');
-        return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-      }
+      const clerkWebhookSecret = process.env.CLERK_WEBHOOK_SECRET;
 
-      const wh = new Webhook(clerkSecretKey);
-      wh.verify(
-        JSON.stringify(payload),
-        {
-          'svix-id': svix_id,
-          'svix-timestamp': svix_timestamp,
-          'svix-signature': svix_signature,
+      // Only verify webhook if secret is provided (allows local development without webhooks)
+      if (clerkWebhookSecret) {
+        try {
+          const wh = new Webhook(clerkWebhookSecret);
+          wh.verify(
+            JSON.stringify(payload),
+            {
+              'svix-id': svix_id,
+              'svix-timestamp': svix_timestamp,
+              'svix-signature': svix_signature,
+            }
+          );
+        } catch (err) {
+          console.error('Webhook verification failed:', err);
+          return NextResponse.json({ error: 'Webhook verification failed' }, { status: 400 });
         }
-      );
+      } else {
+        console.warn('Clerk webhook secret not provided - skipping verification (local development)');
+      }
 
       const { type, data } = payload;
 

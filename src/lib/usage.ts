@@ -1,5 +1,6 @@
 
 import { createSupabaseServiceClient } from './supabaseServerClient';
+import { FEATURES } from './featureFlags';
 
 export type UsageMetric = 'ai_generations' | 'brand_profiles' | 'saved_campaigns' | 'canvas_sessions';
 
@@ -51,6 +52,11 @@ export async function getUsage(userId: string, metric: UsageMetric) {
 }
 
 export async function checkUsageLimit(userId: string, metric: UsageMetric): Promise<boolean> {
+    // FEATURE FLAG: When payments are disabled, bypass all usage limits
+    if (!FEATURES.PAYMENTS_ENABLED) {
+        return true; // Allow unlimited usage
+    }
+
     const supabase = createSupabaseServiceClient();
 
     // 1. Get user's subscription plan

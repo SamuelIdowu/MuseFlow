@@ -91,7 +91,15 @@ export async function getSupabaseUserId(clerkUserId: string): Promise<string | n
 
   if (error) {
     if (error.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-      console.error('Error getting Supabase user ID:', error);
+      console.error('Error getting Supabase user ID for clerk_id:', clerkUserId);
+      console.error('Full error object:', JSON.stringify(error, null, 2));
+      // Log specific fields that might be lost in default string representations
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
     }
     return null;
   }

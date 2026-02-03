@@ -87,6 +87,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                 id: block.id,
                 type: 'custom',
                 position: needsLayout ? { x: 250, y: index * 300 } : block.position,
+                dragHandle: '.drag-handle',
                 data: {
                     id: block.id,
                     type: block.type || "paragraph",
@@ -225,6 +226,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                 id: addedBlock.id,
                 type: 'custom',
                 position: addedBlock.position,
+                dragHandle: '.drag-handle',
                 data: {
                     id: addedBlock.id,
                     type: addedBlock.type || "paragraph",

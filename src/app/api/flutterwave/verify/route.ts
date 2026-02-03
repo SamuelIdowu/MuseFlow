@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { verifyTransaction } from '@/lib/flutterwave';
 import { createClient } from '@supabase/supabase-js';
+import { FEATURES } from '@/lib/featureFlags';
 
 // Initialize Supabase Admin client for DB updates
 const supabaseAdmin = createClient(
@@ -9,6 +10,14 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(req: Request) {
+    // FEATURE FLAG: When payments are disabled, return success without processing
+    if (!FEATURES.PAYMENTS_ENABLED) {
+        return NextResponse.json({ 
+            message: 'Payments are currently disabled. All features are available.',
+            disabled: true 
+        }, { status: 200 });
+    }
+
     try {
         const { transaction_id } = await req.json();
 

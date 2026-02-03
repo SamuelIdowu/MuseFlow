@@ -16,6 +16,7 @@ You will need to configure the following environment variables in your Vercel pr
 | :--- | :--- |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Your Clerk Publishable Key |
 | `CLERK_SECRET_KEY` | Your Clerk Secret Key |
+| `CLERK_WEBHOOK_SECRET` | Your Clerk Webhook Secret |
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase Anon Key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Your Supabase Service Role Key |

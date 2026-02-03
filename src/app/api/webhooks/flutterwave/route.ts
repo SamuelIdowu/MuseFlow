@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { FEATURES } from '@/lib/featureFlags';
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,6 +8,14 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(req: Request) {
+    // FEATURE FLAG: When payments are disabled, acknowledge webhook without processing
+    if (!FEATURES.PAYMENTS_ENABLED) {
+        return NextResponse.json({ 
+            status: 'success',
+            message: 'Payments disabled - webhook acknowledged but not processed'
+        });
+    }
+
     try {
         const signature = req.headers.get('verif-hash');
         const secretHash = process.env.FLUTTERWAVE_SECRET_HASH || 'default-secret-hash'; // IMPORTANT: Set this in env

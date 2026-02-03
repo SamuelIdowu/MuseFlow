@@ -1,10 +1,36 @@
 'use client';
 
-import { Sparkles } from 'lucide-react';
+import { Sparkles, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { FEATURES } from '@/lib/featureFlags';
 
 export function UpgradeCard() {
+    // FEATURE FLAG: When payments are disabled, show "All Features Unlocked" message
+    if (!FEATURES.PAYMENTS_ENABLED) {
+        return (
+            <div className="mx-4 mb-4 p-4 rounded-2xl bg-gradient-to-br from-green-900 via-emerald-800 to-green-900 border border-green-700/50 shadow-xl relative overflow-hidden">
+                {/* Glow Effects */}
+                <div className="absolute -top-10 -right-10 w-24 h-24 bg-green-500/20 rounded-full blur-2xl" />
+                <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-emerald-500/20 rounded-full blur-2xl" />
+
+                <div className="relative z-10 text-center">
+                    <div className="inline-flex items-center justify-center w-10 h-10 mb-3 rounded-xl bg-gradient-to-br from-green-500/10 to-emerald-500/10 border border-green-500/20 shadow-inner">
+                        <CheckCircle2 className="w-5 h-5 text-green-400" />
+                    </div>
+
+                    <h3 className="text-sm font-semibold text-white mb-1">
+                        All Features Unlocked
+                    </h3>
+
+                    <p className="text-xs text-slate-300 mb-2 leading-relaxed">
+                        Enjoy unlimited access to all features!
+                    </p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="mx-4 mb-4 p-4 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-slate-700/50 shadow-xl relative overflow-hidden group">
             {/* Glow Effects */}

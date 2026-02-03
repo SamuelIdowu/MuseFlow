@@ -11,6 +11,7 @@ import { useUser, useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { useFlutterwave, closePaymentModal } from 'flutterwave-react-v3';
+import { FEATURES } from '@/lib/featureFlags';
 
 export function PricingSection() {
     const { isSignedIn, user } = useUser();
@@ -100,6 +101,22 @@ export function PricingSection() {
 
 
     const handleSubscribe = async (planCode: string | null | undefined, href: string | null) => {
+        // FEATURE FLAG: When payments are disabled, redirect to dashboard
+        if (!FEATURES.PAYMENTS_ENABLED) {
+            if (href) {
+                router.push(href);
+                return;
+            }
+            if (!isSignedIn) {
+                toast.error("Please sign in to continue");
+                openSignIn();
+                return;
+            }
+            toast.success('All features are available! Redirecting to dashboard...');
+            router.push('/dashboard');
+            return;
+        }
+
         if (href) {
             router.push(href);
             return;

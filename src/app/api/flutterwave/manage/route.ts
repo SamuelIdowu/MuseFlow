@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { cancelSubscription } from '@/lib/flutterwave';
+import { FEATURES } from '@/lib/featureFlags';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseAdmin = createClient(
@@ -8,6 +9,14 @@ const supabaseAdmin = createClient(
 );
 
 export async function POST(req: Request) {
+    // FEATURE FLAG: When payments are disabled, return success without processing
+    if (!FEATURES.PAYMENTS_ENABLED) {
+        return NextResponse.json({ 
+            message: 'Payments are currently disabled. No subscription to cancel.',
+            disabled: true 
+        }, { status: 200 });
+    }
+
     try {
         const { subscription_id, user_id } = await req.json();
 

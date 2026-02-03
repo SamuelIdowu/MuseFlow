@@ -38,7 +38,7 @@
 next-env.d.ts
 
 #Docs
-# /docs
+/docs
 
 # PWA local files
 public/sw.js

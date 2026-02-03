@@ -24,6 +24,7 @@ cp .env.example .env.local
 2. Create a new application
 3. Go to API Keys in the dashboard
 4. Copy your `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`
+5. Go to Webhooks in the dashboard and create a new webhook secret for your endpoint
 
 #### Supabase Database:
 1. Go to [supabase.com](https://supabase.com)
@@ -43,6 +44,7 @@ cp .env.example .env.local
 # Clerk Authentication
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=your_publishable_key_here
 CLERK_SECRET_KEY=your_secret_key_here
+CLERK_WEBHOOK_SECRET=your_webhook_secret_here
 
 # Supabase Database
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here

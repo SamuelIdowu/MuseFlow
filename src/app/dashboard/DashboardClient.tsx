@@ -27,6 +27,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { CONTENT_TYPES } from "@/types/content";
 import { saveToIdeasAction } from '@/lib/dashboardServerActions';
 import { FileContextUploader } from "@/components/ui/file-context-uploader";
@@ -72,6 +74,14 @@ export function DashboardClient({
       if (!searchParams.get('chatId') && currentChatId) {
         setMessages([]);
         setCurrentChatId(null);
+      }
+
+      // Explicit "New Chat" action
+      if (searchParams.get('action') === 'new') {
+        setMessages([]);
+        setCurrentChatId(null);
+        // Clean URL without refresh
+        router.replace('/dashboard');
       }
     }
   }, [initialChatSession, searchParams]);
@@ -234,10 +244,10 @@ export function DashboardClient({
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="sm" className="rounded-full bg-muted/50 border hover:bg-muted/80">
-            <span className="mr-2">Configuration</span> <Settings className="h-4 w-4" />
+            <span className="hidden sm:inline mr-2">Configuration</span> <Settings className="h-4 w-4" />
           </Button>
           <Button variant="ghost" size="sm" className="rounded-full bg-muted/50 border hover:bg-muted/80">
-            <span className="mr-2">Export</span> <Share className="h-4 w-4" />
+            <span className="hidden sm:inline mr-2">Export</span> <Share className="h-4 w-4" />
           </Button>
         </div>
       </div>
@@ -265,13 +275,13 @@ export function DashboardClient({
 
               {/* Quick Actions */}
               <div className="flex flex-wrap items-center justify-center gap-3">
-                <Button variant="outline" className="rounded-full border-muted-foreground/20 bg-background/40 hover:bg-background/60 backdrop-blur-sm h-10 px-6">
+                <Button variant="outline" className="rounded-full border-muted-foreground/20 bg-background/40 hover:bg-background/60 dark:bg-secondary/10 dark:hover:bg-secondary/20 dark:border-white/10 dark:text-foreground/90 backdrop-blur-sm h-10 px-6">
                   Create Image <ImageIcon className="ml-2 h-4 w-4 text-purple-400" />
                 </Button>
-                <Button variant="outline" className="rounded-full border-muted-foreground/20 bg-background/40 hover:bg-background/60 backdrop-blur-sm h-10 px-6" onClick={() => handleValuesChange({ target: { value: "Brainstorm " } } as any)}>
+                <Button variant="outline" className="rounded-full border-muted-foreground/20 bg-background/40 hover:bg-background/60 dark:bg-secondary/10 dark:hover:bg-secondary/20 dark:border-white/10 dark:text-foreground/90 backdrop-blur-sm h-10 px-6" onClick={() => handleValuesChange({ target: { value: "Brainstorm " } } as any)}>
                   Brainstorm <Sparkles className="ml-2 h-4 w-4 text-yellow-400" />
                 </Button>
-                <Button variant="outline" className="rounded-full border-muted-foreground/20 bg-background/40 hover:bg-background/60 backdrop-blur-sm h-10 px-6" onClick={() => handleValuesChange({ target: { value: "Make a plan for " } } as any)}>
+                <Button variant="outline" className="rounded-full border-muted-foreground/20 bg-background/40 hover:bg-background/60 dark:bg-secondary/10 dark:hover:bg-secondary/20 dark:border-white/10 dark:text-foreground/90 backdrop-blur-sm h-10 px-6" onClick={() => handleValuesChange({ target: { value: "Make a plan for " } } as any)}>
                   Make a plan <FileText className="ml-2 h-4 w-4 text-blue-400" />
                 </Button>
               </div>
@@ -296,18 +306,18 @@ export function DashboardClient({
                         onTextExtracted={(text) => setInputText((prev) => prev + (prev ? "\n\n" : "") + text)}
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground dark:text-gray-400 dark:hover:text-white rounded-full"
                       />
-                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-8 w-8 rounded-full">
+                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground dark:text-gray-400 dark:hover:text-white h-8 w-8 rounded-full">
                         <Settings className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-8 w-8 rounded-full">
+                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground dark:text-gray-400 dark:hover:text-white h-8 w-8 rounded-full">
                         <GripVertical className="h-4 w-4" />
                       </Button>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground h-9 w-9 rounded-full bg-background/20">
+                      <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground dark:text-gray-400 dark:hover:text-white h-9 w-9 rounded-full bg-background/20 dark:bg-white/5">
                         <Mic className="h-4 w-4" />
                       </Button>
                       <Button
@@ -360,8 +370,14 @@ export function DashboardClient({
                       <span className="text-xs text-muted-foreground uppercase tracking-wider font-medium mt-1">Profiles</span>
                     </div>
                   </>
+                ) : error ? (
+                  <div className="col-span-full text-center text-red-400 text-sm py-10">
+                    Unable to load stats. Please try checking your connection.
+                  </div>
                 ) : (
-                  <div className="col-span-full text-center text-muted-foreground text-sm py-10">Loading stats...</div>
+                  <div className="col-span-full text-center text-muted-foreground text-sm py-10">
+                    No stats available.
+                  </div>
                 )}
               </div>
 
@@ -385,8 +401,10 @@ export function DashboardClient({
                       ? 'bg-muted/40 border border-border/50 text-foreground rounded-tr-sm'
                       : 'bg-muted/40 border rounded-tl-sm'
                       }`}>
-                      <div className="prose dark:prose-invert text-sm leading-relaxed whitespace-pre-wrap">
-                        {message.content}
+                      <div className="prose dark:prose-invert prose-sm max-w-none prose-p:leading-relaxed prose-pre:bg-muted/50 prose-pre:border prose-pre:border-border">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {message.content}
+                        </ReactMarkdown>
                       </div>
                     </div>
 

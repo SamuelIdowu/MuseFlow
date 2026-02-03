@@ -5,18 +5,34 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import Link from 'next/link';
+import { useForm } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+
+const schema = yup.object().shape({
+  email: yup.string().email('Please enter a valid email').required('Email is required'),
+});
 
 export default function ForgotPasswordPage() {
-  const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [error, setError] = useState('');
+  const [submittedEmail, setSubmittedEmail] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors }
+  } = useForm({
+    resolver: yupResolver(schema),
+    defaultValues: {
+      email: '',
+    }
+  });
 
+  const onSubmit = async (data: { email: string }) => {
     // For a real implementation, we'd integrate with Clerk's password reset API
     // For now, we'll just simulate the submission
-    console.log("Password reset requested for:", email);
+    console.log("Password reset requested for:", data.email);
+    setSubmittedEmail(data.email);
     setSubmitted(true);
   };
 
@@ -30,7 +46,7 @@ export default function ForgotPasswordPage() {
                 Check Your Email
               </h1>
               <p className="text-muted-foreground text-base font-normal leading-normal">
-                We've sent a password reset link to <span className="font-semibold">{email}</span>
+                We've sent a password reset link to <span className="font-semibold">{submittedEmail}</span>
               </p>
             </div>
             <div className="flex w-full flex-col gap-4">
@@ -65,28 +81,24 @@ export default function ForgotPasswordPage() {
             </p>
           </div>
 
-          {error && (
-            <div className="rounded-lg bg-destructive/15 p-3 text-sm text-destructive">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="flex w-full flex-col gap-4">
-            <Label className="w-full">
-              <p className="text-foreground text-base font-medium leading-normal pb-2">
+          <form onSubmit={handleSubmit(onSubmit)} className="flex w-full flex-col gap-4">
+            <div className="w-full">
+              <Label htmlFor="email" className="text-foreground text-base font-medium leading-normal pb-2 block">
                 Email Address
-              </p>
+              </Label>
               <div className="flex w-full flex-1 items-stretch rounded-lg group">
                 <Input
-                  className="flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-foreground focus:outline-0 focus:ring-2 focus:ring-primary/50 border border-input bg-background focus:border-primary/80 h-12 placeholder:text-muted-foreground p-3 text-base font-normal leading-normal"
+                  className={`flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-foreground focus:outline-0 focus:ring-2 focus:ring-primary/50 border bg-background h-12 placeholder:text-muted-foreground p-3 text-base font-normal leading-normal ${errors.email ? 'border-destructive focus:border-destructive' : 'border-input focus:border-primary/80'}`}
                   id="email"
                   placeholder="e.g., yourname@example.com"
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  {...register('email')}
                 />
               </div>
-            </Label>
+              {errors.email && (
+                <p className="mt-2 text-sm text-destructive">{errors.email.message}</p>
+              )}
+            </div>
             <Button className="w-full" type="submit">
               Send Password Reset Link
             </Button>

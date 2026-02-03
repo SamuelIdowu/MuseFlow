@@ -6,7 +6,7 @@ import { getRecentChats, deleteIdeaAction, deleteAllChatsAction } from '@/lib/da
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { toast } from 'react-hot-toast';
-import { MessageSquare, Trash2, Plus } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, PanelRightClose, PanelRightOpen, History } from 'lucide-react';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -24,6 +24,12 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
     const searchParams = useSearchParams();
     const currentChatId = searchParams.get('chatId');
     const [recentChats, setRecentChats] = useState<{ id: string; title: string, created_at?: string }[]>([]);
+    const [isCollapsed, setIsCollapsed] = useState(true);
+    const [isHovered, setIsHovered] = useState(false);
+
+    const isExpanded = !isCollapsed || isHovered;
+
+    const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
     useEffect(() => {
         const fetchChats = async () => {
@@ -85,78 +91,115 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
     const groupOrder = ['Today', 'Yesterday', 'Previous 7 Days', 'Older'];
 
     return (
-        <div className={cn("flex flex-col h-full w-80 bg-background/95 backdrop-blur-sm border-l border-border", className)}>
-            <div className="flex items-center justify-between p-4 border-b border-border/40">
-                <h2 className="font-semibold text-lg">History Chat</h2>
-                <Link href="/dashboard" onClick={onNavClick}>
-                    <Button size="sm" variant="secondary" className="rounded-lg h-8 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium">
-                        <Plus className="h-3 w-3 mr-1.5" /> New Chat
-                    </Button>
-                </Link>
+        <div
+            className={cn("flex flex-col h-full bg-background/95 backdrop-blur-sm border-l border-border transition-all duration-300 relative", isExpanded ? "w-80" : "w-14 items-center", className)}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+
+            {/* Toggle Button */}
+            <div className={cn("flex items-center p-4 border-b border-border/40", isCollapsed ? "justify-center p-2" : "justify-between")}>
+                {!isCollapsed && <h2 className="font-semibold text-lg">History Chat</h2>}
+
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={toggleSidebar}
+                    className={cn("h-8 w-8", isCollapsed ? "" : "")}
+                >
+                    {isCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
+                </Button>
+
+                {!isCollapsed && (
+                    <Link href="/dashboard" onClick={onNavClick}>
+                        <Button size="sm" variant="secondary" className="rounded-lg h-8 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium">
+                            <Plus className="h-3 w-3 mr-1.5" /> New Chat
+                        </Button>
+                    </Link>
+                )}
             </div>
 
-            <ScrollArea className="flex-1 px-4 py-4">
-                {recentChats.length === 0 ? (
-                    <div className="text-center text-muted-foreground text-sm py-10">No recent chats</div>
-                ) : (
-                    <div className="space-y-6">
-                        {groupOrder.map(group => {
-                            const chats = groupedChats[group];
-                            if (!chats || chats.length === 0) return null;
-
-                            return (
-                                <div key={group} className="space-y-2">
-                                    <h3 className="text-xs font-medium text-muted-foreground pl-2">{group}</h3>
-                                    <div className="space-y-1">
-                                        {chats.map(chat => (
-                                            <div key={chat.id} className="group relative">
-                                                <Link
-                                                    href={`/dashboard?chatId=${chat.id}`}
-                                                    onClick={onNavClick}
-                                                    className={cn(
-                                                        'flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition-all duration-200 border border-transparent',
-                                                        currentChatId === chat.id
-                                                            ? 'bg-muted/40 border-primary/20 text-foreground shadow-sm'
-                                                            : 'hover:bg-muted/30 hover:border-white/5 text-muted-foreground hover:text-foreground'
-                                                    )}
-                                                >
-                                                    <MessageSquare className="h-4 w-4 flex-shrink-0 opacity-70" />
-                                                    <span className="truncate flex-1">{chat.title}</span>
-                                                </Link>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                )}
-            </ScrollArea>
-
-            {recentChats.length > 0 && (
-                <div className="p-4 border-t border-border/40 text-center">
-                    <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-destructive w-full">
-                                <Trash2 className="h-3 w-3 mr-2" /> Clear History
-                            </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Clear History?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                    This will permanently delete all your conversation history.
-                                </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleClearAllChats} className="bg-destructive text-destructive-foreground">
-                                    Clear All
-                                </AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+            {/* Collapsed State Content (Optional: Show Icon) */}
+            {!isExpanded && (
+                <div className="flex-1 flex flex-col items-center pt-4 gap-4">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" title="History">
+                        <History className="h-5 w-5" />
+                    </Button>
+                    <Link href="/dashboard" onClick={onNavClick} title="New Chat">
+                        <Button size="icon" variant="secondary" className="rounded-full h-8 w-8 bg-primary text-primary-foreground hover:bg-primary/90">
+                            <Plus className="h-4 w-4" />
+                        </Button>
+                    </Link>
                 </div>
+            )}
+
+            {/* Expanded State Content */}
+            {isExpanded && (
+                <>
+                    <ScrollArea className="flex-1 px-4 py-4">
+                        {recentChats.length === 0 ? (
+                            <div className="text-center text-muted-foreground text-sm py-10">No recent chats</div>
+                        ) : (
+                            <div className="space-y-6">
+                                {groupOrder.map(group => {
+                                    const chats = groupedChats[group];
+                                    if (!chats || chats.length === 0) return null;
+
+                                    return (
+                                        <div key={group} className="space-y-2">
+                                            <h3 className="text-xs font-medium text-muted-foreground pl-2">{group}</h3>
+                                            <div className="space-y-1">
+                                                {chats.map(chat => (
+                                                    <div key={chat.id} className="group relative">
+                                                        <Link
+                                                            href={`/dashboard?chatId=${chat.id}`}
+                                                            onClick={onNavClick}
+                                                            className={cn(
+                                                                'flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition-all duration-200 border border-transparent',
+                                                                currentChatId === chat.id
+                                                                    ? 'bg-muted/40 border-primary/20 text-foreground shadow-sm'
+                                                                    : 'hover:bg-muted/30 hover:border-white/5 text-muted-foreground hover:text-foreground'
+                                                            )}
+                                                        >
+                                                            <MessageSquare className="h-4 w-4 flex-shrink-0 opacity-70" />
+                                                            <span className="truncate flex-1">{chat.title}</span>
+                                                        </Link>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </ScrollArea>
+
+                    {recentChats.length > 0 && (
+                        <div className="p-4 border-t border-border/40 text-center">
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-destructive w-full">
+                                        <Trash2 className="h-3 w-3 mr-2" /> Clear History
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Clear History?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            This will permanently delete all your conversation history.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleClearAllChats} className="bg-destructive text-destructive-foreground">
+                                            Clear All
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
