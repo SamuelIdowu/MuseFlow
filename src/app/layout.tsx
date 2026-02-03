@@ -25,12 +25,21 @@ export const metadata: Metadata = {
     siteName: "MuseFlow",
     locale: "en_US",
     type: "website",
+    images: [
+      {
+        url: "/opengraph-image.png",
+        width: 1200,
+        height: 630,
+        alt: "MuseFlow - AI Content Ideation Platform",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "MuseFlow - AI Content Ideation Platform",
     description: "Your AI content co-pilot for ideation and publishing",
     creator: "@MuseFlow",
+    images: ["/opengraph-image.png"],
   },
 };
 
