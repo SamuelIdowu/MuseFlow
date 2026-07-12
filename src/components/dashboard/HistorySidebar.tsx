@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { getRecentChats, deleteIdeaAction, deleteAllChatsAction } from '@/lib/dashboardServerActions';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'react-hot-toast';
 import { MessageSquare, Trash2, Plus, PanelRightClose, PanelRightOpen, History } from 'lucide-react';
 import {
@@ -24,17 +25,22 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
     const searchParams = useSearchParams();
     const currentChatId = searchParams.get('chatId');
     const [recentChats, setRecentChats] = useState<{ id: string; title: string, created_at?: string }[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [isCollapsed, setIsCollapsed] = useState(true);
-    const [isHovered, setIsHovered] = useState(false);
 
-    const isExpanded = !isCollapsed || isHovered;
+    const isExpanded = !isCollapsed;
 
     const toggleSidebar = () => setIsCollapsed(!isCollapsed);
 
     useEffect(() => {
         const fetchChats = async () => {
-            const chats = await getRecentChats();
-            setRecentChats(chats);
+            setIsLoading(true);
+            try {
+                const chats = await getRecentChats();
+                setRecentChats(chats);
+            } finally {
+                setIsLoading(false);
+            }
         };
         fetchChats();
     }, [currentChatId]);
@@ -92,28 +98,26 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
 
     return (
         <div
-            className={cn("flex flex-col h-full bg-background/95 backdrop-blur-sm border-l border-border transition-all duration-300 relative", isExpanded ? "w-80" : "w-14 items-center", className)}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            className={cn("flex flex-col h-full bg-background/95 backdrop-blur-sm border-l border-border transition-all duration-300 relative", isExpanded ? "w-72" : "w-12 items-center", className)}
         >
 
             {/* Toggle Button */}
-            <div className={cn("flex items-center p-4 border-b border-border/40", isCollapsed ? "justify-center p-2" : "justify-between")}>
-                {!isCollapsed && <h2 className="font-semibold text-lg">History Chat</h2>}
+            <div className={cn("flex items-center p-3 border-b border-border/40", isCollapsed ? "justify-center p-2" : "justify-between")}>
+                {!isCollapsed && <h2 className="font-semibold text-md">History Chat</h2>}
 
                 <Button
                     variant="ghost"
                     size="icon"
                     onClick={toggleSidebar}
-                    className={cn("h-8 w-8", isCollapsed ? "" : "")}
+                    className={cn("h-7 w-7", isCollapsed ? "" : "")}
                 >
                     {isCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
                 </Button>
 
                 {!isCollapsed && (
                     <Link href="/dashboard" onClick={onNavClick}>
-                        <Button size="sm" variant="secondary" className="rounded-lg h-8 bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-medium">
-                            <Plus className="h-3 w-3 mr-1.5" /> New Chat
+                        <Button size="sm" variant="secondary" className="rounded-lg h-7 bg-primary text-primary-foreground hover:bg-primary/90 text-[11px] font-medium px-2.5">
+                            <Plus className="h-3 w-3 mr-1" /> New Chat
                         </Button>
                     </Link>
                 )}
@@ -121,13 +125,13 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
 
             {/* Collapsed State Content (Optional: Show Icon) */}
             {!isExpanded && (
-                <div className="flex-1 flex flex-col items-center pt-4 gap-4">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground" title="History">
-                        <History className="h-5 w-5" />
+                <div className="flex-1 flex flex-col items-center pt-3 gap-3">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="History">
+                        <History className="h-4 w-4" />
                     </Button>
                     <Link href="/dashboard" onClick={onNavClick} title="New Chat">
-                        <Button size="icon" variant="secondary" className="rounded-full h-8 w-8 bg-primary text-primary-foreground hover:bg-primary/90">
-                            <Plus className="h-4 w-4" />
+                        <Button size="icon" variant="secondary" className="rounded-full h-7 w-7 bg-primary text-primary-foreground hover:bg-primary/90">
+                            <Plus className="h-3.5 w-3.5" />
                         </Button>
                     </Link>
                 </div>
@@ -136,32 +140,41 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
             {/* Expanded State Content */}
             {isExpanded && (
                 <>
-                    <ScrollArea className="flex-1 px-4 py-4">
-                        {recentChats.length === 0 ? (
-                            <div className="text-center text-muted-foreground text-sm py-10">No recent chats</div>
+                    <ScrollArea className="flex-1 px-3 py-3">
+                        {isLoading ? (
+                            <div className="space-y-4">
+                                {[...Array(5)].map((_, i) => (
+                                    <div key={i} className="flex items-center gap-2.5 px-3 py-2">
+                                        <Skeleton className="h-3.5 w-3.5 rounded-full" />
+                                        <Skeleton className="h-3.5 flex-1" />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : recentChats.length === 0 ? (
+                            <div className="text-center text-muted-foreground text-[13px] py-8">No recent chats</div>
                         ) : (
-                            <div className="space-y-6">
+                            <div className="space-y-4">
                                 {groupOrder.map(group => {
                                     const chats = groupedChats[group];
                                     if (!chats || chats.length === 0) return null;
 
                                     return (
-                                        <div key={group} className="space-y-2">
-                                            <h3 className="text-xs font-medium text-muted-foreground pl-2">{group}</h3>
-                                            <div className="space-y-1">
+                                        <div key={group} className="space-y-1.5">
+                                            <h3 className="text-[11px] font-medium text-muted-foreground pl-2 uppercase tracking-wider">{group}</h3>
+                                            <div className="space-y-0.5">
                                                 {chats.map(chat => (
                                                     <div key={chat.id} className="group relative">
                                                         <Link
                                                             href={`/dashboard?chatId=${chat.id}`}
                                                             onClick={onNavClick}
                                                             className={cn(
-                                                                'flex items-center gap-3 rounded-2xl px-4 py-3 text-sm transition-all duration-200 border border-transparent',
+                                                                'flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-all duration-200 border border-transparent',
                                                                 currentChatId === chat.id
                                                                     ? 'bg-muted/40 border-primary/20 text-foreground shadow-sm'
                                                                     : 'hover:bg-muted/30 hover:border-white/5 text-muted-foreground hover:text-foreground'
                                                             )}
                                                         >
-                                                            <MessageSquare className="h-4 w-4 flex-shrink-0 opacity-70" />
+                                                            <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 opacity-70" />
                                                             <span className="truncate flex-1">{chat.title}</span>
                                                         </Link>
                                                     </div>
@@ -175,10 +188,10 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
                     </ScrollArea>
 
                     {recentChats.length > 0 && (
-                        <div className="p-4 border-t border-border/40 text-center">
+                        <div className="p-3 border-t border-border/40 text-center">
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
-                                    <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-destructive w-full">
+                                    <Button variant="ghost" size="sm" className="h-7 text-[11px] text-muted-foreground hover:text-destructive w-full">
                                         <Trash2 className="h-3 w-3 mr-2" /> Clear History
                                     </Button>
                                 </AlertDialogTrigger>

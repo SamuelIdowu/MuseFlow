@@ -1,5 +1,6 @@
 
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { auth } from '@clerk/nextjs/server';
+import { getAuthenticatedSupabaseUserId } from '@/lib/authUtils';
 import { getUserSubscription } from '@/lib/subscription';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,34 +12,14 @@ import { ensureSupabaseUser } from '@/lib/supabaseServerClient';
 import { FEATURES } from '@/lib/featureFlags';
 
 export default async function BillingPage() {
-    const { userId } = await auth();
-    const user = await currentUser();
-
-    if (!userId || !user) {
+    let supabaseUserId: string;
+    try {
+        supabaseUserId = await getAuthenticatedSupabaseUserId();
+    } catch (error) {
+        console.error('Billing page auth error:', error);
         redirect('/sign-in');
     }
 
-    // Ensure user exists in Supabase to avoid errors
-    const email = user.emailAddresses[0].emailAddress;
-    await ensureSupabaseUser(userId, email);
-
-    // Get Supabase user ID (we know ensureSupabaseUser handles it, but we need the ID)
-    // Actually getUserSubscription takes generic user ID (which matches auth.uid() in Supabase)
-    // If we are using Clerk, we need to make sure getUserSubscription uses the correct ID.
-    // getUserSubscription uses `createSupabaseServiceClient` which is admin.
-    // But wait, `subscriptions` table `user_id` is uuid. Clerk ID is string.
-    // `getSupabaseUserId` converts Clerk ID to Supabase UUID.
-    // I must check `getUserSubscription` implementation.
-    // It receives `userId`. 
-    // In `subscription.ts`: `eq('user_id', userId)`.
-    // So I must pass the Supabase UUID, NOT the Clerk ID.
-
-    const { ensureSupabaseUser: ensureUser } = await import('@/lib/supabaseServerClient');
-    const supabaseUserId = await ensureUser(userId, email);
-
-    if (!supabaseUserId) {
-        return <div>Error loading user data.</div>;
-    }
 
     const subscription = await getUserSubscription(supabaseUserId);
 

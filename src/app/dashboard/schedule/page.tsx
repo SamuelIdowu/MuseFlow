@@ -21,6 +21,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'react-hot-toast';
 import { ScheduledPostCard } from '@/components/ScheduledPostCard';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface ScheduledPost {
   id: string;
@@ -169,8 +170,6 @@ export default function SchedulePage() {
   };
 
   const deletePost = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this scheduled post?')) return;
-
     try {
       const response = await fetch(`/api/schedule/delete?id=${id}`, {
         method: 'DELETE',
@@ -202,25 +201,50 @@ export default function SchedulePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-[50vh]">
-        <div className="flex items-center gap-2">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span>Loading your scheduled posts...</span>
+      <div className="space-y-6 p-4 md:p-6">
+        <div className="flex justify-between items-center">
+          <div className="space-y-1.5">
+            <Skeleton className="h-7 w-48" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+          <Skeleton className="h-8 w-32" />
         </div>
+
+        <Card className="overflow-hidden py-4">
+          <CardHeader className="px-4 pb-4">
+            <Skeleton className="h-5 w-32" />
+            <Skeleton className="h-3 w-48" />
+          </CardHeader>
+          <CardContent className="px-4 space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex items-center gap-4 border-b pb-4 last:border-0 last:pb-0">
+                <Skeleton className="h-10 w-10 rounded-full" />
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-4 w-1/3" />
+                  <Skeleton className="h-3 w-1/4" />
+                </div>
+                <div className="flex gap-2">
+                  <Skeleton className="h-7 w-16" />
+                  <Skeleton className="h-7 w-7" />
+                </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 p-4 md:p-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Content Calendar</h2>
-          <p className="text-muted-foreground">
+          <h2 className="text-xl font-bold tracking-tight">Content Calendar</h2>
+          <p className="text-sm text-muted-foreground">
             Schedule your content and track your publishing calendar
           </p>
         </div>
-        <Button onClick={() => setShowScheduler(true)}>
+        <Button size="sm" onClick={() => setShowScheduler(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Schedule Post
         </Button>
@@ -229,13 +253,14 @@ export default function SchedulePage() {
       {/* Scheduler Modal */}
       {showScheduler && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-3xl max-h-[90vh] bg-background rounded-xl border shadow-lg flex flex-col">
+          <div className="w-full max-w-2xl max-h-[90vh] bg-background rounded-xl border shadow-lg flex flex-col">
             {/* Fixed Header */}
-            <div className="flex justify-between items-center p-6 pb-4 border-b">
-              <h3 className="text-lg font-semibold">{editingPost ? 'Edit Scheduled Post' : 'Schedule New Post'}</h3>
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-md font-semibold">{editingPost ? 'Edit Scheduled Post' : 'Schedule New Post'}</h3>
               <Button
                 variant="ghost"
                 size="icon"
+                className="h-7 w-7"
                 onClick={() => {
                   setShowScheduler(false);
                   setEditingPost(null);
@@ -248,79 +273,82 @@ export default function SchedulePage() {
                   });
                 }}
               >
-                <span className="text-xl">×</span>
+                <span className="text-lg">×</span>
               </Button>
             </div>
 
             {/* Scrollable Content */}
-            <div className="overflow-y-auto flex-1 p-6 pt-4">
+            <div className="overflow-y-auto flex-1 p-4">
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="content">Content</Label>
+                  <Label htmlFor="content" className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Content</Label>
                   <Textarea
                     id="content"
                     value={newPost.content}
                     onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
                     placeholder="Enter your content..."
-                    className="min-h-[120px]"
+                    className="min-h-[100px] text-[13px]"
                   />
-                </div>
-
-                <div>
-                  <Label>Channel</Label>
-                  <Select value={newPost.channel} onValueChange={(value) => setNewPost({ ...newPost, channel: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select channel" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="linkedin">LinkedIn</SelectItem>
-                      <SelectItem value="x">X (Twitter)</SelectItem>
-                      <SelectItem value="blog">Blog</SelectItem>
-                    </SelectContent>
-                  </Select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label>Date</Label>
-                    <div className="border rounded-lg p-2 w-full">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Channel</Label>
+                    <Select value={newPost.channel} onValueChange={(value) => setNewPost({ ...newPost, channel: value })}>
+                      <SelectTrigger className="h-8 text-[13px]">
+                        <SelectValue placeholder="Select channel" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="linkedin">LinkedIn</SelectItem>
+                        <SelectItem value="x">X (Twitter)</SelectItem>
+                        <SelectItem value="blog">Blog</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Time</Label>
+                    <Input
+                      type="time"
+                      className="h-8 text-[13px]"
+                      value={newPost.time}
+                      onChange={(e) => setNewPost({ ...newPost, time: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2 block">Date</Label>
+                    <div className="border rounded-lg p-1.5 w-full bg-muted/20">
                       <Calendar
                         mode="single"
                         selected={selectedDate}
                         onSelect={setSelectedDate}
                         initialFocus
-                        className="w-full"
+                        className="w-full pointer-events-auto"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <div>
-                      <Label>Time</Label>
-                      <Input
-                        type="time"
-                        value={newPost.time}
-                        onChange={(e) => setNewPost({ ...newPost, time: e.target.value })}
-                      />
-                    </div>
-
-                    <div className="flex items-center space-x-2 pt-2">
+                  <div className="space-y-4 pt-4">
+                    <div className="flex items-center space-x-2 bg-muted/30 p-2 rounded-lg border">
                       <Switch
                         id="optimize_time"
                         checked={newPost.optimize_time}
                         onCheckedChange={(checked) => setNewPost({ ...newPost, optimize_time: checked })}
                       />
-                      <Label htmlFor="optimize_time">Use AI to optimize posting time</Label>
+                      <Label htmlFor="optimize_time" className="text-[12px] leading-tight">Use AI to optimize posting time</Label>
                     </div>
 
                     {!newPost.optimize_time && (
                       <Button
                         type="button"
                         variant="outline"
-                        className="w-full"
+                        size="sm"
+                        className="w-full text-[12px] h-8"
                         onClick={suggestBestTime}
                       >
-                        <Sparkles className="mr-2 h-4 w-4" />
+                        <Sparkles className="mr-1.5 h-3.5 w-3.5 text-yellow-500" />
                         Get AI Suggestion
                       </Button>
                     )}
@@ -330,9 +358,10 @@ export default function SchedulePage() {
             </div>
 
             {/* Fixed Footer with Action Button */}
-            <div className="p-6 pt-4 border-t">
+            <div className="p-4 border-t">
               <Button
-                className="w-full"
+                size="sm"
+                className="w-full h-8"
                 onClick={handleSchedulePost}
                 disabled={scheduling}
               >
@@ -351,15 +380,15 @@ export default function SchedulePage() {
       )}
 
       {/* Calendar View */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upcoming Posts</CardTitle>
-          <CardDescription>
-            Your scheduled content
+      <Card className="py-4">
+        <CardHeader className="px-4 pb-2">
+          <CardTitle className="text-lg">Upcoming Posts</CardTitle>
+          <CardDescription className="text-[13px]">
+            Your scheduled content pieces
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <div className="grid gap-4">
+        <CardContent className="px-4">
+          <div className="grid gap-3">
             {posts.length > 0 ? (
               posts
                 .filter((post: ScheduledPost) => post.status === 'scheduled')
@@ -373,15 +402,15 @@ export default function SchedulePage() {
                   />
                 ))
             ) : (
-              <div className="text-center py-8">
-                <div className="mx-auto h-12 w-12 text-muted-foreground mb-4">
+              <div className="text-center py-10 border border-dashed rounded-xl">
+                <div className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3">
                   <CalendarIcon className="h-full w-full" />
                 </div>
-                <h3 className="text-lg font-medium mb-1">No scheduled posts</h3>
-                <p className="text-muted-foreground mb-4">
+                <h3 className="text-md font-medium mb-1">No scheduled posts</h3>
+                <p className="text-xs text-muted-foreground mb-4">
                   Schedule your first post to get started
                 </p>
-                <Button onClick={() => setShowScheduler(true)}>
+                <Button size="sm" variant="outline" onClick={() => setShowScheduler(true)}>
                   <Plus className="mr-2 h-4 w-4" />
                   Schedule Post
                 </Button>

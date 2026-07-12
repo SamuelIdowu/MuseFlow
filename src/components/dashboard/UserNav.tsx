@@ -34,22 +34,22 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
+        <Button variant="ghost" className="relative h-7 w-7 rounded-full">
+          <Avatar className="h-7 w-7">
             <AvatarImage src={user?.imageUrl || ''} alt={user?.emailAddresses[0]?.emailAddress || ''} />
-            <AvatarFallback>
+            <AvatarFallback className="text-[10px]">
               {user?.fullName?.charAt(0) || user?.primaryEmailAddress?.emailAddress?.charAt(0) || 'U'}
             </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
+      <DropdownMenuContent className="w-48" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">
+            <p className="text-[13px] font-medium leading-none">
               {user?.fullName || user?.emailAddresses[0]?.emailAddress}
             </p>
-            <p className="text-xs leading-none text-muted-foreground">
+            <p className="text-[11px] leading-none text-muted-foreground">
               {user?.emailAddresses[0]?.emailAddress}
             </p>
           </div>

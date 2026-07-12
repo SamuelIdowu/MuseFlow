@@ -51,15 +51,15 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight">Settings</h2>
-        <p className="text-muted-foreground">
+    <div className="space-y-6 p-4 md:p-6">
+      <div className="flex flex-col gap-1">
+        <h2 className="text-xl font-bold tracking-tight">Settings</h2>
+        <p className="text-sm text-muted-foreground">
           Manage your account and application preferences
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Notification Settings</CardTitle>

@@ -3,31 +3,17 @@
 
 import { auth, currentUser } from '@clerk/nextjs/server';
 import { Database } from './database.types';
-import { createSupabaseServiceClient, ensureSupabaseUser } from './supabaseServerClient';
+import { createSupabaseServiceClient, ensureSupabaseUser, getSupabaseUserId } from './supabaseServerClient';
+import { getAuthenticatedSupabaseUserId } from './authUtils';
 import { Profile } from '@/types/profile';
-import { generateCampaignContent } from './geminiClient';
+import { generateCampaignContent, generateCanvasBlocksFromChat } from './geminiClient';
+
+
+
 
 export async function getDashboardStats() {
-  // Get Clerk authentication
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) {
-    console.error('Dashboard stats - No Clerk user found');
-    throw new Error('User not authenticated');
-  }
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) {
-    console.error('Dashboard stats - No email found for user');
-    throw new Error('User has no email address');
-  }
-
-  // Ensure user exists in Supabase and get their UUID
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) {
-    throw new Error('Failed to ensure Supabase user exists');
-  }
 
   // Create Supabase service client (bypasses RLS to avoid UUID/String type mismatch in policies)
   const supabase = createSupabaseServiceClient();
@@ -128,26 +114,8 @@ export async function getDashboardStats() {
 }
 
 export async function getRecentIdeas(limit = 3) {
-  // Get Clerk authentication
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) {
-    console.error('Recent ideas - No Clerk user found');
-    throw new Error('User not authenticated');
-  }
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) {
-    console.error('Recent ideas - No email found for user');
-    throw new Error('User has no email address');
-  }
-
-  // Ensure user exists in Supabase and get their UUID
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) {
-    throw new Error('Failed to ensure Supabase user exists');
-  }
 
   // Create Supabase service client (bypasses RLS to avoid UUID/String type mismatch in policies)
   const supabase = createSupabaseServiceClient();
@@ -190,16 +158,13 @@ export async function getRecentIdeas(limit = 3) {
 }
 
 export async function getRecentChats(limit = 20) {
-  const { userId } = await auth();
-  const user = await currentUser();
+  let supabaseUserId: string;
+  try {
+    supabaseUserId = await getAuthenticatedSupabaseUserId();
+  } catch (e) {
+    return [];
+  }
 
-  if (!userId || !user) return [];
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) return [];
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) return [];
 
   const supabase = createSupabaseServiceClient();
 
@@ -223,16 +188,8 @@ export async function getRecentChats(limit = 20) {
 }
 
 export async function getChatById(id: string) {
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) throw new Error('Unauthorized');
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('No email');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('User not found');
 
   const supabase = createSupabaseServiceClient();
 
@@ -291,58 +248,58 @@ export async function getChatById(id: string) {
   };
 }
 
-export async function getCanvasDataAction() {
-  const { userId } = await auth();
-  const user = await currentUser();
-
-  if (!userId || !user) {
-    throw new Error('User not authenticated');
-  }
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) {
-    throw new Error('User has no email address');
-  }
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) {
-    throw new Error('Failed to ensure Supabase user exists');
-  }
-
+export async function getCanvasDataAction(canvasId?: string) {
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
   const supabase = createSupabaseServiceClient();
 
   // Get or create canvas session
   let canvasSession;
-  const { data: existingSessions, error: sessionError } = await supabase
-    .from("canvas_sessions")
-    .select("*")
-    .eq("user_id", supabaseUserId)
-    .order("created_at", { ascending: false })
-    .limit(1);
 
-  if (sessionError) {
-    console.error("Error fetching canvas sessions:", sessionError);
-    throw new Error('Failed to fetch canvas sessions');
-  }
-
-  if (existingSessions && existingSessions.length > 0) {
-    canvasSession = existingSessions[0];
-  } else {
-    // Create a new canvas session
-    const { data: newSession, error: createError } = await supabase
+  if (canvasId) {
+    const { data, error } = await supabase
       .from("canvas_sessions")
-      .insert([{
-        user_id: supabaseUserId,
-        name: "New Canvas",
-      }])
-      .select()
+      .select("*")
+      .eq("id", canvasId)
+      .eq("user_id", supabaseUserId)
       .single();
 
-    if (createError) {
-      console.error("Error creating canvas session:", createError);
-      throw new Error('Failed to create canvas session');
+    if (!error && data) {
+      canvasSession = data;
     }
-    canvasSession = newSession;
+  }
+
+  if (!canvasSession) {
+    const { data: existingSessions, error: sessionError } = await supabase
+      .from("canvas_sessions")
+      .select("*")
+      .eq("user_id", supabaseUserId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (sessionError) {
+      console.error("Error fetching canvas sessions:", sessionError);
+      throw new Error('Failed to fetch canvas sessions');
+    }
+
+    if (existingSessions && existingSessions.length > 0) {
+      canvasSession = existingSessions[0];
+    } else {
+      // Create a new canvas session
+      const { data: newSession, error: createError } = await supabase
+        .from("canvas_sessions")
+        .insert([{
+          user_id: supabaseUserId,
+          name: "New Canvas",
+        }])
+        .select()
+        .single();
+
+      if (createError) {
+        console.error("Error creating canvas session:", createError);
+        throw new Error('Failed to create canvas session');
+      }
+      canvasSession = newSession;
+    }
   }
 
   // Fetch canvas blocks
@@ -370,7 +327,27 @@ export async function getCanvasDataAction() {
     throw new Error('Failed to fetch canvas edges');
   }
 
+  // Fetch chat history from chat_messages table
+  const { data: chatMessagesData, error: chatError } = await supabase
+    .from("chat_messages")
+    .select("*")
+    .eq("canvas_id", canvasSession.id)
+    .order("created_at", { ascending: true });
+
+  if (chatError) {
+    console.error("Error fetching chat messages:", chatError);
+  }
+
+  const chatHistory = (chatMessagesData || []).map(msg => ({
+    id: msg.id,
+    role: msg.role,
+    content: msg.content,
+    createdAt: msg.created_at,
+    toolInvocations: msg.tool_invocations || undefined,
+  }));
+
   return {
+    id: canvasSession.id,
     blocks: blocksData.map((block) => ({
       id: block.id,
       type: block.type || "paragraph",
@@ -383,23 +360,134 @@ export async function getCanvasDataAction() {
       source: edge.source_block_id,
       target: edge.target_block_id,
       label: edge.label,
-    }))
+    })),
+    chatHistory
   };
 }
 
-export async function addCanvasBlockAction(block: { type: string; content: string; order: number; position?: { x: number; y: number } }) {
-  const { userId } = await auth();
-  const user = await currentUser();
+export async function addChatMessageAction(message: any, canvasId?: string) {
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
+  const supabase = createSupabaseServiceClient();
 
-  if (!userId || !user) {
-    throw new Error('User not authenticated');
+  const { error } = await supabase
+    .from("chat_messages")
+    .insert([{
+      id: message.id, // Usually the Vercel AI SDK provides a UUID or string
+      user_id: supabaseUserId,
+      canvas_id: canvasId || null,
+      role: message.role,
+      content: message.content || '',
+      tool_invocations: message.toolInvocations || null,
+      created_at: message.createdAt || new Date().toISOString()
+    }]);
+
+  if (error) {
+    console.error('Error inserting chat message:', error);
+    throw new Error('Failed to insert chat message');
+  }
+}
+
+export async function getGlobalChatMessagesAction() {
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
+  const supabase = createSupabaseServiceClient();
+
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("*")
+    .eq("user_id", supabaseUserId)
+    .is("canvas_id", null)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error('Error fetching global chat messages:', error);
+    return [];
   }
 
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('User has no email address');
+  return (data || []).map(msg => ({
+    id: msg.id,
+    role: msg.role,
+    content: msg.content,
+    createdAt: msg.created_at,
+    toolInvocations: msg.tool_invocations || undefined,
+  }));
+}
 
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
+export async function updateCanvasChatHistoryAction(chatHistory: any[], canvasId?: string) {
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
+  const supabase = createSupabaseServiceClient();
+
+  let targetCanvasId = canvasId;
+
+  if (!targetCanvasId) {
+    // Get current canvas session
+    const { data: sessions } = await supabase
+      .from("canvas_sessions")
+      .select("id")
+      .eq("user_id", supabaseUserId)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (!sessions || sessions.length === 0) throw new Error('No canvas session found');
+    targetCanvasId = sessions[0].id;
+  }
+
+  // To maintain backward compatibility during migration, we'll clear the chat history and reinsert it all
+  await supabase.from("chat_messages").delete().eq("canvas_id", targetCanvasId).eq("user_id", supabaseUserId);
+  
+  if (chatHistory.length > 0) {
+    const { error } = await supabase.from("chat_messages").insert(
+      chatHistory.map(message => ({
+        id: message.id || crypto.randomUUID(),
+        user_id: supabaseUserId,
+        canvas_id: targetCanvasId,
+        role: message.role,
+        content: message.content || '',
+        tool_invocations: message.toolInvocations || message.toolCalls || null,
+        created_at: message.createdAt || message.timestamp || new Date().toISOString()
+      }))
+    );
+
+    if (error) {
+      console.error('Error updating chat history:', error);
+      throw new Error('Failed to update chat history');
+    }
+  }
+}
+
+function sanitizeBlockType(type?: string): string {
+  if (!type) return 'paragraph';
+  const clean = type.toLowerCase().trim().replace(/_/g, '-');
+  
+  if (['hook', 'problem', 'solution', 'paragraph', 'heading', 'quote', 'list'].includes(clean)) {
+    return clean;
+  }
+  
+  if (clean === 'call-to-action' || clean === 'cta' || clean === 'call_to_action') {
+    return 'call-to-action';
+  }
+  
+  if (clean.includes('list') || clean.includes('bullet') || clean === 'bullets') {
+    return 'list';
+  }
+  
+  if (clean === 'title' || clean.includes('header')) {
+    return 'heading';
+  }
+  
+  if (clean === 'testimonial') {
+    return 'quote';
+  }
+  
+  if (clean === 'text') {
+    return 'paragraph';
+  }
+  
+  return 'paragraph';
+}
+
+export async function addCanvasBlockAction(block: { type: string; content: string; order: number; position?: { x: number; y: number } }) {
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
+
 
   const supabase = createSupabaseServiceClient();
 
@@ -414,12 +502,14 @@ export async function addCanvasBlockAction(block: { type: string; content: strin
   if (!sessions || sessions.length === 0) throw new Error('No canvas session found');
   const canvasId = sessions[0].id;
 
+  const sanitizedType = sanitizeBlockType(block.type);
+
   const { data, error } = await supabase
     .from("canvas_blocks")
     .insert([{
       canvas_id: canvasId,
       user_id: supabaseUserId,
-      type: block.type,
+      type: sanitizedType,
       content: block.content,
       order_index: block.order,
       position_x: block.position?.x || 0,
@@ -429,7 +519,7 @@ export async function addCanvasBlockAction(block: { type: string; content: strin
     .single();
 
   if (error) {
-    console.error('Error adding canvas block:', error);
+    console.error('Error adding canvas block:', error, 'Sanitized type:', sanitizedType);
     throw new Error('Failed to add block');
   }
   return {
@@ -439,20 +529,15 @@ export async function addCanvasBlockAction(block: { type: string; content: strin
 }
 
 export async function updateCanvasBlockAction(id: string, updates: { content?: string; type?: string; position?: { x: number; y: number } }) {
-  const { userId } = await auth();
-  const user = await currentUser(); // Need user to ensure ownership via RLS-like check or just user_id
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) throw new Error('User not authenticated');
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('User has no email address');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
   const supabase = createSupabaseServiceClient();
 
   const dbUpdates: any = { ...updates };
+  if (updates.type) {
+    dbUpdates.type = sanitizeBlockType(updates.type);
+  }
   if (updates.position) {
     dbUpdates.position_x = updates.position.x;
     dbUpdates.position_y = updates.position.y;
@@ -472,16 +557,8 @@ export async function updateCanvasBlockAction(id: string, updates: { content?: s
 }
 
 export async function addEdgeAction(edge: { source: string; target: string; label?: string }) {
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) throw new Error('User not authenticated');
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('User has no email address');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
   const supabase = createSupabaseServiceClient();
 
@@ -524,16 +601,8 @@ export async function addEdgeAction(edge: { source: string; target: string; labe
 }
 
 export async function deleteEdgeAction(id: string) {
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) throw new Error('User not authenticated');
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('User has no email address');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
   const supabase = createSupabaseServiceClient();
 
@@ -550,16 +619,8 @@ export async function deleteEdgeAction(id: string) {
 }
 
 export async function deleteCanvasBlockAction(id: string) {
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) throw new Error('User not authenticated');
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('User has no email address');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
   const supabase = createSupabaseServiceClient();
 
@@ -576,16 +637,8 @@ export async function deleteCanvasBlockAction(id: string) {
 }
 
 export async function reorderCanvasBlocksAction(blocks: { id: string; order: number }[]) {
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) throw new Error('User not authenticated');
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('User has no email address');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
   const supabase = createSupabaseServiceClient();
 
@@ -619,18 +672,8 @@ export async function reorderCanvasBlocksAction(blocks: { id: string; order: num
 }
 
 export async function getUserIdeasAction() {
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) {
-    throw new Error('User not authenticated');
-  }
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('User has no email address');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
   const supabase = createSupabaseServiceClient();
 
@@ -649,28 +692,8 @@ export async function getUserIdeasAction() {
 }
 
 export async function getActiveProfile(): Promise<Profile | null> {
-  const { userId } = await auth();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId) {
-    throw new Error('User not authenticated');
-  }
-
-  // Get user info from Clerk to get email
-  // We need email to ensure user exists in Supabase
-  // Using a try-catch to handle potential API errors gracefully
-  let email: string | undefined;
-  try {
-    const user = await currentUser();
-    email = user?.emailAddresses[0]?.emailAddress;
-  } catch (error) {
-    console.error('Error fetching Clerk user:', error);
-    // If we can't get the user, we can't proceed
-    throw new Error('Failed to fetch user information from Clerk');
-  }
-
-  if (!email) throw new Error('User has no email address');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
   if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
   const supabase = createSupabaseServiceClient();
@@ -695,16 +718,8 @@ export async function getActiveProfile(): Promise<Profile | null> {
 }
 
 export async function clearCanvasAction() {
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) throw new Error('User not authenticated');
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('User has no email address');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
   const supabase = createSupabaseServiceClient();
 
@@ -732,16 +747,8 @@ export async function clearCanvasAction() {
 }
 
 export async function saveToIdeasAction(content: string, title?: string) {
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) throw new Error('User not authenticated');
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('User has no email address');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
   const supabase = createSupabaseServiceClient();
 
@@ -765,16 +772,8 @@ export async function saveToIdeasAction(content: string, title?: string) {
 }
 
 export async function deleteIdeaAction(id: string) {
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) throw new Error('User not authenticated');
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('User has no email address');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
   const supabase = createSupabaseServiceClient();
 
@@ -791,16 +790,8 @@ export async function deleteIdeaAction(id: string) {
 }
 
 export async function deleteAllChatsAction() {
-  const { userId } = await auth();
-  const user = await currentUser();
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-  if (!userId || !user) throw new Error('User not authenticated');
-
-  const email = user.emailAddresses[0]?.emailAddress;
-  if (!email) throw new Error('User has no email address');
-
-  const supabaseUserId = await ensureSupabaseUser(userId, email);
-  if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
   const supabase = createSupabaseServiceClient();
 
@@ -813,4 +804,14 @@ export async function deleteAllChatsAction() {
     console.error('Error clearing all chats:', error);
     throw new Error('Failed to clear all chats');
   }
+}
+
+export async function generateCanvasChatResponseAction(
+  input: string,
+  history: any[] = [],
+  files: { data: string; mimeType: string }[] = [],
+  currentCanvas?: { blocks: any[], edges: any[] }
+) {
+  const profile = await getActiveProfile();
+  return await generateCanvasBlocksFromChat(input, profile, history, files, currentCanvas);
 }

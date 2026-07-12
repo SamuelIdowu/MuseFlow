@@ -22,7 +22,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
         <div className="relative z-10 flex flex-col items-start gap-6 p-12 text-white">
           <div className="flex items-center gap-3">
             <Sparkles className="h-10 w-10 text-cyan-400" />
-            <p className="text-3xl font-bold">ContentAI</p>
+            <p className="text-3xl font-bold font-space-grotesk">MuseFlow</p>
           </div>
           <h1 className="text-5xl font-black leading-tight tracking-tight">
             Where Ideas
@@ -42,7 +42,7 @@ export function AuthLayout({ children, title, subtitle }: AuthLayoutProps) {
           {/* Mobile Branding */}
           <div className="flex items-center gap-2 md:hidden justify-center mb-4">
             <Sparkles className="h-6 w-6 text-primary" />
-            <span className="text-xl font-bold">ContentAI</span>
+            <span className="text-xl font-bold font-space-grotesk">MuseFlow</span>
           </div>
 
           <div className="flex flex-col gap-2 text-center md:text-left">

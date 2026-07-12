@@ -26,7 +26,7 @@ export default async function Home() {
         <header className="container mx-auto px-4 py-6 flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <Image src="/logoo.png" alt="MuseFlow Logo" width={60} height={60} className="rounded-lg" />
-            <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <span className="text-2xl font-bold text-gray-900 dark:text-gray-100 font-space-grotesk">
               MuseFlow
             </span>
           </div>
@@ -118,7 +118,7 @@ export default async function Home() {
                   <div className="text-center">
                     <div className="inline-flex items-center px-3 py-1 bg-green-50 dark:bg-green-900/30 rounded-full">
                       <Clock className="w-3 h-3 text-green-600 dark:text-green-400 mr-1" />
-                      <span className="text-xs font-medium text-green-600 dark:text-green-400">Mon 9:00 AM</span>
+                      <span className="text-xs font-medium text-green-600 dark:text-green-400 font-space-grotesk">Mon 9:00 AM</span>
                     </div>
                   </div>
                 </div>
@@ -164,7 +164,7 @@ export default async function Home() {
                       <div className="mt-2 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                         <div className="bg-emerald-500 dark:bg-emerald-400 h-full rounded-full" style={{ width: '60%' }} />
                       </div>
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">60%</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium font-space-grotesk">60%</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -184,7 +184,7 @@ export default async function Home() {
                       <div className="mt-2 bg-gray-100 dark:bg-gray-700 rounded-full h-1.5">
                         <div className="bg-emerald-500 dark:bg-emerald-400 h-full rounded-full" style={{ width: '100%' }} />
                       </div>
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">100%</p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium font-space-grotesk">100%</p>
                     </div>
                   </div>
                 </div>
@@ -263,7 +263,7 @@ export default async function Home() {
               <div className="col-span-2 md:col-span-1">
                 <div className="flex items-center space-x-2 mb-4">
                   <Image src="/logoo.png" alt="MuseFlow Logo" width={28} height={28} className="rounded" />
-                  <span className="text-lg font-bold text-gray-900 dark:text-gray-100">MuseFlow</span>
+                  <span className="text-lg font-bold text-gray-900 dark:text-gray-100 font-space-grotesk">MuseFlow</span>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Empowering creators with intelligent tools.

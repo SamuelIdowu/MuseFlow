@@ -4,6 +4,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { getActiveProfile } from './dashboardServerActions';
 import { generateCampaignContent } from './geminiClient';
 import { createSupabaseServiceClient, ensureSupabaseUser } from './supabaseServerClient';
+import { getAuthenticatedSupabaseUserId } from './authUtils';
 
 interface CampaignPost {
     content: string;
@@ -37,16 +38,8 @@ export async function saveCampaignAction(
     tone: string,
     posts: CampaignPost[]
 ): Promise<SavedCampaign> {
-    const { userId } = await auth();
-    const user = await currentUser();
+    const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-    if (!userId || !user) throw new Error('User not authenticated');
-
-    const email = user.emailAddresses[0]?.emailAddress;
-    if (!email) throw new Error('User has no email address');
-
-    const supabaseUserId = await ensureSupabaseUser(userId, email);
-    if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
     const supabase = createSupabaseServiceClient();
 
@@ -74,16 +67,8 @@ export async function saveCampaignAction(
 }
 
 export async function getSavedCampaignsAction(): Promise<SavedCampaign[]> {
-    const { userId } = await auth();
-    const user = await currentUser();
+    const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-    if (!userId || !user) throw new Error('User not authenticated');
-
-    const email = user.emailAddresses[0]?.emailAddress;
-    if (!email) throw new Error('User has no email address');
-
-    const supabaseUserId = await ensureSupabaseUser(userId, email);
-    if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
     const supabase = createSupabaseServiceClient();
 
@@ -105,16 +90,8 @@ export async function getSavedCampaignsAction(): Promise<SavedCampaign[]> {
 }
 
 export async function deleteSavedCampaignAction(id: string): Promise<void> {
-    const { userId } = await auth();
-    const user = await currentUser();
+    const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
-    if (!userId || !user) throw new Error('User not authenticated');
-
-    const email = user.emailAddresses[0]?.emailAddress;
-    if (!email) throw new Error('User has no email address');
-
-    const supabaseUserId = await ensureSupabaseUser(userId, email);
-    if (!supabaseUserId) throw new Error('Failed to ensure Supabase user exists');
 
     const supabase = createSupabaseServiceClient();
 

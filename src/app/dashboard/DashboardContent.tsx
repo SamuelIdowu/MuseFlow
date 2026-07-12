@@ -64,7 +64,7 @@ export default function DashboardContent({ activeProfile }: DashboardContentProp
 
   return (
     <>
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-2">
         <DashboardClient activeProfile={activeProfile} />
         <DashboardStatsCard />
       </div>

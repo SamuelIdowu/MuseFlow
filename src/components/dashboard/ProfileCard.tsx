@@ -57,7 +57,7 @@ export function ProfileCard({ profile, onEdit, onDelete, onSetActive }: ProfileC
 
             <CardHeader className="p-0 space-y-0">
                 <div className="flex flex-col">
-                    <p className="text-foreground text-lg font-semibold leading-normal">
+                    <p className="text-foreground text-lg font-semibold leading-normal font-space-grotesk">
                         {profile.profile_name}
                     </p>
                     <p className="text-muted-foreground text-sm font-normal leading-normal">

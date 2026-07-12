@@ -43,11 +43,14 @@ export function createSupabaseServiceClient() {
       },
       global: {
         fetch: (url, options) => {
-          return fetch(url, {
-            ...options,
+          const fetchOptions: RequestInit = { ...options };
+          // Only add duplex: 'half' for requests with a body (e.g. POST/PUT)
+          // Node fetch throws an error if duplex is set on GET/HEAD requests
+          if (options && options.body) {
             // @ts-ignore - duplex is not in the RequestInit type for some versions but required for node fetch
-            duplex: 'half',
-          });
+            fetchOptions.duplex = 'half';
+          }
+          return fetch(url, fetchOptions);
         }
       }
     }
@@ -116,13 +119,18 @@ export async function getSupabaseUserId(clerkUserId: string): Promise<string | n
  */
 export const ensureSupabaseUser = cache(async (
   clerkUserId: string,
-  email: string
+  email?: string
 ): Promise<string | null> => {
   // Try to get existing user
   const existingId = await getSupabaseUserId(clerkUserId);
 
   if (existingId) {
     return existingId;
+  }
+
+  if (!email) {
+    console.warn('[ensureSupabaseUser] User not found and no email provided for creation');
+    return null;
   }
 
   console.log('[ensureSupabaseUser] User not found, creating new user for:', clerkUserId);

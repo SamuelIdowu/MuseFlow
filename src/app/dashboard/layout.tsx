@@ -5,6 +5,7 @@ import { useUser, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { UserNav } from "@/components/dashboard/UserNav";
 import { Sidebar } from "@/components/dashboard/Sidebar";
+import { ProjectNavigation } from "@/components/dashboard/ProjectNavigation";
 import { HistorySidebar } from "@/components/dashboard/HistorySidebar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -42,26 +43,27 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen w-full overflow-hidden">
+    <div className="flex h-screen w-full overflow-hidden">
       {/* Desktop sidebar */}
-      <div className="hidden lg:block">
+      <div className="hidden lg:flex h-full">
         <Sidebar />
+        <ProjectNavigation />
       </div>
 
       <div className="flex flex-col flex-1 overflow-hidden lg:pl-0">
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background p-4">
+        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background p-3">
           <div className="flex items-center gap-2 lg:hidden">
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
-                  <Menu className="h-5 w-5" />
+                  <Menu className="h-4 w-4" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="p-0 w-72">
+              <SheetContent side="left" className="p-0 w-60">
                 <Sidebar onNavClick={() => setIsMobileOpen(false)} defaultCollapsed={false} />
               </SheetContent>
             </Sheet>
-            <h1 className="text-xl font-semibold">Dashboard</h1>
+            <h1 className="text-lg font-semibold">Dashboard</h1>
           </div>
 
           {/* Mobile Right Sidebar Trigger */}
@@ -69,17 +71,17 @@ export default function DashboardLayout({
             <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
-                  <HistoryIcon className="h-5 w-5" />
+                  <HistoryIcon className="h-4 w-4" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="right" className="p-0 w-80">
+              <SheetContent side="right" className="p-0 w-72">
                 <HistorySidebar onNavClick={() => setIsHistoryOpen(false)} />
               </SheetContent>
             </Sheet>
           </div>
 
 
-          <div className="hidden lg:flex items-center gap-4 ml-auto">
+          <div className="hidden lg:flex items-center gap-3 ml-auto">
             {/* Desktop Hader Items if any */}
             <UserNav />
           </div>
@@ -87,7 +89,7 @@ export default function DashboardLayout({
             <UserNav />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-6 w-full max-w-full">{children}</main>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-4 w-full max-w-full">{children}</main>
       </div>
 
       {/* Desktop Right Sidebar */}

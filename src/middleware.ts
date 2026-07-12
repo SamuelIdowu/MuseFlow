@@ -9,18 +9,22 @@ const isPublicRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  const { userId } = await auth();
+  const authObject = await auth();
+  const { userId } = authObject;
   const pathname = req.nextUrl.pathname;
 
-  // 1. Redirect unauthenticated users from protected routes → /sign-in
-  if (!userId && !isPublicRoute(req)) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/sign-in";
-    url.searchParams.set("redirectedFrom", pathname);
-    return NextResponse.redirect(url);
+  // 1. Allow public routes
+  if (isPublicRoute(req)) {
+    return NextResponse.next();
   }
 
-  // 2. Redirect authenticated users away from /sign-in & /sign-up → /dashboard
+  // 2. Protect protected routes
+  if (!userId) {
+    // Truly unauthenticated - use Clerk's internal protection which handles redirects
+    await auth.protect();
+  }
+
+  // 3. Redirect authenticated users away from /sign-in & /sign-up → /dashboard
   if (
     userId &&
     (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up"))

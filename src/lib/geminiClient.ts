@@ -6,7 +6,7 @@ import { fetchUrlContent, extractUrls, isValidUrl } from "./urlUtils";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
 const model = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash",
+  model: "gemini-2.0-flash",
 });
 
 async function buildProfileContext(profile?: Profile | null): Promise<string> {
@@ -135,12 +135,13 @@ export async function expandContentBlock(
   canvasTitle?: string,
   activeProfile?: Profile | null,
   contextBlocks?: { type: string; content: string }[],
-  contentTypeId?: string
+  contentTypeId?: string,
+  mode: 'expand' | 'regenerate' = 'expand'
 ): Promise<string> {
   // Check if API key is available
   if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
     console.error("GEMINI_API_KEY is not set for expandContentBlock");
-    return `${content} - This is an expanded version with additional detail and context to make the content more comprehensive and valuable for the reader.`;
+    return content;
   }
 
   try {
@@ -148,7 +149,7 @@ export async function expandContentBlock(
 
     // If content to expand is a URL, fetch it
     let contentToExpand = content;
-    if (isValidUrl(content)) {
+    if (isValidUrl(content) && mode === 'expand') {
       const fetched = await fetchUrlContent(content);
       if (fetched) {
         contentToExpand = fetched;
@@ -164,48 +165,56 @@ export async function expandContentBlock(
       const typeDef = CONTENT_TYPES.find(t => t.id === contentTypeId);
       if (typeDef) {
         contentTypeInstruction = `\nOUTPUT FORMATTING REQUIREMENT:\nThe user explicitly requested a "${typeDef.label}" (${typeDef.category}).\nStructure the response strictly as a ${typeDef.label}.\n`;
-        // Add specific hints based on category
-        if (typeDef.category === 'Social Posts') {
-          contentTypeInstruction += "Include relevant hashtags and keep it concise/platform-appropriate.\n";
-        } else if (typeDef.category === 'Scripts') {
-          contentTypeInstruction += "Include scene/segment headers and spoken lines. Use a conversational tone.\n";
-        } else if (typeDef.category === 'Articles & Blogs') {
-          contentTypeInstruction += "Use clear headings, structured paragraphs, and an educational tone.\n";
-        } else if (typeDef.category === 'Copywriting') {
-          contentTypeInstruction += "Use persuasive language, strong hooks, and clear calls to action.\n";
-        } else if (typeDef.category === 'Technical & Professional') {
-          contentTypeInstruction += "Use formal language, objective tone, and precise terminology.\n";
-        }
       }
     }
 
     if (contextBlocks && contextBlocks.length > 0) {
       contextPart += "\nExisting Content Blocks for Context:\n";
       contextBlocks.forEach((block, index) => {
-        // Skip the current block if it happens to be in the list (though caller should filter it)
+        // Skip the current block if it happens to be in the list
         if (block.content === content) return;
         contextPart += `${index + 1}. [${block.type.toUpperCase()}]: ${block.content.substring(0, 200)}${block.content.length > 200 ? "..." : ""}\n`;
       });
       contextPart += "\n";
     }
 
-    const prompt = `${contextPart}Task: Expand the following ${blockType} block: "${contentToExpand}".${profileContext}${contentTypeInstruction}
-    Instructions: Make it more detailed, engaging, and comprehensive while maintaining the original meaning. Ensure the tone fits the overall article title and aligns with the context of the other blocks provided above.
-    Return only the expanded content without additional commentary.`;
+    const taskDescription = mode === 'expand' 
+      ? `EXPAND and ENHANCE the following ${blockType} content. Your goal is to increase the depth, detail, and length of the content SIGNIFICANTLY (at least 2x the original length).`
+      : `REGENERATE and REWRITE the following ${blockType} content. Your goal is to provide a completely fresh linguistic take, using different vocabulary and sentence structures while maintaining the core message.`;
+
+    const prompt = `${contextPart}
+    Task: ${taskDescription}
+    
+    Original Content: "${contentToExpand}"
+    
+    ${profileContext}
+    ${contentTypeInstruction}
+    
+    Specific Instructions:
+    1. ${mode === 'expand' 
+        ? 'EXPANSION: Add specific facts, statistics, examples, or detailed explanations. If it is a list, add more relevant items. If it is a paragraph, add more supporting sentences.' 
+        : 'REGENERATION: Use a different tone or perspective. Change the phrasing entirely. Do not just swap a few words; rewrite the entire block from scratch.'}
+    2. Maintain the original meaning but improve the impact and value.
+    3. Ensure the tone aligns with the article title ("${canvasTitle || 'Untitled'}") and the surrounding context blocks.
+    4. CRITICAL: Return ONLY the ${mode === 'expand' ? 'expanded' : 'regenerated'} content. Do NOT include any meta-commentary, intros, or outros.
+    5. CRITICAL: Do NOT mention that you are an AI or describe your process.
+    
+    New Content:`;
 
     const result = await model.generateContent(prompt);
     const response = result.response;
 
     if (!response) {
       console.error("No response received from Gemini API in expandContentBlock");
-      return `${content} - This is an expanded version with additional detail and context to make the content more comprehensive and valuable for the reader.`;
+      return content;
     }
 
-    return response.text();
+    const text = response.text().trim();
+    return text || content;
   } catch (error) {
-    console.error("Error expanding content block with Gemini:", error);
-    // Return fallback expansion in case of error
-    return `${content} - This is an expanded version with additional detail and context to make the content more comprehensive and valuable for the reader.`;
+    console.error("Error expanding/regenerating content block with Gemini:", error);
+    // Return original content in case of error
+    return content;
   }
 }
 
@@ -258,9 +267,19 @@ export async function generateContentBlock(
       }
     }
 
-    const prompt = `${contextPart}${instructionPart}Task: Generate content for a ${blockType} block.${profileContext}${contentTypeInstruction}
-    Instructions: Write high-quality, engaging content that fits the overall article title and aligns with the context of the other blocks provided above.
-    Return only the generated content without additional commentary.`;
+    const prompt = `${contextPart}${instructionPart}
+    Task: Generate high-quality content for a ${blockType} block.
+    
+    ${profileContext}
+    ${contentTypeInstruction}
+    
+    Instructions:
+    1. Write engaging, professional, and valuable content that fits the overall article title ("${canvasTitle || 'Untitled'}").
+    2. Ensure it aligns with the context of the other blocks provided above.
+    3. If there is a "User Instruction", prioritize following it strictly.
+    4. CRITICAL: Return ONLY the generated content. Do NOT include any meta-commentary or descriptions of what you wrote.
+    
+    Generated Content:`;
 
     const result = await model.generateContent(prompt);
     const response = result.response;
@@ -410,4 +429,176 @@ export async function generateCampaignContent(
     console.error("Error generating campaign content:", error);
     return [];
   }
+}
+
+export async function generateCanvasBlocksFromChat(
+  input: string,
+  activeProfile?: Profile | null,
+  history: any[] = [],
+  files: { data: string; mimeType: string }[] = [],
+  currentCanvas?: { blocks: any[], edges: any[] }
+): Promise<{ 
+  blocks: { id: string; type: string; content: string; title?: string; x?: number; y?: number; action?: 'create' | 'update' | 'delete' }[]; 
+  edges: { source: string; target: string; label?: string; action?: 'create' | 'delete' }[];
+  message: string 
+}> {
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
+    return {
+      message: "API Key missing. Cannot generate blocks.",
+      blocks: [
+        { id: "node-1", type: "heading", content: "AI Content Generation", action: 'create' },
+        { id: "node-2", type: "paragraph", content: `This is a placeholder for: ${input}`, action: 'create' }
+      ],
+      edges: [
+        { source: "node-1", target: "node-2", action: 'create' }
+      ]
+    };
+  }
+
+  try {
+    const profileContext = await buildProfileContext(activeProfile);
+    
+    // Format history
+    let historyContext = "";
+    if (history && history.length > 0) {
+      historyContext = "\n\nChat History:\n";
+      history.forEach((msg) => {
+        const role = msg.role === 'user' ? 'User' : 'Assistant';
+        historyContext += `${role}: ${msg.content}\n`;
+      });
+    }
+
+    let canvasContext = "";
+    if (currentCanvas && currentCanvas.blocks.length > 0) {
+      canvasContext = "\n\nCurrent Canvas State:\n";
+      currentCanvas.blocks.forEach(b => {
+        canvasContext += `- Block [ID: ${b.id}, Type: ${b.type}, Pos: (${Math.round(b.x)}, ${Math.round(b.y)})]: ${b.content.substring(0, 100)}${b.content.length > 100 ? '...' : ''}\n`;
+      });
+      if (currentCanvas.edges.length > 0) {
+        canvasContext += "Existing Connections:\n";
+        currentCanvas.edges.forEach(e => {
+          canvasContext += `- ${e.source} -> ${e.target}${e.label ? ` (${e.label})` : ''}\n`;
+        });
+      }
+    }
+
+    const prompt = `You are an AI content architect. Your job is to transform user requests into a structured visual canvas of content blocks.
+    ${profileContext}
+    ${historyContext}
+    ${canvasContext}
+    
+    User Request: "${input}"
+    
+    Instructions:
+    1. Analyze the User Request against the Current Canvas State (if provided).
+    2. You can:
+       - CREATE new blocks (action: "create").
+       - UPDATE existing blocks (action: "update"). Use the existing Block ID.
+       - DELETE blocks (action: "delete").
+    3. IMPORTANT: When UPDATE-ing, DO NOT change the (x, y) coordinates. Maintain their current position.
+    4. NEW blocks should be placed to the RIGHT of the block they are connected to.
+    5. Always create new blocks near the connected one (approx 400px to the right, with some vertical offset if there are multiple children).
+    6. Layout Style: Left-to-Right branching tree.
+    7. Return a JSON object with:
+       - "blocks": Array of { "id": string, "type": string, "content": string, "x": number, "y": number, "action": "create" | "update" | "delete" }
+       - "edges": Array of { "source": string, "target": string, "label": string (optional), "action": "create" | "delete" }
+       - "message": A conversational summary message.
+    
+    Layout Tips (Left-to-Right):
+    - Root node at (100, 400).
+    - Level 2 nodes at (500, 200), (500, 600).
+    - Level 3 nodes at (900, 100), (900, 300), etc.
+    - Maintain at least 400px horizontal spacing and 300px vertical spacing.
+    
+    Return ONLY raw JSON.`;
+
+
+
+
+    const parts: any[] = [{ text: prompt }];
+    
+    // Add files
+    if (files && files.length > 0) {
+      const SUPPORTED_MIME_TYPES = [
+        'image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif',
+        'application/pdf', 'text/plain', 'text/csv', 'text/markdown',
+        'audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/aac', 'audio/ogg', 'audio/flac',
+        'video/mp4', 'video/mpeg', 'video/mov', 'video/avi', 'video/webm'
+      ];
+
+      files.forEach(file => {
+        let mimeType = file.mimeType;
+        
+        // Handle empty or generic MIME types
+        if (!mimeType || mimeType === 'application/octet-stream') {
+          // If we have a data URL, try to extract from there
+          if (file.data.startsWith('data:')) {
+            const match = file.data.match(/^data:([^;]+);base64,/);
+            if (match) mimeType = match[1];
+          }
+        }
+
+        if (SUPPORTED_MIME_TYPES.includes(mimeType)) {
+          parts.push({
+            inlineData: {
+              data: file.data.includes(',') ? file.data.split(',')[1] : file.data,
+              mimeType: mimeType
+            }
+          });
+        } else {
+          console.warn(`[Gemini] Skipping unsupported MIME type: ${mimeType}`);
+        }
+      });
+    }
+
+
+    const result = await model.generateContent(parts);
+    const response = result.response;
+    
+    if (!response) {
+      throw new Error("No response from Gemini API");
+    }
+
+    // Check if the response was blocked by safety filters
+    if (response.promptFeedback?.blockReason) {
+      return {
+        message: `I'm sorry, I couldn't generate a response because it was blocked: ${response.promptFeedback.blockReason}`,
+        blocks: [],
+        edges: []
+      };
+    }
+
+    const text = response.text().trim();
+    if (!text) {
+      throw new Error("Empty response from Gemini API");
+    }
+
+    const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    
+    try {
+      return JSON.parse(cleanText);
+    } catch (parseError) {
+      console.error("Failed to parse Gemini JSON response:", cleanText);
+      throw new Error("Failed to parse AI response as JSON");
+    }
+  } catch (error: any) {
+    console.error("Error in generateCanvasBlocksFromChat:", error);
+    
+    // Check for specific error types
+    const errorMessage = error.message || "Unknown error";
+    if (errorMessage.includes("400") || errorMessage.includes("Bad Request")) {
+      return {
+        message: "The AI request failed (possibly due to an unsupported file type or too much data). Please try again with fewer files or different content.",
+        blocks: [],
+        edges: []
+      };
+    }
+
+    return {
+      message: "I'm sorry, I encountered an error while generating the blocks. Please try again.",
+      blocks: [],
+      edges: []
+    };
+  }
+
 }

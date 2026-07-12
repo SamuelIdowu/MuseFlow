@@ -4,6 +4,7 @@ import { Handle, Position, NodeProps, Node } from '@xyflow/react';
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { GripVertical, Sparkles, Loader2 } from "lucide-react";
 
 // We'll define the Block interface locally for now if not available, or import it.
@@ -63,14 +64,26 @@ const CustomNode = ({ data, selected }: NodeProps<Node<BlockData>>) => {
                 </div>
 
                 {/* Content Area */}
-                <Textarea
-                    className="min-h-[100px] text-base mt-1 resize-y font-mono leading-relaxed nodrag"
-                    value={content}
-                    onChange={(e) => onUpdate(id, { content: e.target.value })}
-                    onFocus={() => setEditingId(id)}
-                    onBlur={() => setEditingId(null)}
-                    placeholder="Click to add content..."
-                />
+                {isExpanding || isRegenerating ? (
+                    <div className="min-h-[100px] mt-1 p-3 border rounded-md bg-muted/20 flex flex-col gap-2">
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-5/6" />
+                        <Skeleton className="h-4 w-4/6" />
+                        <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            {isExpanding ? "Expanding content..." : "Regenerating content..."}
+                        </div>
+                    </div>
+                ) : (
+                    <Textarea
+                        className="min-h-[100px] text-base mt-1 resize-y font-mono leading-relaxed nodrag"
+                        value={content}
+                        onChange={(e) => onUpdate(id, { content: e.target.value })}
+                        onFocus={() => setEditingId(id)}
+                        onBlur={() => setEditingId(null)}
+                        placeholder="Click to add content..."
+                    />
+                )}
 
                 {/* Footer: AI Actions */}
                 <div className="border-t border-border/50 pt-4 mt-2 flex flex-wrap gap-3 items-center">

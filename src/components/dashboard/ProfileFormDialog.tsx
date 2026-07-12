@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import {
     Dialog,
     DialogContent,
@@ -109,7 +110,7 @@ export function ProfileFormDialog({
 
     const handleSubmit = async () => {
         if (!profileName.trim()) {
-            alert("Profile name is required");
+            toast.error("Profile name is required");
             return;
         }
 

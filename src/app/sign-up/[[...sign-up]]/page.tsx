@@ -3,29 +3,39 @@
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useSignUp, useAuth } from '@clerk/nextjs';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { AlreadySignedInModal } from '@/components/auth/AlreadySignedInModal';
 
 export default function SignUpPage() {
   const { signUp, isLoaded: isSignUpLoaded } = useSignUp();
   const { userId, isLoaded: isAuthLoaded } = useAuth();
   const router = useRouter();
+  const [showModal, setShowModal] = useState(false);
 
-  // Redirect if already signed in
+  // Redirect or show modal if already signed in
   useEffect(() => {
     if (isAuthLoaded && userId) {
-      router.push('/dashboard');
+      setShowModal(true);
+      // Wait a bit to show the modal before redirecting automatically
+      const timer = setTimeout(() => {
+        router.push('/dashboard');
+      }, 3000);
+      return () => clearTimeout(timer);
     }
   }, [isAuthLoaded, userId, router]);
 
   // Show loading state while checking auth
   if (!isAuthLoaded || (isAuthLoaded && userId)) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
+        {userId && <AlreadySignedInModal isOpen={showModal} />}
         <div className="flex flex-col items-center gap-4">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-600 dark:border-orange-400 border-t-transparent" />
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          <p className="text-gray-600 dark:text-gray-400">
+            {userId ? 'Redirecting to dashboard...' : 'Loading...'}
+          </p>
         </div>
       </div>
     );

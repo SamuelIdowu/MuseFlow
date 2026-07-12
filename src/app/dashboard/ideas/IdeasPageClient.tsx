@@ -3,13 +3,25 @@
 import { useState, useEffect, useCallback } from "react";
 import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Sparkles, Loader2 } from "lucide-react";
+import { PlusCircle, Sparkles, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { ScheduleDialog } from "@/components/modals/ScheduleDialog";
 import { toast } from "react-hot-toast";
 import { getUserIdeasAction, deleteIdeaAction } from "@/lib/dashboardServerActions";
 import { ExpandableIdeaCard } from "@/components/ExpandableIdeaCard";
 import { Profile } from "@/types/profile";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Idea {
     id: string;
@@ -36,6 +48,7 @@ export function IdeasPageClient({ activeProfile }: IdeasPageClientProps) {
     const [loading, setLoading] = useState(true);
     const [selectedIdea, setSelectedIdea] = useState<Idea | null>(null);
     const [isScheduleDialogOpen, setIsScheduleDialogOpen] = useState(false);
+    const [ideaToDelete, setIdeaToDelete] = useState<string | null>(null);
     const { user, isLoaded } = useUser();
 
     // Fetch ideas from Supabase
@@ -119,9 +132,14 @@ export function IdeasPageClient({ activeProfile }: IdeasPageClientProps) {
         }
     }, [selectedIdea?.id, activeProfile]);
 
-    const handleDeleteIdea = async (id: string) => {
-        if (!confirm("Are you sure you want to delete this idea?")) return;
+    const handleDeleteIdea = (id: string) => {
+        setIdeaToDelete(id);
+    };
 
+    const handleConfirmDeleteIdea = async () => {
+        if (!ideaToDelete) return;
+        const id = ideaToDelete;
+        setIdeaToDelete(null);
         try {
             await deleteIdeaAction(id);
             setIdeas((prev) => prev.filter((idea) => idea.id !== id));
@@ -139,36 +157,65 @@ export function IdeasPageClient({ activeProfile }: IdeasPageClientProps) {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-[50vh]">
-                <div className="flex items-center gap-2">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                    <span>Loading your ideas...</span>
+            <div className="space-y-6 w-full max-w-full overflow-hidden">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div className="space-y-1.5">
+                        <Skeleton className="h-7 w-48" />
+                        <Skeleton className="h-4 w-72" />
+                    </div>
+                    <Skeleton className="h-8 w-full md:w-32" />
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {[...Array(6)].map((_, i) => (
+                        <Card key={i} className="overflow-hidden py-4">
+                            <CardHeader className="space-y-1.5 px-4 pb-2">
+                                <div className="flex justify-between items-start">
+                                    <Skeleton className="h-5 w-3/4" />
+                                    <Skeleton className="h-4 w-10" />
+                                </div>
+                                <Skeleton className="h-3 w-1/4" />
+                            </CardHeader>
+                            <CardContent className="space-y-3 px-4">
+                                <Skeleton className="h-16 w-full" />
+                                <div className="flex gap-1.5">
+                                    <Skeleton className="h-4 w-12" />
+                                    <Skeleton className="h-4 w-12" />
+                                    <Skeleton className="h-4 w-12" />
+                                </div>
+                                <div className="flex gap-2">
+                                    <Skeleton className="h-7 w-20" />
+                                    <Skeleton className="h-7 w-20" />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="space-y-8 w-full max-w-full overflow-hidden">
+        <div className="space-y-6 w-full max-w-full overflow-hidden">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div>
-                    <div className="flex flex-wrap items-center gap-3 mb-2">
-                        <h2 className="text-2xl font-bold tracking-tight">Generated Ideas</h2>
+                    <div className="flex flex-wrap items-center gap-3 mb-1">
+                        <h2 className="text-xl font-bold tracking-tight">Generated Ideas</h2>
                         {activeProfile ? (
-                            <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary ring-1 ring-inset ring-primary/20">
+                            <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary ring-1 ring-inset ring-primary/20">
                                 Active: {activeProfile.profile_name}
                             </span>
                         ) : (
-                            <span className="inline-flex items-center rounded-md bg-yellow-50 dark:bg-yellow-900/20 px-2 py-1 text-xs font-medium text-yellow-800 dark:text-yellow-500 ring-1 ring-inset ring-yellow-600/20">
+                            <span className="inline-flex items-center rounded-md bg-yellow-50 dark:bg-yellow-900/20 px-2 py-0.5 text-[11px] font-medium text-yellow-800 dark:text-yellow-500 ring-1 ring-inset ring-yellow-600/20">
                                 No Active Profile
                             </span>
                         )}
                     </div>
-                    <p className="text-muted-foreground">
+                    <p className="text-sm text-muted-foreground">
                         Browse your AI-generated content ideas and start creating
                     </p>
                 </div>
-                <Button asChild className="w-full md:w-auto">
+                <Button asChild size="sm" className="w-full md:w-auto">
                     <Link href="/dashboard">
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Generate New Ideas
@@ -176,7 +223,7 @@ export function IdeasPageClient({ activeProfile }: IdeasPageClientProps) {
                 </Button>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {ideas.map((idea) => (
                     <ExpandableIdeaCard
                         key={idea.id}
@@ -200,16 +247,42 @@ export function IdeasPageClient({ activeProfile }: IdeasPageClientProps) {
                 />
             )}
 
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={!!ideaToDelete} onOpenChange={(open) => !open && setIdeaToDelete(null)}>
+                <AlertDialogContent className="max-w-sm">
+                    <AlertDialogHeader>
+                        <div className="flex items-center gap-3 mb-1">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+                                <Trash2 className="h-5 w-5 text-destructive" />
+                            </div>
+                            <AlertDialogTitle className="text-base">Delete Idea?</AlertDialogTitle>
+                        </div>
+                        <AlertDialogDescription className="text-sm leading-relaxed">
+                            Are you sure you want to delete this idea? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter className="mt-2">
+                        <AlertDialogCancel className="h-9 text-sm">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            className="h-9 text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            onClick={handleConfirmDeleteIdea}
+                        >
+                            Delete
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             {ideas.length === 0 && (
-                <div className="text-center py-12">
-                    <div className="mx-auto h-12 w-12 text-muted-foreground mb-4">
+                <div className="text-center py-10">
+                    <div className="mx-auto h-10 w-10 text-muted-foreground mb-3">
                         <Sparkles className="h-full w-full" />
                     </div>
-                    <h3 className="text-lg font-medium mb-1">No ideas generated yet</h3>
-                    <p className="text-muted-foreground mb-4">
+                    <h3 className="text-md font-medium mb-1">No ideas generated yet</h3>
+                    <p className="text-sm text-muted-foreground mb-4">
                         Generate your first content ideas to get started
                     </p>
-                    <Button asChild>
+                    <Button asChild size="sm">
                         <Link href="/dashboard">Generate Ideas</Link>
                     </Button>
                 </div>

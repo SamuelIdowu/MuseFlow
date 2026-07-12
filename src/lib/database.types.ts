@@ -119,6 +119,49 @@ export interface Database {
           }
         ]
       }
+      chat_messages: {
+        Row: {
+          id: string
+          canvas_id: string | null
+          user_id: string
+          role: string
+          content: string
+          tool_invocations: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          canvas_id?: string | null
+          user_id: string
+          role: string
+          content: string
+          tool_invocations?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          canvas_id?: string | null
+          user_id?: string
+          role?: string
+          content?: string
+          tool_invocations?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_canvas_id_fkey"
+            columns: ["canvas_id"]
+            referencedRelation: "canvas_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_messages_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       canvas_sessions: {
         Row: {
           id: string

@@ -3,6 +3,17 @@
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface SubscriptionManageButtonProps {
     subscriptionId?: string | null;
@@ -13,8 +24,6 @@ export function SubscriptionManageButton({ subscriptionId, userId }: Subscriptio
     const [loading, setLoading] = useState(false);
 
     const handleCancel = async () => {
-        if (!confirm('Are you sure you want to cancel your subscription?')) return;
-
         if (!subscriptionId) {
             toast.error("No active subscription found to cancel");
             return;
@@ -48,9 +57,30 @@ export function SubscriptionManageButton({ subscriptionId, userId }: Subscriptio
 
     return (
         <div className="flex gap-2">
-            <Button variant="outline" onClick={handleCancel} disabled={loading || !subscriptionId}>
-                {loading ? 'Cancelling...' : 'Cancel Subscription'}
-            </Button>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="outline" disabled={loading || !subscriptionId}>
+                        {loading ? 'Cancelling...' : 'Cancel Subscription'}
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to cancel your active subscription? You will continue to have access to premium features until the end of your current billing cycle.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleCancel}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                            Cancel Subscription
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
