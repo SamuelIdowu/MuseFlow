@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels";
-import { WysiwygEditor } from "@/components/editor/WysiwygEditor";
-import { AiChatPanel } from "@/components/editor/AiChatPanel";
+import { WysiwygEditor } from "@/features/canvas/components/editor/WysiwygEditor";
+import { AiChatPanel } from "@/features/canvas/components/editor/AiChatPanel";
 import { GripVertical } from "lucide-react";
 
 export function EditorClient() {

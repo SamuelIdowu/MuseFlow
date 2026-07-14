@@ -67,7 +67,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import CustomNode, { BlockData } from "@/components/dashboard/canvas/CustomNode";
+import CustomNode, { BlockData } from "@/features/canvas/components/canvas/CustomNode";
 
 const nodeTypes = {
     custom: CustomNode,

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CampaignGenerator } from "@/components/campaigns/CampaignGenerator";
-import { SavedCampaignCard } from "@/components/campaigns/SavedCampaignCard";
+import { CampaignGenerator } from "@/features/campaigns/components/campaigns/CampaignGenerator";
+import { SavedCampaignCard } from "@/features/campaigns/components/campaigns/SavedCampaignCard";
 import { getSavedCampaignsAction, SavedCampaign } from "@/lib/campaignActions";
 import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
