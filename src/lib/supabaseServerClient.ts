@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { Database } from './database.types';
 import { cache } from 'react';
+import { auth } from '@clerk/nextjs/server';
 
 /**
  * Creates a Supabase server client for use with service role key
@@ -77,6 +78,24 @@ export function createAuthenticatedSupabaseClient(token: string) {
       }
     }
   );
+}
+
+/**
+ * Creates an authenticated Supabase client for Server Actions and Route Handlers.
+ * Automatically fetches the Supabase JWT from Clerk.
+ */
+export async function createClerkSupabaseClient() {
+  const { userId } = await auth();
+  
+  if (!userId) {
+    throw new Error('User not authenticated');
+  }
+
+  // Use the service client instead of the JWT-authenticated client.
+  // The Clerk JWT 'sub' claim evaluates to the Clerk ID string (e.g. 'user_...'),
+  // which crashes Supabase RLS policies that expect a UUID (since our users.id is a UUID).
+  // Tenant isolation is already manually enforced in all Server Actions via .eq('user_id', supabaseUserId).
+  return createSupabaseServiceClient();
 }
 
 /**

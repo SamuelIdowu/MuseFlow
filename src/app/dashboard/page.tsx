@@ -1,4 +1,5 @@
-import { getDashboardStats, getActiveProfile, getChatById } from '@/lib/dashboardServerActions';
+import { getDashboardStats, getActiveProfile } from '@/lib/dashboardServerActions';
+import { getChatById } from '@/features/ideas/actions/ideaActions';
 import { DashboardClient } from './DashboardClient';
 import { format } from 'date-fns';
 

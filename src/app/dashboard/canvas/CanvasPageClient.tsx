@@ -40,13 +40,13 @@ import {
     updateCanvasBlockAction,
     deleteCanvasBlockAction,
     clearCanvasAction,
-    saveToIdeasAction,
     addEdgeAction,
     deleteEdgeAction,
     addChatMessageAction,
     getGlobalChatMessagesAction,
     updateCanvasChatHistoryAction
-} from "@/lib/dashboardServerActions";
+} from "@/features/canvas/actions/canvasActions";
+import { saveToIdeasAction } from "@/features/ideas/actions/ideaActions";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 

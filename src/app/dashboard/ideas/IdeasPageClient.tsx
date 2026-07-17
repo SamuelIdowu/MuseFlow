@@ -7,7 +7,7 @@ import { PlusCircle, Sparkles, Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { ScheduleDialog } from "@/components/modals/ScheduleDialog";
 import { toast } from "react-hot-toast";
-import { getUserIdeasAction, deleteIdeaAction } from "@/lib/dashboardServerActions";
+import { getUserIdeasAction, deleteIdeaAction } from "@/features/ideas/actions/ideaActions";
 import { ExpandableIdeaCard } from "@/components/ExpandableIdeaCard";
 import { Profile } from "@/types/profile";
 import { Skeleton } from "@/components/ui/skeleton";

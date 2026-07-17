@@ -31,7 +31,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CONTENT_TYPES } from "@/types/content";
-import { saveToIdeasAction } from '@/lib/dashboardServerActions';
+import { saveToIdeasAction } from '@/features/ideas/actions/ideaActions';
 import { FileContextUploader } from "@/components/ui/file-context-uploader";
 import { Skeleton } from "@/components/ui/skeleton";
 

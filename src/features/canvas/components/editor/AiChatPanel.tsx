@@ -6,7 +6,7 @@ import { marked } from 'marked';
 import { useChat } from '@ai-sdk/react';
 import { type UIMessage } from 'ai';
 import { DefaultChatTransport } from 'ai';
-import { getGlobalChatMessagesAction, addChatMessageAction } from '@/lib/dashboardServerActions';
+import { getGlobalChatMessagesAction, addChatMessageAction } from '@/features/canvas/actions/canvasActions';
 import { toast } from 'react-hot-toast';
 
 interface AiChatPanelProps {

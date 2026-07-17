@@ -81,47 +81,57 @@ ALTER TABLE canvas_blocks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scheduled_posts ENABLE ROW LEVEL SECURITY;
 
 -- Create policies for RLS
--- NOTE: Since we're using Clerk for auth (not Supabase Auth), auth.uid() won't work as expected
--- For security, we handle authorization in API routes using service role key and Clerk user verification
--- The users table policies are disabled; instead, we rely on server-side authorization
+-- We use a custom function to extract the Clerk ID from the JWT claims, 
+-- and then resolve it to the internal Supabase user UUID.
+CREATE OR REPLACE FUNCTION requesting_clerk_id() RETURNS TEXT AS $$
+  SELECT NULLIF(current_setting('request.jwt.claims', true)::json->>'sub', '')::text;
+$$ LANGUAGE SQL STABLE;
 
--- Users table: Managed via service role in API routes (see /api/auth/route.ts)
--- No client-side access to users table needed
+CREATE OR REPLACE FUNCTION requesting_user_id() RETURNS UUID AS $$
+  SELECT id FROM users WHERE clerk_id = requesting_clerk_id() LIMIT 1;
+$$ LANGUAGE SQL STABLE;
+
+-- Users table policies
+-- Service role full access
 DROP POLICY IF EXISTS "Service role full access" ON users;
 CREATE POLICY "Service role full access" ON users FOR ALL USING (true);
 
+-- Authenticated users can read users
+DROP POLICY IF EXISTS "Authenticated users can read users" ON users;
+CREATE POLICY "Authenticated users can read users" ON users FOR SELECT TO authenticated USING (true);
+
 DROP POLICY IF EXISTS "Users can view own profiles" ON profiles;
-CREATE POLICY "Users can view own profiles" ON profiles FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own profiles" ON profiles FOR SELECT USING (requesting_user_id() = user_id);
 DROP POLICY IF EXISTS "Users can insert own profiles" ON profiles;
-CREATE POLICY "Users can insert own profiles" ON profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can insert own profiles" ON profiles FOR INSERT WITH CHECK (requesting_user_id() = user_id);
 DROP POLICY IF EXISTS "Users can update own profiles" ON profiles;
-CREATE POLICY "Users can update own profiles" ON profiles FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can update own profiles" ON profiles FOR UPDATE USING (requesting_user_id() = user_id);
 
 DROP POLICY IF EXISTS "Users can view own idea_kernels" ON idea_kernels;
-CREATE POLICY "Users can view own idea_kernels" ON idea_kernels FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own idea_kernels" ON idea_kernels FOR SELECT USING (requesting_user_id() = user_id);
 DROP POLICY IF EXISTS "Users can insert own idea_kernels" ON idea_kernels;
-CREATE POLICY "Users can insert own idea_kernels" ON idea_kernels FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can insert own idea_kernels" ON idea_kernels FOR INSERT WITH CHECK (requesting_user_id() = user_id);
 
 DROP POLICY IF EXISTS "Users can view own canvas_sessions" ON canvas_sessions;
-CREATE POLICY "Users can view own canvas_sessions" ON canvas_sessions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own canvas_sessions" ON canvas_sessions FOR SELECT USING (requesting_user_id() = user_id);
 DROP POLICY IF EXISTS "Users can insert own canvas_sessions" ON canvas_sessions;
-CREATE POLICY "Users can insert own canvas_sessions" ON canvas_sessions FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can insert own canvas_sessions" ON canvas_sessions FOR INSERT WITH CHECK (requesting_user_id() = user_id);
 DROP POLICY IF EXISTS "Users can update own canvas_sessions" ON canvas_sessions;
-CREATE POLICY "Users can update own canvas_sessions" ON canvas_sessions FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can update own canvas_sessions" ON canvas_sessions FOR UPDATE USING (requesting_user_id() = user_id);
 
 DROP POLICY IF EXISTS "Users can view own canvas_blocks" ON canvas_blocks;
-CREATE POLICY "Users can view own canvas_blocks" ON canvas_blocks FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own canvas_blocks" ON canvas_blocks FOR SELECT USING (requesting_user_id() = user_id);
 DROP POLICY IF EXISTS "Users can insert own canvas_blocks" ON canvas_blocks;
-CREATE POLICY "Users can insert own canvas_blocks" ON canvas_blocks FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can insert own canvas_blocks" ON canvas_blocks FOR INSERT WITH CHECK (requesting_user_id() = user_id);
 DROP POLICY IF EXISTS "Users can update own canvas_blocks" ON canvas_blocks;
-CREATE POLICY "Users can update own canvas_blocks" ON canvas_blocks FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can update own canvas_blocks" ON canvas_blocks FOR UPDATE USING (requesting_user_id() = user_id);
 
 DROP POLICY IF EXISTS "Users can view own scheduled_posts" ON scheduled_posts;
-CREATE POLICY "Users can view own scheduled_posts" ON scheduled_posts FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own scheduled_posts" ON scheduled_posts FOR SELECT USING (requesting_user_id() = user_id);
 DROP POLICY IF EXISTS "Users can insert own scheduled_posts" ON scheduled_posts;
-CREATE POLICY "Users can insert own scheduled_posts" ON scheduled_posts FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can insert own scheduled_posts" ON scheduled_posts FOR INSERT WITH CHECK (requesting_user_id() = user_id);
 DROP POLICY IF EXISTS "Users can update own scheduled_posts" ON scheduled_posts;
-CREATE POLICY "Users can update own scheduled_posts" ON scheduled_posts FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can update own scheduled_posts" ON scheduled_posts FOR UPDATE USING (requesting_user_id() = user_id);
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_profiles_user_id ON profiles(user_id);
