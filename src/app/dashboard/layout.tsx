@@ -5,7 +5,6 @@ import { useUser, useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { UserNav } from "@/components/dashboard/UserNav";
 import { Sidebar } from "@/components/dashboard/Sidebar";
-import { ProjectNavigation } from "@/components/dashboard/ProjectNavigation";
 import { HistorySidebar } from "@/components/dashboard/HistorySidebar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -47,12 +46,11 @@ export default function DashboardLayout({
       {/* Desktop sidebar */}
       <div className="hidden lg:flex h-full">
         <Sidebar />
-        <ProjectNavigation />
       </div>
 
       <div className="flex flex-col flex-1 overflow-hidden lg:pl-0">
-        <header className="sticky top-0 z-10 flex items-center justify-between border-b bg-background p-3">
-          <div className="flex items-center gap-2 lg:hidden">
+        <header className="sticky top-0 z-10 flex lg:hidden items-center justify-between border-b bg-background p-3">
+          <div className="flex items-center gap-2">
             <Sheet open={isMobileOpen} onOpenChange={setIsMobileOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -66,8 +64,7 @@ export default function DashboardLayout({
             <h1 className="text-lg font-semibold">Dashboard</h1>
           </div>
 
-          {/* Mobile Right Sidebar Trigger */}
-          <div className="lg:hidden">
+          <div className="flex items-center gap-2">
             <Sheet open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon">
@@ -78,14 +75,6 @@ export default function DashboardLayout({
                 <HistorySidebar onNavClick={() => setIsHistoryOpen(false)} />
               </SheetContent>
             </Sheet>
-          </div>
-
-
-          <div className="hidden lg:flex items-center gap-3 ml-auto">
-            {/* Desktop Hader Items if any */}
-            <UserNav />
-          </div>
-          <div className="lg:hidden">
             <UserNav />
           </div>
         </header>

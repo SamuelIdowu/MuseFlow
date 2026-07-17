@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { UserNav } from '@/components/dashboard/UserNav';
 
 const navItems = [
   {
@@ -119,6 +120,9 @@ export function Sidebar({ onNavClick }: { onNavClick?: () => void, defaultCollap
           <div className="pb-4 w-full px-2">
             <div className="flex justify-center mb-2">
               <ModeToggle />
+            </div>
+            <div className="flex justify-center mb-2">
+              <UserNav />
             </div>
           </div>
         </div>
