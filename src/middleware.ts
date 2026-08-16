@@ -13,18 +13,7 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId } = authObject;
   const pathname = req.nextUrl.pathname;
 
-  // 1. Allow public routes
-  if (isPublicRoute(req)) {
-    return NextResponse.next();
-  }
-
-  // 2. Protect protected routes
-  if (!userId) {
-    // Truly unauthenticated - use Clerk's internal protection which handles redirects
-    await auth.protect();
-  }
-
-  // 3. Redirect authenticated users away from /sign-in & /sign-up → /dashboard
+  // 1. Redirect authenticated users away from /sign-in & /sign-up → /dashboard
   if (
     userId &&
     (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up"))
@@ -32,6 +21,17 @@ export default clerkMiddleware(async (auth, req) => {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
+  }
+
+  // 2. Allow public routes
+  if (isPublicRoute(req)) {
+    return NextResponse.next();
+  }
+
+  // 3. Protect protected routes
+  if (!userId) {
+    // Truly unauthenticated - use Clerk's internal protection which handles redirects
+    await auth.protect();
   }
 
   return NextResponse.next();

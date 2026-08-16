@@ -82,7 +82,7 @@ export function PricingSection() {
 
     const handleFlutterwavePayment = useFlutterwave({
         public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
-        tx_ref: Date.now().toString(),
+        tx_ref: 'init_tx_ref',
         amount: 0,
         currency: 'USD',
         payment_options: 'card,mobilemoney,ussd',

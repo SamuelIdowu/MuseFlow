@@ -35,7 +35,7 @@ const CustomNode = ({ data, selected }: NodeProps<Node<BlockData>>) => {
     } = data;
 
     return (
-        <div className={`w-[400px] rounded-lg bg-card border transition-all duration-200 shadow-md ${selected ? 'ring-2 ring-primary/60 border-primary' : 'border-border'}`}>
+        <div className={`w-[320px] sm:w-[380px] md:w-[400px] rounded-lg bg-card border transition-all duration-200 shadow-md ${selected ? 'ring-2 ring-primary/60 border-primary' : 'border-border'}`}>
             {/* Input Handle */}
             <Handle type="target" position={Position.Left} className="w-3 h-3 bg-primary border-2 border-background" />
 

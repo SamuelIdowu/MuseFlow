@@ -13,7 +13,7 @@ export function EditorToolbar({ editor }: EditorToolbarProps) {
   }
 
   return (
-    <div className="border-b border-zinc-200 dark:border-zinc-800 p-2 flex gap-2 items-center sticky top-0 bg-white dark:bg-zinc-950 z-10">
+    <div className="border-b border-zinc-200 dark:border-zinc-800 p-1.5 sm:p-2 flex gap-1 sm:gap-2 items-center sticky top-0 bg-white dark:bg-zinc-950 z-10 overflow-x-auto max-w-full">
       <button
         onClick={() => editor.chain().focus().toggleBold().run()}
         disabled={!editor.can().chain().focus().toggleBold().run()}

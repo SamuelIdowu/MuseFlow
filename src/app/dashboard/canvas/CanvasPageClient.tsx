@@ -770,86 +770,119 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
 
     return (
         <div ref={canvasContainerRef} className={`flex flex-col w-full relative overflow-hidden bg-background ${isFullscreen ? 'h-screen p-4' : 'h-[calc(100vh-100px)]'}`}>
-            <div className="flex flex-col gap-2 mb-4 px-2 md:px-4 sticky top-0 z-10 bg-background/80 backdrop-blur-sm pb-2 border-b">
-                <div className="flex items-center justify-between gap-2">
-                    <Input
-                        className="text-lg md:text-2xl font-bold bg-transparent border-none focus-visible:ring-0 w-full md:w-auto min-w-0 md:min-w-[300px] font-space-grotesk h-auto py-1 px-1"
-                        type="text"
-                        value={pageTitle}
-                        onChange={(e) => setPageTitle(e.target.value)}
-                    />
-                    <div className="flex items-center gap-1 md:gap-2 shrink-0">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9" onClick={toggleFullscreen} title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}>
-                            {isFullscreen ? <Minimize className="h-4 w-4 text-muted-foreground" /> : <Maximize className="h-4 w-4 text-muted-foreground" />}
-                        </Button>
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9" title="Clear all">
-                                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                                </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent
-                                className="max-w-sm"
-                                container={isFullscreen ? canvasContainerRef.current : undefined}
+            {/* Top Toolbar */}
+            <div className="flex flex-col gap-2 mb-3 px-2 sm:px-4 sticky top-0 z-10 bg-background/90 backdrop-blur-md pb-2.5 border-b w-full max-w-full overflow-hidden">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 w-full">
+                    {/* Left: Page Title & Active Profile */}
+                    <div className="flex flex-col min-w-0 flex-1">
+                        <Input
+                            className="text-base sm:text-xl md:text-2xl font-bold bg-transparent border-none focus-visible:ring-0 w-full min-w-0 font-space-grotesk h-auto py-0 px-0 text-foreground placeholder:text-muted-foreground truncate"
+                            type="text"
+                            value={pageTitle}
+                            onChange={(e) => setPageTitle(e.target.value)}
+                            placeholder="Untitled Canvas"
+                        />
+                        {activeProfile && (
+                            <span className="text-[11px] md:text-xs text-muted-foreground truncate mt-0.5">
+                                Active Profile: <span className="font-medium text-foreground/80">{activeProfile.profile_name}</span>
+                            </span>
+                        )}
+                    </div>
+
+                    {/* Right / Second row on mobile: Action Buttons */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 justify-between sm:justify-end shrink-0 w-full sm:w-auto">
+                        <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Primary Action: Add Block */}
+                            <Button
+                                onClick={handleAddBlock}
+                                size="sm"
+                                className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm bg-orange-600 hover:bg-orange-700 text-white shadow-sm font-medium"
                             >
-                                <AlertDialogHeader>
-                                    <div className="flex items-center gap-3 mb-1">
-                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
-                                            <Trash2 className="h-5 w-5 text-destructive" />
-                                        </div>
-                                        <AlertDialogTitle className="text-base">Clear Canvas?</AlertDialogTitle>
-                                    </div>
-                                    <AlertDialogDescription className="text-sm leading-relaxed">
-                                        This will permanently delete all content blocks and connections on your canvas. This action cannot be undone.
-                                    </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter className="mt-2">
-                                    <AlertDialogCancel className="h-9 text-sm">Cancel</AlertDialogCancel>
-                                    <AlertDialogAction
-                                        className="h-9 text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                        onClick={handleClearCanvas}
+                                <PlusCircle className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" /> Add Block
+                            </Button>
+
+                            {/* Save Button */}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-medium"
+                                onClick={handleSaveCanvasToIdeas}
+                            >
+                                <Save className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                <span className="hidden sm:inline">Save Interest</span>
+                                <span className="sm:hidden">Save</span>
+                            </Button>
+
+                            {/* Export Dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm" className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-medium">
+                                        <Download className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" /> Export
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-40">
+                                    <DropdownMenuItem onClick={() => handleExport('markdown')} className="text-xs sm:text-sm">
+                                        <FileCode className="mr-2 h-4 w-4 text-orange-600" /> Markdown (.md)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleExport('text')} className="text-xs sm:text-sm">
+                                        <FileText className="mr-2 h-4 w-4 text-blue-600" /> Plain Text (.txt)
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+
+                        {/* Secondary utility actions */}
+                        <div className="flex items-center gap-1 shrink-0 ml-auto sm:ml-0 border-l pl-1.5 sm:pl-2 border-border/60">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                onClick={toggleFullscreen}
+                                title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                            >
+                                {isFullscreen ? <Minimize className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <Maximize className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />}
+                            </Button>
+
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                        title="Clear Canvas"
                                     >
-                                        Clear Canvas
-                                    </AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
-                        <Button variant="outline" size="sm" className="hidden md:flex" onClick={handleSaveCanvasToIdeas}>
-                            <Save className="mr-2 h-4 w-4" /> Save Interest
-                        </Button>
-                        <Button variant="outline" size="icon" className="flex md:hidden h-8 w-8" onClick={handleSaveCanvasToIdeas} title="Save Interest">
-                            <Save className="h-4 w-4" />
-                        </Button>
-                        <Button onClick={handleAddBlock} size="sm" className="hidden md:flex">
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Block
-                        </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="hidden sm:flex">
-                                    <Download className="mr-2 h-4 w-4" /> Export
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="icon" className="flex sm:hidden h-8 w-8">
-                                    <Download className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleExport('markdown')}>
-                                    <FileCode className="mr-2 h-4 w-4" /> Markdown
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExport('text')}>
-                                    <FileText className="mr-2 h-4 w-4" /> Text
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                        <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent
+                                    className="max-w-sm mx-4"
+                                    container={isFullscreen ? canvasContainerRef.current : undefined}
+                                >
+                                    <AlertDialogHeader>
+                                        <div className="flex items-center gap-3 mb-1">
+                                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+                                                <Trash2 className="h-5 w-5 text-destructive" />
+                                            </div>
+                                            <AlertDialogTitle className="text-base">Clear Canvas?</AlertDialogTitle>
+                                        </div>
+                                        <AlertDialogDescription className="text-sm leading-relaxed">
+                                            This will permanently delete all content blocks and connections on your canvas. This action cannot be undone.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter className="mt-2 flex-row gap-2 justify-end">
+                                        <AlertDialogCancel className="h-9 text-sm mt-0">Cancel</AlertDialogCancel>
+                                        <AlertDialogAction
+                                            className="h-9 text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            onClick={handleClearCanvas}
+                                        >
+                                            Clear Canvas
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     </div>
                 </div>
-                {activeProfile && (
-                    <span className="text-[10px] md:text-xs text-muted-foreground px-1">
-                        Active Profile: <span className="font-medium">{activeProfile.profile_name}</span>
-                    </span>
-                )}
             </div>
             
             <div className="flex-1 flex overflow-hidden gap-2">
@@ -872,7 +905,16 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                     </ReactFlow>
                 </div>
 
-                <div className={`transition-all duration-300 ease-in-out border rounded-lg bg-background flex flex-col shadow-lg overflow-hidden ${isChatOpen ? 'w-[350px] opacity-100' : 'w-0 opacity-0 pointer-events-none'}`}>
+                {/* Mobile Backdrop */}
+                {isChatOpen && (
+                    <div 
+                        className="fixed inset-0 bg-black/50 backdrop-blur-xs z-40 md:hidden"
+                        onClick={() => setIsChatOpen(false)}
+                    />
+                )}
+
+                {/* AI Chat Drawer */}
+                <div className={`transition-all duration-300 ease-in-out border rounded-none md:rounded-lg bg-background flex flex-col shadow-2xl md:shadow-lg overflow-hidden fixed inset-y-0 right-0 z-50 w-full sm:w-[380px] md:relative md:inset-auto md:z-auto ${isChatOpen ? 'translate-x-0 md:translate-x-0 md:w-[350px] opacity-100 pointer-events-auto' : 'translate-x-full md:translate-x-0 md:w-0 md:opacity-0 pointer-events-none'}`}>
                     <div className="p-3 border-b flex items-center justify-between bg-muted/30">
                         <div className="flex items-center gap-2">
                             <Sparkles className="h-4 w-4 text-orange-600" />
@@ -893,7 +935,7 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                                     </Button>
                                 </AlertDialogTrigger>
                                 <AlertDialogContent
-                                    className="max-w-sm"
+                                    className="max-w-sm mx-4"
                                     container={isFullscreen ? canvasContainerRef.current : undefined}
                                 >
                                     <AlertDialogHeader>
@@ -907,8 +949,8 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                                             This will permanently delete all messages in this conversation. The canvas blocks you've already created will not be affected.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
-                                    <AlertDialogFooter className="mt-2">
-                                        <AlertDialogCancel className="h-9 text-sm">Cancel</AlertDialogCancel>
+                                    <AlertDialogFooter className="mt-2 flex-row gap-2 justify-end">
+                                        <AlertDialogCancel className="h-9 text-sm mt-0">Cancel</AlertDialogCancel>
                                         <AlertDialogAction
                                             className="h-9 text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                             onClick={handleClearChat}
@@ -1080,22 +1122,15 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                 </div>
             </div>
 
-            <div className={`absolute bottom-6 transition-all duration-300 z-50 flex flex-col gap-3 ${isChatOpen ? 'right-[370px]' : 'right-6'}`}>
+            <div className={`fixed md:absolute bottom-4 sm:bottom-6 transition-all duration-300 z-40 flex flex-col gap-3 ${isChatOpen ? 'md:right-[370px] right-4 sm:right-6' : 'right-4 sm:right-6'}`}>
                 <Button
                     onClick={() => setIsChatOpen(!isChatOpen)}
-                    className={`h-14 w-14 rounded-full shadow-2xl transition-all duration-300 ${
-                        isChatOpen ? 'bg-background text-foreground border' : 'bg-orange-600 text-white'
+                    className={`h-12 w-12 sm:h-14 sm:w-14 rounded-full shadow-2xl transition-all duration-300 ${
+                        isChatOpen ? 'bg-background text-foreground border' : 'bg-orange-600 hover:bg-orange-700 text-white'
                     }`}
                     size="icon"
                 >
-                    {isChatOpen ? <ChevronRight className="h-6 w-6" /> : <MessageSquare className="h-6 w-6" />}
-                </Button>
-                <Button
-                    onClick={handleAddBlock}
-                    className="md:hidden h-14 w-14 rounded-full shadow-2xl bg-slate-800 hover:bg-slate-900 text-white border-none flex items-center justify-center"
-                    size="icon"
-                >
-                    <PlusCircle className="h-8 w-8" />
+                    {isChatOpen ? <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" /> : <MessageSquare className="h-5 w-5 sm:h-6 sm:w-6" />}
                 </Button>
             </div>
         </div>

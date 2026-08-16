@@ -61,37 +61,39 @@ export default async function Home() {
         </header>
 
         {/* Hero Section */}
-        <section className="pt-12 pb-20 md:pt-20 md:pb-32 text-center px-4 relative">
-          <div className="container mx-auto max-w-6xl">
+        <section className="pt-8 pb-16 md:pt-16 md:pb-28 lg:pt-20 lg:pb-32 text-center px-4 relative overflow-hidden">
+          <div className="container mx-auto max-w-6xl relative">
             {/* Badge */}
-            <div className="inline-flex items-center px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-xs font-medium mb-8">
-              <Sparkles className="w-3 h-3 mr-2" />
+            <div className="inline-flex items-center px-4 py-1.5 rounded-full border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 text-xs font-medium mb-6 md:mb-8 shadow-sm">
+              <Sparkles className="w-3.5 h-3.5 mr-2 text-orange-500" />
               AI-Powered Content Ideation & Publishing
             </div>
 
             {/* Decorative Elements */}
             <div className="relative">
-              {/* Sticky Note - Left */}
-              <div className="absolute left-0 md:left-0 top-0 md:top-12 w-48 md:w-56 transform -rotate-6 animate-in fade-in slide-in-from-left duration-700">
-                <div className="bg-yellow-200 rounded-lg shadow-lg p-5 border-t-8 border-yellow-300">
-                  <div className="flex items-center justify-center w-8 h-8 mb-3">
-                    <div className="w-6 h-6 bg-yellow-400 rounded-sm" />
+              {/* Sticky Note - Left (Visible only on desktop lg+ screens) */}
+              <div className="hidden lg:block absolute -left-2 xl:left-0 top-6 xl:top-10 w-48 xl:w-56 transform -rotate-6 transition-transform hover:rotate-0 hover:scale-105 duration-300 pointer-events-auto z-10">
+                <div className="bg-yellow-200 rounded-lg shadow-xl p-4 xl:p-5 border-t-8 border-yellow-300 text-left">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="w-5 h-5 bg-yellow-400 rounded-sm" />
+                    <span className="text-[10px] uppercase tracking-wider font-semibold text-yellow-800/70">Angles</span>
                   </div>
-                  <p className="text-sm text-gray-800 font-handwriting leading-relaxed italic">
+                  <p className="text-xs xl:text-sm text-gray-800 font-handwriting leading-relaxed italic">
                     Paste text or links<br />
                     → Get 5-10 unique<br />
                     content angles instantly
                   </p>
-                  <div className="mt-3 flex items-center justify-center">
-                    <div className="w-10 h-10 bg-emerald-500 rounded-lg flex items-center justify-center">
-                      <CheckCircle2 className="w-6 h-6 text-white" />
+                  <div className="mt-3 flex items-center justify-end">
+                    <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center shadow-sm">
+                      <CheckCircle2 className="w-5 h-5 text-white" />
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="absolute left-1/2 -translate-x-1/2 -top-8 md:-top-4 animate-in fade-in zoom-in duration-700 delay-100">
-                <div className="w-16 h-16 md:w-20 md:h-20 bg-slate-800 dark:bg-slate-700 rounded-2xl shadow-2xl flex items-center justify-center border border-gray-700 dark:border-gray-600">
+              {/* Floating Center Logo (Visible only on desktop lg+ screens) */}
+              <div className="hidden lg:block absolute left-1/2 -translate-x-1/2 -top-6 xl:-top-8 animate-in fade-in zoom-in duration-700 delay-100 z-10">
+                <div className="w-16 h-16 xl:w-20 xl:h-20 bg-slate-800 dark:bg-slate-700 rounded-2xl shadow-2xl flex items-center justify-center border border-gray-700 dark:border-gray-600 p-2">
                   <Image
                     src="/logoo.png"
                     alt="MuseFlow Logo"
@@ -102,42 +104,45 @@ export default async function Home() {
                 </div>
               </div>
 
-              {/* Best Time Card - Right */}
-              <div className="absolute right-0 md:right-0 top-0 md:top-12 w-48 md:w-56 transform rotate-3 animate-in fade-in slide-in-from-right duration-700 delay-200">
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-5 border border-gray-200 dark:border-gray-700">
+              {/* Best Time Card - Right (Visible only on desktop lg+ screens) */}
+              <div className="hidden lg:block absolute -right-2 xl:right-0 top-6 xl:top-10 w-48 xl:w-56 transform rotate-3 transition-transform hover:rotate-0 hover:scale-105 duration-300 pointer-events-auto z-10">
+                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-4 xl:p-5 border border-gray-200 dark:border-gray-700 text-left">
                   <div className="flex items-center justify-between mb-3">
-                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
+                    <div className="w-9 h-9 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center">
+                      <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
                     </div>
-                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100">Best Time</h4>
+                    <h4 className="text-xs xl:text-sm font-bold text-gray-900 dark:text-gray-100">Best Time</h4>
                   </div>
-                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 mb-2">
-                    <p className="text-xs font-medium text-gray-800 dark:text-gray-200">LinkedIn Post</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Peak Engagement</p>
+                  <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-2.5 mb-2">
+                    <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">LinkedIn Post</p>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Peak Engagement</p>
                   </div>
                   <div className="text-center">
-                    <div className="inline-flex items-center px-3 py-1 bg-green-50 dark:bg-green-900/30 rounded-full">
+                    <div className="inline-flex items-center px-2.5 py-1 bg-green-50 dark:bg-green-900/30 rounded-full">
                       <Clock className="w-3 h-3 text-green-600 dark:text-green-400 mr-1" />
-                      <span className="text-xs font-medium text-green-600 dark:text-green-400 font-space-grotesk">Mon 9:00 AM</span>
+                      <span className="text-[11px] font-semibold text-green-600 dark:text-green-400 font-space-grotesk">Mon 9:00 AM</span>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Main Headline */}
-              <div className="pt-32 md:pt-40 pb-8">
-                <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 text-gray-900 dark:text-gray-100 leading-tight">
+              <div className="pt-2 md:pt-4 lg:pt-28 xl:pt-32 pb-8 max-w-4xl mx-auto">
+                <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-4 sm:mb-6 text-gray-900 dark:text-gray-100 leading-tight">
                   Transform Ideas into<br />
                   <span className="text-gray-400 dark:text-gray-500">Published Content with AI</span>
                 </h1>
-                <p className="text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-10">
+                <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mb-8 sm:mb-10 px-2">
                   AI-powered ideation, smart canvas editing, and multi-channel publishing—all in one platform
                 </p>
-                <Link href={getStartedHref}>
-                  <Button size="lg" className="h-12 px-8 text-base bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20">
-                    Get started for free
-                  </Button>
-                </Link>
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+                  <Link href={getStartedHref} className="w-full sm:w-auto">
+                    <Button size="lg" className="w-full sm:w-auto h-12 px-8 text-base bg-orange-600 hover:bg-orange-700 dark:bg-orange-500 dark:hover:bg-orange-600 text-white shadow-lg shadow-orange-500/20 font-medium">
+                      Get started for free
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </Link>
+                </div>
               </div>
             </div>
 
