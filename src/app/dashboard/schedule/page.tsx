@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -14,14 +14,26 @@ import {
   Plus,
   Trash2,
   Sparkles,
-  Loader2
+  Loader2,
+  List,
+  LayoutGrid,
+  Bell,
+  BellOff,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, getDay, addMonths, subMonths } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'react-hot-toast';
 import { ScheduledPostCard } from '@/components/ScheduledPostCard';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  saveReminder,
+  removeReminder,
+  hasReminder,
+  getReminders,
+} from '@/components/providers/ReminderProvider';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
 
 interface ScheduledPost {
   id: string;
@@ -32,33 +44,187 @@ interface ScheduledPost {
   created_at: string;
 }
 
+type ViewMode = 'list' | 'calendar';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const CHANNEL_COLORS: Record<string, string> = {
+  linkedin: 'bg-blue-500',
+  x: 'bg-gray-800 dark:bg-gray-200',
+  twitter: 'bg-sky-400',
+  blog: 'bg-orange-500',
+  facebook: 'bg-blue-700',
+  instagram: 'bg-pink-500',
+};
+
+const getChannelLabel = (channel: string) => {
+  const map: Record<string, string> = {
+    linkedin: 'LinkedIn',
+    x: 'X (Twitter)',
+    blog: 'Blog',
+    twitter: 'Twitter',
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+  };
+  return map[channel] ?? channel;
+};
+
+const getContentPreview = (post: ScheduledPost) =>
+  Array.isArray(post.content_blocks) && post.content_blocks.length > 0
+    ? post.content_blocks[0].content || 'No content'
+    : 'No content';
+
+// ─── Calendar Month View ───────────────────────────────────────────────────────
+
+function MonthCalendarView({
+  posts,
+  onScheduleOnDay,
+}: {
+  posts: ScheduledPost[];
+  onScheduleOnDay: (date: Date) => void;
+}) {
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
+  const days = useMemo(() => {
+    const start = startOfMonth(currentMonth);
+    const end = endOfMonth(currentMonth);
+    return eachDayOfInterval({ start, end });
+  }, [currentMonth]);
+
+  // index posts by day for fast lookup
+  const postsByDay = useMemo(() => {
+    const map = new Map<string, ScheduledPost[]>();
+    posts.forEach((post) => {
+      const key = format(new Date(post.scheduled_time), 'yyyy-MM-dd');
+      map.set(key, [...(map.get(key) ?? []), post]);
+    });
+    return map;
+  }, [posts]);
+
+  // padding so the first day starts on the correct weekday (Sun=0)
+  const leadingPad = getDay(startOfMonth(currentMonth));
+
+  return (
+    <div className="space-y-3">
+      {/* Month nav */}
+      <div className="flex items-center justify-between px-1">
+        <Button variant="ghost" size="sm" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
+          ←
+        </Button>
+        <span className="text-sm font-semibold">
+          {format(currentMonth, 'MMMM yyyy')}
+        </span>
+        <Button variant="ghost" size="sm" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
+          →
+        </Button>
+      </div>
+
+      {/* Weekday headers */}
+      <div className="grid grid-cols-7 text-center">
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
+          <div key={d} className="text-[11px] font-medium text-muted-foreground py-1">
+            {d}
+          </div>
+        ))}
+      </div>
+
+      {/* Days grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {/* Leading empty cells */}
+        {Array.from({ length: leadingPad }).map((_, i) => (
+          <div key={`pad-${i}`} />
+        ))}
+
+        {days.map((day) => {
+          const key = format(day, 'yyyy-MM-dd');
+          const dayPosts = postsByDay.get(key) ?? [];
+          const today = isToday(day);
+
+          return (
+            <button
+              key={key}
+              onClick={() => onScheduleOnDay(day)}
+              className={`
+                min-h-[64px] rounded-lg border p-1.5 text-left transition-colors hover:bg-muted/50
+                ${today ? 'border-primary bg-primary/5' : 'border-border'}
+              `}
+            >
+              <span
+                className={`text-xs font-semibold ${
+                  today
+                    ? 'flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground'
+                    : 'text-muted-foreground'
+                }`}
+              >
+                {format(day, 'd')}
+              </span>
+
+              <div className="mt-1 space-y-0.5">
+                {dayPosts.slice(0, 3).map((post) => (
+                  <div
+                    key={post.id}
+                    className={`truncate rounded px-1 py-0.5 text-[10px] font-medium text-white ${
+                      CHANNEL_COLORS[post.channel] ?? 'bg-muted-foreground'
+                    }`}
+                    title={getContentPreview(post)}
+                  >
+                    {format(new Date(post.scheduled_time), 'h:mm a')} · {getChannelLabel(post.channel)}
+                  </div>
+                ))}
+                {dayPosts.length > 3 && (
+                  <div className="text-[10px] text-muted-foreground pl-1">
+                    +{dayPosts.length - 3} more
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function SchedulePage() {
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showScheduler, setShowScheduler] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [reminderStates, setReminderStates] = useState<Record<string, boolean>>({});
   const [newPost, setNewPost] = useState({
     content: '',
     channel: 'linkedin',
     date: new Date(),
     time: '09:00',
-    optimize_time: false
+    optimize_time: false,
+    reminder: false,
   });
   const [editingPost, setEditingPost] = useState<ScheduledPost | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
 
-  // Fetch scheduled posts on component mount
+  // ── Data fetching ────────────────────────────────────────────────────────────
+
   useEffect(() => {
     fetchScheduledPosts();
   }, []);
+
+  // Sync reminder states from localStorage whenever posts update
+  useEffect(() => {
+    const states: Record<string, boolean> = {};
+    posts.forEach((p) => {
+      states[p.id] = hasReminder(p.id);
+    });
+    setReminderStates(states);
+  }, [posts]);
 
   const fetchScheduledPosts = async () => {
     setLoading(true);
     try {
       const response = await fetch('/api/schedule/index');
-      if (!response.ok) {
-        throw new Error('Failed to fetch scheduled posts');
-      }
+      if (!response.ok) throw new Error('Failed to fetch scheduled posts');
       const data = await response.json();
       setPosts(data);
     } catch (error) {
@@ -69,21 +235,65 @@ export default function SchedulePage() {
     }
   };
 
+  // ── Reminder toggle ───────────────────────────────────────────────────────────
+
+  const toggleReminder = (post: ScheduledPost) => {
+    const isOn = hasReminder(post.id);
+    if (isOn) {
+      removeReminder(post.id);
+      setReminderStates((prev) => ({ ...prev, [post.id]: false }));
+      toast('Reminder removed', { icon: '🔕' });
+    } else {
+      // Request permission if needed
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission().then((perm) => {
+          if (perm !== 'granted') {
+            toast.error('Please allow notifications in your browser to use reminders.');
+            return;
+          }
+          saveReminder({
+            id: post.id,
+            content: getContentPreview(post),
+            channel: post.channel,
+            scheduled_time: post.scheduled_time,
+          });
+          setReminderStates((prev) => ({ ...prev, [post.id]: true }));
+          toast.success('Reminder set! We\'ll notify you when it\'s time to post.', { icon: '🔔' });
+        });
+      } else if ('Notification' in window && Notification.permission === 'granted') {
+        saveReminder({
+          id: post.id,
+          content: getContentPreview(post),
+          channel: post.channel,
+          scheduled_time: post.scheduled_time,
+        });
+        setReminderStates((prev) => ({ ...prev, [post.id]: true }));
+        toast.success('Reminder set! We\'ll notify you when it\'s time to post.', { icon: '🔔' });
+      } else {
+        toast.error('Notifications are blocked. Please enable them in your browser settings.');
+      }
+    }
+  };
+
+  // ── Schedule / Edit ──────────────────────────────────────────────────────────
+
+  const openSchedulerOnDay = (date: Date) => {
+    setSelectedDate(date);
+    setShowScheduler(true);
+  };
+
   const handleSchedulePost = async () => {
     if (!newPost.content.trim()) {
       toast.error('Please enter content for your post');
       return;
     }
-
     if (!selectedDate) {
       toast.error('Please select a date');
       return;
     }
 
     setScheduling(true);
-
     try {
-      // Parse the selected date and time
       const [hours, minutes] = newPost.time.split(':').map(Number);
       const scheduledTime = new Date(selectedDate);
       scheduledTime.setHours(hours, minutes, 0, 0);
@@ -92,24 +302,20 @@ export default function SchedulePage() {
         content_blocks: [{ content: newPost.content, type: 'paragraph' }],
         channel: newPost.channel,
         scheduled_time: scheduledTime.toISOString(),
-        optimize_time: newPost.optimize_time
+        optimize_time: newPost.optimize_time,
       };
 
       let response;
       if (editingPost) {
         response = await fetch(`/api/schedule/update?id=${editingPost.id}`, {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(postData),
         });
       } else {
         response = await fetch('/api/schedule', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(postData),
         });
       }
@@ -119,17 +325,26 @@ export default function SchedulePage() {
         throw new Error(errorData.error || `Failed to ${editingPost ? 'update' : 'schedule'} post`);
       }
 
-      await response.json();
+      const savedPost = await response.json();
       toast.success(`Post ${editingPost ? 'updated' : 'scheduled'} successfully!`);
 
-      // Reset form and refresh posts
-      setNewPost({
-        content: '',
-        channel: 'linkedin',
-        date: new Date(),
-        time: '09:00',
-        optimize_time: false
-      });
+      // Auto-set reminder if the user toggled it on in the form
+      if (newPost.reminder && savedPost?.id) {
+        if ('Notification' in window && Notification.permission !== 'granted') {
+          await Notification.requestPermission();
+        }
+        if ('Notification' in window && Notification.permission === 'granted') {
+          saveReminder({
+            id: savedPost.id,
+            content: newPost.content,
+            channel: newPost.channel,
+            scheduled_time: scheduledTime.toISOString(),
+          });
+        }
+      }
+
+      // Reset form
+      setNewPost({ content: '', channel: 'linkedin', date: new Date(), time: '09:00', optimize_time: false, reminder: false });
       setEditingPost(null);
       setShowScheduler(false);
       fetchScheduledPosts();
@@ -143,42 +358,28 @@ export default function SchedulePage() {
 
   const handleEditPost = (post: ScheduledPost) => {
     setEditingPost(post);
-
-    // Parse content from blocks or use default
     const content = Array.isArray(post.content_blocks) && post.content_blocks.length > 0
-      ? post.content_blocks.map(block => block.content).join('\n\n')
+      ? post.content_blocks.map((block) => block.content).join('\n\n')
       : '';
-
-    // Parse date and time
     const date = new Date(post.scheduled_time);
-    const timeStr = format(date, 'HH:mm');
-
     setNewPost({
       content,
       channel: post.channel,
-      date: date,
-      time: timeStr,
-      optimize_time: false
+      date,
+      time: format(date, 'HH:mm'),
+      optimize_time: false,
+      reminder: hasReminder(post.id),
     });
     setSelectedDate(date);
     setShowScheduler(true);
   };
 
-  const suggestBestTime = () => {
-    // This will be handled by the API with AI optimization
-    toast('AI time suggestions will be applied when you schedule the post');
-  };
-
   const deletePost = async (id: string) => {
     try {
-      const response = await fetch(`/api/schedule/delete?id=${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete post');
-      }
-
+      const response = await fetch(`/api/schedule/delete?id=${id}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete post');
+      removeReminder(id); // also clean up any reminder
+      setReminderStates((prev) => { const s = { ...prev }; delete s[id]; return s; });
       toast.success('Post deleted successfully!');
       fetchScheduledPosts();
     } catch (error) {
@@ -187,17 +388,11 @@ export default function SchedulePage() {
     }
   };
 
-  const getChannelLabel = (channel: string) => {
-    switch (channel) {
-      case 'linkedin': return 'LinkedIn';
-      case 'x': return 'X (Twitter)';
-      case 'blog': return 'Blog';
-      case 'twitter': return 'Twitter';
-      case 'facebook': return 'Facebook';
-      case 'instagram': return 'Instagram';
-      default: return channel;
-    }
+  const suggestBestTime = () => {
+    toast('AI time suggestions will be applied when you schedule the post');
   };
+
+  // ── Loading skeleton ──────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -209,7 +404,6 @@ export default function SchedulePage() {
           </div>
           <Skeleton className="h-8 w-32" />
         </div>
-
         <Card className="overflow-hidden py-4">
           <CardHeader className="px-4 pb-4">
             <Skeleton className="h-5 w-32" />
@@ -235,28 +429,62 @@ export default function SchedulePage() {
     );
   }
 
+  const scheduledPosts = posts
+    .filter((p) => p.status === 'scheduled')
+    .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <div className="flex justify-between items-center">
+      {/* Header */}
+      <div className="flex flex-wrap gap-3 justify-between items-center">
         <div>
           <h2 className="text-xl font-bold tracking-tight">Content Calendar</h2>
           <p className="text-sm text-muted-foreground">
             Schedule your content and track your publishing calendar
           </p>
         </div>
-        <Button size="sm" onClick={() => setShowScheduler(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Schedule Post
-        </Button>
+
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex items-center rounded-lg border bg-muted/30 p-0.5">
+            <Button
+              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-7 px-2.5 text-xs gap-1.5"
+              onClick={() => setViewMode('list')}
+            >
+              <List className="h-3.5 w-3.5" />
+              List
+            </Button>
+            <Button
+              variant={viewMode === 'calendar' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="h-7 px-2.5 text-xs gap-1.5"
+              onClick={() => setViewMode('calendar')}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Calendar
+            </Button>
+          </div>
+
+          <Button size="sm" onClick={() => { setSelectedDate(new Date()); setShowScheduler(true); }}>
+            <Plus className="mr-2 h-4 w-4" />
+            Schedule Post
+          </Button>
+        </div>
       </div>
 
-      {/* Scheduler Modal */}
+      {/* ── Scheduler Modal ─────────────────────────────────────────────────── */}
       {showScheduler && (
         <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-2xl max-h-[90vh] bg-background rounded-xl border shadow-lg flex flex-col">
-            {/* Fixed Header */}
+            {/* Header */}
             <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-md font-semibold">{editingPost ? 'Edit Scheduled Post' : 'Schedule New Post'}</h3>
+              <h3 className="text-md font-semibold">
+                {editingPost ? 'Edit Scheduled Post' : 'Schedule New Post'}
+              </h3>
               <Button
                 variant="ghost"
                 size="icon"
@@ -264,24 +492,21 @@ export default function SchedulePage() {
                 onClick={() => {
                   setShowScheduler(false);
                   setEditingPost(null);
-                  setNewPost({
-                    content: '',
-                    channel: 'linkedin',
-                    date: new Date(),
-                    time: '09:00',
-                    optimize_time: false
-                  });
+                  setNewPost({ content: '', channel: 'linkedin', date: new Date(), time: '09:00', optimize_time: false, reminder: false });
                 }}
               >
                 <span className="text-lg">×</span>
               </Button>
             </div>
 
-            {/* Scrollable Content */}
+            {/* Body */}
             <div className="overflow-y-auto flex-1 p-4">
               <div className="space-y-4">
+                {/* Content */}
                 <div>
-                  <Label htmlFor="content" className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Content</Label>
+                  <Label htmlFor="content" className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                    Content
+                  </Label>
                   <Textarea
                     id="content"
                     value={newPost.content}
@@ -291,10 +516,16 @@ export default function SchedulePage() {
                   />
                 </div>
 
+                {/* Channel + Time */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Channel</Label>
-                    <Select value={newPost.channel} onValueChange={(value) => setNewPost({ ...newPost, channel: value })}>
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                      Channel
+                    </Label>
+                    <Select
+                      value={newPost.channel}
+                      onValueChange={(v) => setNewPost({ ...newPost, channel: v })}
+                    >
                       <SelectTrigger className="h-8 text-[13px]">
                         <SelectValue placeholder="Select channel" />
                       </SelectTrigger>
@@ -302,11 +533,15 @@ export default function SchedulePage() {
                         <SelectItem value="linkedin">LinkedIn</SelectItem>
                         <SelectItem value="x">X (Twitter)</SelectItem>
                         <SelectItem value="blog">Blog</SelectItem>
+                        <SelectItem value="instagram">Instagram</SelectItem>
+                        <SelectItem value="facebook">Facebook</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Time</Label>
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                      Time
+                    </Label>
                     <Input
                       type="time"
                       className="h-8 text-[13px]"
@@ -316,9 +551,12 @@ export default function SchedulePage() {
                   </div>
                 </div>
 
+                {/* Date picker + options */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2 block">Date</Label>
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2 block">
+                      Date
+                    </Label>
                     <div className="border rounded-lg p-1.5 w-full bg-muted/20">
                       <Calendar
                         mode="single"
@@ -330,14 +568,17 @@ export default function SchedulePage() {
                     </div>
                   </div>
 
-                  <div className="space-y-4 pt-4">
+                  <div className="space-y-3 pt-4">
+                    {/* AI time optimisation */}
                     <div className="flex items-center space-x-2 bg-muted/30 p-2 rounded-lg border">
                       <Switch
                         id="optimize_time"
                         checked={newPost.optimize_time}
                         onCheckedChange={(checked) => setNewPost({ ...newPost, optimize_time: checked })}
                       />
-                      <Label htmlFor="optimize_time" className="text-[12px] leading-tight">Use AI to optimize posting time</Label>
+                      <Label htmlFor="optimize_time" className="text-[12px] leading-tight">
+                        Use AI to optimise posting time
+                      </Label>
                     </div>
 
                     {!newPost.optimize_time && (
@@ -352,12 +593,31 @@ export default function SchedulePage() {
                         Get AI Suggestion
                       </Button>
                     )}
+
+                    {/* Reminder toggle */}
+                    <div className="flex items-center space-x-2 bg-muted/30 p-2 rounded-lg border">
+                      <Switch
+                        id="reminder"
+                        checked={newPost.reminder}
+                        onCheckedChange={(checked) => setNewPost({ ...newPost, reminder: checked })}
+                      />
+                      <Label htmlFor="reminder" className="text-[12px] leading-tight flex items-center gap-1">
+                        <Bell className="h-3 w-3 text-orange-500" />
+                        Remind me when it's time to post
+                      </Label>
+                    </div>
+
+                    {newPost.reminder && (
+                      <p className="text-[11px] text-muted-foreground px-1">
+                        You'll get a browser notification at the scheduled time. Keep this tab open or add MuseFlow to your home screen.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Fixed Footer with Action Button */}
+            {/* Footer */}
             <div className="p-4 border-t">
               <Button
                 size="sm"
@@ -379,44 +639,74 @@ export default function SchedulePage() {
         </div>
       )}
 
-      {/* Calendar View */}
+      {/* ── Main content area ─────────────────────────────────────────────────── */}
       <Card className="py-4">
         <CardHeader className="px-4 pb-2">
-          <CardTitle className="text-lg">Upcoming Posts</CardTitle>
+          <CardTitle className="text-lg">
+            {viewMode === 'list' ? 'Upcoming Posts' : format(new Date(), 'MMMM yyyy')}
+          </CardTitle>
           <CardDescription className="text-[13px]">
-            Your scheduled content pieces
+            {viewMode === 'list'
+              ? 'Your scheduled content pieces — click the bell to set a reminder'
+              : 'Click any day to schedule a post on that date'}
           </CardDescription>
         </CardHeader>
+
         <CardContent className="px-4">
-          <div className="grid gap-3">
-            {posts.length > 0 ? (
-              posts
-                .filter((post: ScheduledPost) => post.status === 'scheduled')
-                .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime())
-                .map((post) => (
-                  <ScheduledPostCard
-                    key={post.id}
-                    post={post}
-                    onDelete={deletePost}
-                    onEdit={handleEditPost}
-                  />
+          {/* ── List view ───────────────────────────────────────────────────── */}
+          {viewMode === 'list' && (
+            <div className="grid gap-3">
+              {scheduledPosts.length > 0 ? (
+                scheduledPosts.map((post) => (
+                  <div key={post.id} className="relative">
+                    <ScheduledPostCard
+                      post={post}
+                      onDelete={deletePost}
+                      onEdit={handleEditPost}
+                    />
+                    {/* Reminder bell — overlaid bottom-right of the card */}
+                    <button
+                      onClick={() => toggleReminder(post)}
+                      title={reminderStates[post.id] ? 'Remove reminder' : 'Set reminder'}
+                      className={`
+                        absolute bottom-3 right-[6.5rem] flex items-center gap-1 text-[11px] font-medium transition-colors
+                        ${reminderStates[post.id]
+                          ? 'text-orange-500 hover:text-orange-600'
+                          : 'text-muted-foreground hover:text-foreground'}
+                      `}
+                    >
+                      {reminderStates[post.id]
+                        ? <Bell className="h-3.5 w-3.5 fill-orange-500" />
+                        : <BellOff className="h-3.5 w-3.5" />}
+                      <span>{reminderStates[post.id] ? 'Reminder on' : 'Remind me'}</span>
+                    </button>
+                  </div>
                 ))
-            ) : (
-              <div className="text-center py-10 border border-dashed rounded-xl">
-                <div className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3">
-                  <CalendarIcon className="h-full w-full" />
+              ) : (
+                <div className="text-center py-10 border border-dashed rounded-xl">
+                  <div className="mx-auto h-10 w-10 text-muted-foreground/30 mb-3">
+                    <CalendarIcon className="h-full w-full" />
+                  </div>
+                  <h3 className="text-md font-medium mb-1">No scheduled posts</h3>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Schedule your first post to get started
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => setShowScheduler(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Schedule Post
+                  </Button>
                 </div>
-                <h3 className="text-md font-medium mb-1">No scheduled posts</h3>
-                <p className="text-xs text-muted-foreground mb-4">
-                  Schedule your first post to get started
-                </p>
-                <Button size="sm" variant="outline" onClick={() => setShowScheduler(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Schedule Post
-                </Button>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Calendar view ─────────────────────────────────────────────── */}
+          {viewMode === 'calendar' && (
+            <MonthCalendarView
+              posts={scheduledPosts}
+              onScheduleOnDay={openSchedulerOnDay}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

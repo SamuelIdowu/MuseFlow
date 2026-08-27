@@ -12,26 +12,31 @@ const model = genAI.getGenerativeModel({
 async function buildProfileContext(profile?: Profile | null): Promise<string> {
   if (!profile) return "";
 
-  let context = `\n\nTarget Audience Profile:\n`;
-  context += `- Name: ${profile.profile_name}\n`;
-  if (profile.niche) context += `- Niche: ${profile.niche}\n`;
+  let context = `\n\n═══════════════════════════════════════════════════\nCREATOR BRAND VOICE & PERSONA CONTEXT:\n`;
+  context += `• Brand / Creator Name: ${profile.profile_name}\n`;
+  if (profile.niche) context += `• Core Niche / Industry: ${profile.niche}\n`;
 
   if (profile.tone_config) {
-    context += `- Tone Settings (1-10): Professionalism: ${profile.tone_config.professionalism}, Creativity: ${profile.tone_config.creativity}, Casualness: ${profile.tone_config.casualness}, Directness: ${profile.tone_config.directness}\n`;
+    const { professionalism = 5, creativity = 5, casualness = 5, directness = 5 } = profile.tone_config;
+    context += `• Tone Matrix (1-10 Scale):\n`;
+    context += `  - Professionalism [${professionalism}/10]: ${professionalism >= 7 ? 'Authoritative, enterprise-grade, polished' : professionalism <= 3 ? 'Unfiltered, raw, authentic' : 'Balanced, approachable'}\n`;
+    context += `  - Creativity [${creativity}/10]: ${creativity >= 7 ? 'Novel metaphors, unconventional hooks, bold storytelling' : 'Clear, structured, straightforward'}\n`;
+    context += `  - Casualness [${casualness}/10]: ${casualness >= 7 ? 'Conversational, colloquial, short sentences, friendly' : 'Formal, measured'}\n`;
+    context += `  - Directness [${directness}/10]: ${directness >= 7 ? 'Get straight to the point, zero fluff, high value density' : 'Elaborative, explorative'}\n`;
   }
 
   if (profile.samples && profile.samples.length > 0) {
     const processedSamples = await Promise.all(profile.samples.map(async (s) => {
       if (isValidUrl(s)) {
         const content = await fetchUrlContent(s);
-        return content ? `  "Style Sample from ${s}: ${content.substring(0, 2000)}..."` : `  "${s}"`;
+        return content ? `  - Style Reference from ${s}:\n    "${content.substring(0, 1500)}..."` : `  - "${s}"`;
       }
-      return `  "${s}"`;
+      return `  - "${s}"`;
     }));
-    context += `- Writing Style Samples:\n${processedSamples.join('\n')}\n`;
+    context += `• Creator's Writing Style Examples (mimic this cadence & rhythm):\n${processedSamples.join('\n')}\n`;
   }
 
-  context += `\nIMPORTANT: Ensure the generated content strictly adheres to this profile's niche, tone, and style.\n`;
+  context += `CRITICAL INSTRUCTION: Fully embody this persona. Avoid robotic corporate jargon (like 'In today's fast-paced digital landscape' or 'delve into'). Write with real human creator voice.\n═══════════════════════════════════════════════════\n`;
   return context;
 }
 

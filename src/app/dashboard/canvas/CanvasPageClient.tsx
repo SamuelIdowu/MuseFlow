@@ -337,6 +337,52 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
 
             setNodes(initialNodes);
             setEdges(fetchedEdges || []);
+
+            // Check for imported topic/draft from Home Chat
+            try {
+                const canvasImport = localStorage.getItem("museflow_canvas_import");
+                if (canvasImport) {
+                    const parsed = JSON.parse(canvasImport);
+                    localStorage.removeItem("museflow_canvas_import");
+                    if (parsed.content || parsed.topic) {
+                        const contentToInsert = parsed.content || parsed.topic;
+                        const position = initialNodes.length > 0
+                            ? { x: 250, y: initialNodes.length * 350 }
+                            : { x: 250, y: 100 };
+
+                        addCanvasBlockAction({
+                            type: "paragraph",
+                            content: contentToInsert,
+                            order: initialNodes.length,
+                            position
+                        }).then((addedBlock) => {
+                            const importedNode: Node<BlockData> = {
+                                id: addedBlock.id,
+                                type: 'custom',
+                                position: addedBlock.position,
+                                dragHandle: '.drag-handle',
+                                data: {
+                                    id: addedBlock.id,
+                                    type: addedBlock.type || "paragraph",
+                                    content: addedBlock.content || "",
+                                    order: addedBlock.order_index,
+                                    onUpdate: handleUpdateBlock,
+                                    onExpand: handleExpandWithAI,
+                                    onRegenerate: handleRegenerateBlock,
+                                    isEditing: false,
+                                    isExpanding: false,
+                                    isRegenerating: false,
+                                    setEditingId: setEditingBlockId
+                                }
+                            };
+                            setNodes((nds) => [...nds, importedNode]);
+                            toast.success("Imported idea into Canvas!", { icon: "🎨" });
+                        }).catch(e => console.error("Error adding canvas import block:", e));
+                    }
+                }
+            } catch (e) {
+                console.error("Error parsing canvas import:", e);
+            }
         } catch (error) {
             console.error("Error fetching canvas blocks:", error);
             if (!isSilent) toast.error("Failed to load canvas");
@@ -707,61 +753,68 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
 
     if (loading) {
         return (
-            <div className="flex flex-col h-[calc(100vh-4rem)] w-full overflow-hidden bg-background">
-                {/* Header Skeleton */}
-                <div className="flex items-center justify-between p-3 border-b bg-background/95 backdrop-blur-sm z-10">
+            <div className="h-[calc(100vh-4rem)] w-full flex flex-col overflow-hidden bg-background relative">
+                {/* Top Toolbar Skeleton */}
+                <div className="flex items-center justify-between p-3 border-b border-border/50 bg-card/60 backdrop-blur-sm z-10">
                     <div className="flex items-center gap-3">
-                        <Skeleton className="h-8 w-8 rounded-lg" />
-                        <div className="space-y-1">
-                            <Skeleton className="h-5 w-40" />
-                            <Skeleton className="h-3 w-64" />
-                        </div>
+                        <Skeleton className="h-8 w-8 rounded-md" />
+                        <Skeleton className="h-6 w-44" />
+                        <Skeleton className="h-5 w-20 rounded-full" />
                     </div>
+
                     <div className="flex items-center gap-2">
-                        <Skeleton className="h-8 w-24" />
-                        <Skeleton className="h-8 w-24" />
-                        <Skeleton className="h-8 w-24" />
+                        <Skeleton className="h-8 w-28 rounded-md hidden sm:block" />
+                        <Skeleton className="h-8 w-24 rounded-md" />
+                        <Skeleton className="h-8 w-20 rounded-md" />
+                        <Skeleton className="h-8 w-8 rounded-md" />
                     </div>
                 </div>
 
-                <div className="flex-1 flex overflow-hidden">
-                    {/* Left Sidebar Skeleton */}
-                    <div className="w-80 border-r bg-muted/5 flex flex-col p-4 space-y-6">
-                        <div className="space-y-2">
-                            <Skeleton className="h-4 w-20" />
-                            <Skeleton className="h-8 w-full" />
+                {/* Canvas Workspace Area Skeleton */}
+                <div className="flex-1 relative overflow-hidden bg-muted/10">
+                    {/* Floating Canvas Node Skeletons simulating node graph */}
+                    <div className="absolute top-16 left-12 w-72 p-4 rounded-xl border border-border/60 bg-card shadow-md space-y-2.5 animate-pulse">
+                        <div className="flex justify-between items-center">
+                            <Skeleton className="h-4 w-24" />
+                            <Skeleton className="h-3 w-10" />
                         </div>
-                        <div className="space-y-4">
+                        <Skeleton className="h-14 w-full rounded" />
+                        <div className="flex gap-1">
+                            <Skeleton className="h-5 w-12 rounded" />
+                            <Skeleton className="h-5 w-14 rounded" />
+                        </div>
+                    </div>
+
+                    <div className="absolute top-28 left-[400px] w-80 p-4 rounded-xl border border-border/60 bg-card shadow-md space-y-2.5 animate-pulse hidden md:block">
+                        <div className="flex justify-between items-center">
                             <Skeleton className="h-4 w-32" />
-                            {[...Array(4)].map((_, i) => (
-                                <Skeleton key={i} className="h-12 w-full rounded-lg" />
-                            ))}
+                            <Skeleton className="h-3 w-8" />
+                        </div>
+                        <Skeleton className="h-20 w-full rounded" />
+                        <div className="flex justify-between pt-1">
+                            <Skeleton className="h-5 w-16 rounded" />
+                            <Skeleton className="h-5 w-16 rounded" />
                         </div>
                     </div>
 
-                    {/* Canvas/Center Skeleton */}
-                    <div className="flex-1 relative bg-[#f8fafc] dark:bg-[#020617] overflow-hidden">
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="flex flex-col items-center gap-3">
-                                <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
-                                <Skeleton className="h-4 w-32" />
-                            </div>
+                    <div className="absolute bottom-20 left-[260px] w-72 p-4 rounded-xl border border-border/60 bg-card shadow-md space-y-2.5 animate-pulse hidden lg:block">
+                        <div className="flex justify-between items-center">
+                            <Skeleton className="h-4 w-28" />
+                            <Skeleton className="h-3 w-12" />
                         </div>
+                        <Skeleton className="h-16 w-full rounded" />
                     </div>
 
-                    {/* Right Panel Skeleton */}
-                    <div className="w-96 border-l bg-background flex flex-col">
-                        <div className="p-4 border-b">
-                            <Skeleton className="h-6 w-32" />
-                        </div>
-                        <div className="flex-1 p-4 space-y-4">
-                            {[...Array(3)].map((_, i) => (
-                                <div key={i} className="space-y-2">
-                                    <Skeleton className="h-4 w-3/4" />
-                                    <Skeleton className="h-16 w-full rounded-xl" />
-                                </div>
-                            ))}
-                        </div>
+                    {/* Floating Zoom & Controls Skeleton */}
+                    <div className="absolute bottom-6 left-6 flex flex-col gap-1 p-1 rounded-lg border border-border/60 bg-card/80 backdrop-blur-sm shadow-md">
+                        <Skeleton className="h-7 w-7 rounded" />
+                        <Skeleton className="h-7 w-7 rounded" />
+                        <Skeleton className="h-7 w-7 rounded" />
+                    </div>
+
+                    {/* MiniMap Skeleton */}
+                    <div className="absolute bottom-6 right-6 w-36 h-24 rounded-lg border border-border/60 bg-card/80 backdrop-blur-sm shadow-md p-2 hidden sm:block">
+                        <Skeleton className="h-full w-full rounded" />
                     </div>
                 </div>
             </div>
@@ -769,7 +822,7 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
     }
 
     return (
-        <div ref={canvasContainerRef} className={`flex flex-col w-full relative overflow-hidden bg-background ${isFullscreen ? 'h-screen p-4' : 'h-[calc(100vh-100px)]'}`}>
+        <div ref={canvasContainerRef} className={`flex flex-col w-full h-full relative overflow-hidden bg-background ${isFullscreen ? 'h-screen p-4' : 'h-[calc(100vh-100px)]'}`}>
             {/* Top Toolbar */}
             <div className="flex flex-col gap-2 mb-3 px-2 sm:px-4 sticky top-0 z-10 bg-background/90 backdrop-blur-md pb-2.5 border-b w-full max-w-full overflow-hidden">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 w-full">

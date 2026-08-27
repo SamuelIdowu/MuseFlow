@@ -15,7 +15,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Copy, Twitter, Linkedin, Paperclip, Link as LinkIcon, Save } from "lucide-react";
+import { Loader2, Copy, Twitter, Linkedin, Paperclip, Link as LinkIcon, Save, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface CampaignPost {
@@ -38,8 +38,45 @@ export function CampaignGenerator({ onSaved }: CampaignGeneratorProps) {
     const [isLoadingContext, setIsLoadingContext] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [isSaving, startSaveTransition] = useTransition();
+    const [isSchedulingAll, setIsSchedulingAll] = useState(false);
     const [results, setResults] = useState<CampaignPost[]>([]);
     const [currentTopic, setCurrentTopic] = useState("");
+
+    const handleScheduleAllToCalendar = async () => {
+        if (results.length === 0) return;
+        setIsSchedulingAll(true);
+        try {
+            const startDate = new Date();
+            startDate.setDate(startDate.getDate() + 1); // Start tomorrow
+            startDate.setHours(9, 0, 0, 0); // 9:00 AM
+
+            let scheduledCount = 0;
+            for (let i = 0; i < results.length; i++) {
+                const post = results[i];
+                const postDate = new Date(startDate);
+                postDate.setDate(startDate.getDate() + i);
+
+                await fetch('/api/schedule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content_blocks: [{ content: post.content, type: 'paragraph' }],
+                        channel: platform,
+                        scheduled_time: postDate.toISOString(),
+                        optimize_time: false,
+                    }),
+                });
+                scheduledCount++;
+            }
+
+            toast.success(`Scheduled ${scheduledCount} posts across your Content Calendar!`, { icon: '📅' });
+        } catch (error) {
+            console.error('Error batch scheduling:', error);
+            toast.error('Failed to schedule all posts');
+        } finally {
+            setIsSchedulingAll(false);
+        }
+    };
 
     const handleGenerate = () => {
         if (!topic.trim()) {
@@ -219,13 +256,38 @@ export function CampaignGenerator({ onSaved }: CampaignGeneratorProps) {
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-sm font-medium">
-                                Quantity: {count[0]} posts
-                            </label>
+                            <div className="flex justify-between items-center">
+                                <label className="text-sm font-medium">
+                                    Quantity: {count[0]} posts
+                                </label>
+                                <div className="flex gap-1.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setCount([7])}
+                                        className={`text-xs px-2 py-0.5 rounded border transition-colors ${count[0] === 7 ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
+                                    >
+                                        7-Day Sprint
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCount([14])}
+                                        className={`text-xs px-2 py-0.5 rounded border transition-colors ${count[0] === 14 ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
+                                    >
+                                        14 Days
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setCount([30])}
+                                        className={`text-xs px-2 py-0.5 rounded border transition-colors ${count[0] === 30 ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
+                                    >
+                                        30 Days
+                                    </button>
+                                </div>
+                            </div>
                             <Slider
                                 value={count}
                                 onValueChange={setCount}
-                                min={5}
+                                min={3}
                                 max={30}
                                 step={1}
                                 className="py-4"
@@ -282,25 +344,47 @@ export function CampaignGenerator({ onSaved }: CampaignGeneratorProps) {
             {
                 results.length > 0 && (
                     <div className="space-y-4">
-                        <div className="flex justify-between items-center max-w-4xl mx-auto">
+                        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 max-w-4xl mx-auto">
                             <h3 className="text-lg font-semibold">Generated Posts ({results.length})</h3>
-                            <Button
-                                onClick={handleSave}
-                                disabled={isSaving}
-                                variant="default"
-                            >
-                                {isSaving ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Saving...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Save className="mr-2 h-4 w-4" />
-                                        Save Campaign
-                                    </>
-                                )}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                                <Button
+                                    onClick={handleScheduleAllToCalendar}
+                                    disabled={isSchedulingAll || isSaving}
+                                    variant="outline"
+                                    className="gap-1.5 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                                >
+                                    {isSchedulingAll ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Scheduling...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Calendar className="h-4 w-4 text-emerald-500" />
+                                            Schedule to Calendar
+                                        </>
+                                    )}
+                                </Button>
+
+                                <Button
+                                    onClick={handleSave}
+                                    disabled={isSaving || isSchedulingAll}
+                                    variant="default"
+                                    className="gap-1.5"
+                                >
+                                    {isSaving ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Saving...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save className="h-4 w-4" />
+                                            Save Campaign
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {results.map((post, i) => (

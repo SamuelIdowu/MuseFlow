@@ -103,7 +103,7 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
 
             {/* Toggle Button */}
             <div className={cn("flex items-center p-3 border-b border-border/40", isCollapsed ? "justify-center p-2" : "justify-between")}>
-                {!isCollapsed && <h2 className="font-semibold text-md">History Chat</h2>}
+                {!isCollapsed && <h2 className="font-semibold text-sm">Idea History</h2>}
 
                 <Button
                     variant="ghost"
@@ -115,9 +115,9 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
                 </Button>
 
                 {!isCollapsed && (
-                    <Link href="/dashboard" onClick={onNavClick}>
+                    <Link href="/dashboard/ideas" onClick={onNavClick}>
                         <Button size="sm" variant="secondary" className="rounded-lg h-7 bg-primary text-primary-foreground hover:bg-primary/90 text-[11px] font-medium px-2.5">
-                            <Plus className="h-3 w-3 mr-1" /> New Chat
+                            <Plus className="h-3 w-3 mr-1" /> New Idea
                         </Button>
                     </Link>
                 )}
@@ -129,7 +129,7 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
                     <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="History">
                         <History className="h-4 w-4" />
                     </Button>
-                    <Link href="/dashboard" onClick={onNavClick} title="New Chat">
+                    <Link href="/dashboard/ideas" onClick={onNavClick} title="New Idea">
                         <Button size="icon" variant="secondary" className="rounded-full h-7 w-7 bg-primary text-primary-foreground hover:bg-primary/90">
                             <Plus className="h-3.5 w-3.5" />
                         </Button>
@@ -165,7 +165,7 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
                                                 {chats.map(chat => (
                                                     <div key={chat.id} className="group relative">
                                                         <Link
-                                                            href={`/dashboard?chatId=${chat.id}`}
+                                                            href={`/dashboard/ideas?chatId=${chat.id}`}
                                                             onClick={onNavClick}
                                                             className={cn(
                                                                 'flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-all duration-200 border border-transparent',

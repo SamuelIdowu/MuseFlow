@@ -9,6 +9,7 @@ import { HistorySidebar } from "@/components/dashboard/HistorySidebar";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, History as HistoryIcon } from "lucide-react";
+import { ReminderProvider } from "@/components/providers/ReminderProvider";
 
 export default function DashboardLayout({
   children,
@@ -43,6 +44,9 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
+      {/* Silent background reminder watcher */}
+      <ReminderProvider />
+
       {/* Desktop sidebar */}
       <div className="hidden lg:flex h-full">
         <Sidebar />

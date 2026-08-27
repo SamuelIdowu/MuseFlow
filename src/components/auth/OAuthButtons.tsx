@@ -1,12 +1,10 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { supabase } from "@/lib/supabaseClient";
 import { Github } from "lucide-react";
 
 export function OAuthButtons() {
-  const supabase = createClient();
-
   const handleGoogleSignIn = async () => {
     await supabase.auth.signInWithOAuth({
       provider: "google",
@@ -55,7 +53,3 @@ export function OAuthButtons() {
     </div>
   );
 }
-
-export const createClient = () => {
-  return createClientComponentClient();
-};

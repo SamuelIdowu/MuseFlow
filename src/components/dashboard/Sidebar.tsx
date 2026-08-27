@@ -153,13 +153,13 @@ export function Sidebar({
             )}
           </div>
 
-          {/* Quick Action: New Chat / Idea */}
+          {/* Quick Action: New Idea */}
           <div className="px-2.5 pt-3 pb-2 flex-shrink-0">
             {isCollapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex justify-center">
-                    <Link href="/dashboard?action=new" onClick={onNavClick}>
+                    <Link href="/dashboard/ideas" onClick={onNavClick}>
                       <Button
                         size="icon"
                         className="h-7 w-7 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md transition-transform hover:scale-105"
@@ -170,17 +170,17 @@ export function Sidebar({
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="font-semibold text-xs">
-                  New Chat
+                  New Idea
                 </TooltipContent>
               </Tooltip>
             ) : (
-              <Link href="/dashboard?action=new" onClick={onNavClick}>
+              <Link href="/dashboard/ideas" onClick={onNavClick}>
                 <Button
                   size="sm"
                   className="w-full h-8 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-xs font-medium flex items-center justify-center gap-2"
                 >
                   <Plus className="w-[14px] h-[14px]" />
-                  <span>New Chat</span>
+                  <span>New Idea</span>
                 </Button>
               </Link>
             )}
