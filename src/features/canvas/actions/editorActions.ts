@@ -141,14 +141,15 @@ function sanitizeContinuation(text: string): string {
   return cleaned;
 }
 
-async function tryResearchAgentContinuation(brief: string): Promise<string | null> {
-  const agentUrl = process.env.RESEARCH_AGENT_URL || 'http://localhost:8000';
+async function tryResearchAgentContinuation(brief: string, profileId?: string): Promise<string | null> {
+  const agentUrl = process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || process.env.RESEARCH_AGENT_URL || 'http://localhost:8000';
   const apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
-  const clientId =
-    process.env.RESEARCH_AGENT_CLIENT_ID || '00000000-0000-0000-0000-000000000000';
+  
+  // Use active profile ID as the client_id for strict brand voice isolation
+  const clientId = profileId || process.env.RESEARCH_AGENT_CLIENT_ID || '00000000-0000-0000-0000-000000000000';
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 2000);
+  const timeout = setTimeout(() => controller.abort(), 3000);
 
   try {
     const headers: Record<string, string> = {
@@ -186,6 +187,53 @@ async function tryResearchAgentContinuation(brief: string): Promise<string | nul
   }
 }
 
+/**
+ * Generates a full draft or section expansion using the Research Agent backend.
+ */
+export async function generateDocumentDraftWithAgentAction({
+  brief,
+  documentTitle,
+}: {
+  brief: string;
+  documentTitle?: string;
+}): Promise<{ success: boolean; draft?: string; sources?: any[]; error?: string }> {
+  try {
+    const activeProfile = await withTimeout(getActiveProfile(), 4000, null).catch(() => null);
+    const agentUrl = process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || process.env.RESEARCH_AGENT_URL || 'http://localhost:8000';
+    const apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
+    const clientId = activeProfile?.id || '00000000-0000-0000-0000-000000000000';
+
+    const promptWithContext = documentTitle ? `[Document: ${documentTitle}]\n\n${brief}` : brief;
+
+    const res = await fetch(`${agentUrl.replace(/\/$/, '')}/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { 'X-Api-Key': apiKey } : {}),
+      },
+      body: JSON.stringify({
+        brief: promptWithContext,
+        client_id: clientId,
+      }),
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      return { success: false, error: `Agent generation failed: ${errorText}` };
+    }
+
+    const data = await res.json();
+    return {
+      success: true,
+      draft: data.draft,
+      sources: data.sources || [],
+    };
+  } catch (error: any) {
+    console.error('Error generating document draft with agent:', error);
+    return { success: false, error: error.message || 'Failed to generate draft' };
+  }
+}
+
 export async function generateContentContinuationAction({
   currentContent,
   instruction,
@@ -203,13 +251,15 @@ export async function generateContentContinuationAction({
 
     const snippet = plainText.slice(-600);
 
-    // 1. Primary: Try Research Agent service (with 2s timeout)
+    const activeProfile = await withTimeout(getActiveProfile(), 3000, null).catch(() => null);
+
+    // 1. Primary: Try Research Agent service (with 3s timeout)
     const researchBrief = `Continue this piece of content seamlessly with a single natural, high-impact sentence or phrase.
 ${documentTitle ? `Title: ${documentTitle}. ` : ''}
 Context snippet: "${snippet}".
 ${instruction ? `Directive: ${instruction}` : 'Provide the immediate next logical thought without repeating words.'}`;
 
-    const raResult = await tryResearchAgentContinuation(researchBrief);
+    const raResult = await tryResearchAgentContinuation(researchBrief, activeProfile?.id);
     if (raResult) {
       return {
         success: true,
@@ -227,7 +277,6 @@ ${instruction ? `Directive: ${instruction}` : 'Provide the immediate next logica
       };
     }
 
-    const activeProfile = await withTimeout(getActiveProfile(), 4000, null).catch(() => null);
     let profileContext = '';
     if (activeProfile) {
       profileContext = `Target Voice: ${activeProfile.profile_name || 'Creator'}, Niche: ${activeProfile.niche || 'General'}.`;
