@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, History as HistoryIcon } from "lucide-react";
 import { ReminderProvider } from "@/components/providers/ReminderProvider";
+import { WaveLoader } from "@/components/ui/wave-loader";
 
 export default function DashboardLayout({
   children,
@@ -22,22 +23,16 @@ export default function DashboardLayout({
 
   if (!isLoaded) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <WaveLoader message="LOADING" size="lg" />
       </div>
     );
   }
 
   if (!isSignedIn) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
-          <p className="text-muted-foreground">Redirecting to sign-in...</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <WaveLoader message="REDIRECTING TO SIGN-IN..." size="lg" />
       </div>
     );
   }

@@ -1,26 +1,41 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import { DocumentBubbleMenu } from "./DocumentBubbleMenu";
-import { EditorToolbar } from "./EditorToolbar";
 import {
   Underline,
   TextAlign,
+  Color,
+  Highlight,
+  FontSize,
+  FontFamily,
   TextStyle,
   CustomLink,
   CustomImage,
+  InlineCompletion,
 } from "./tiptapExtensions";
-import { Cloud, Sparkles } from "lucide-react";
+import { generateContentContinuationAction } from "../../actions/editorActions";
+import { Cloud, Sparkles, Bot } from "lucide-react";
 
 interface DocumentSheetProps {
   content: string;
   onChange: (html: string, wordCount: number, charCount: number) => void;
   documentTitle: string;
   onDocumentTitleChange: (title: string) => void;
+  subtitle?: string;
+  onSubtitleChange?: (subtitle: string) => void;
+  excerpt?: string;
+  onExcerptChange?: (excerpt: string) => void;
   onEditorReady?: (editor: any) => void;
+  fontFamily?: string;
+  isAutocompleteEnabled?: boolean;
+  onAutocompleteStatusChange?: (status: {
+    isGenerating: boolean;
+    source?: "research_agent" | "gemini_fallback" | null;
+  }) => void;
 }
 
 export function DocumentSheet({
@@ -28,12 +43,22 @@ export function DocumentSheet({
   onChange,
   documentTitle,
   onDocumentTitleChange,
+  subtitle = "UX Research & Creator Edition",
+  onSubtitleChange,
+  excerpt = "Explores how intentional design decisions and clear copywriting create high-retention experiences.",
+  onExcerptChange,
   onEditorReady,
+  fontFamily,
+  isAutocompleteEnabled = true,
+  onAutocompleteStatusChange,
 }: DocumentSheetProps) {
-  const [subtitle, setSubtitle] = useState("UX Research & Creator Edition");
-  const [excerpt, setExcerpt] = useState(
-    "Explores how intentional design decisions and clear copywriting create high-retention experiences."
-  );
+  const autocompleteTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isAutocompleteEnabledRef = useRef(isAutocompleteEnabled);
+  isAutocompleteEnabledRef.current = isAutocompleteEnabled;
+
+  const documentTitleRef = useRef(documentTitle);
+  documentTitleRef.current = documentTitle;
+  const autocompleteSeqRef = useRef(0);
 
   const editor = useEditor({
     extensions: [
@@ -43,13 +68,19 @@ export function DocumentSheet({
         },
       }),
       Placeholder.configure({
-        placeholder: "Start typing your masterpiece... Highlight text to Ask AI for tone adjustments & rewrites.",
+        placeholder:
+          "Start typing your masterpiece... Real-time AI will suggest continuations (press Tab to accept).",
       }),
       Underline,
       TextAlign,
+      Color,
+      Highlight,
+      FontSize,
+      FontFamily,
       TextStyle,
       CustomLink,
       CustomImage,
+      InlineCompletion,
     ],
     content:
       content ||
@@ -60,14 +91,76 @@ export function DocumentSheet({
       const words = text.trim() ? text.trim().split(/\s+/).length : 0;
       const chars = text.length;
       onChange(html, words, chars);
+
+      // Debounced inline ghost autocomplete trigger
+      if (autocompleteTimerRef.current) {
+        clearTimeout(autocompleteTimerRef.current);
+      }
+
+      if (isAutocompleteEnabledRef.current) {
+        autocompleteTimerRef.current = setTimeout(async () => {
+          if (!editor || editor.isDestroyed) return;
+          const { selection } = editor.state;
+          if (!selection.empty) return;
+
+          const pos = selection.from;
+          const docText = editor.state.doc.textBetween(0, pos, "\n");
+          if (docText.trim().length < 8) return;
+
+          const currentSeq = ++autocompleteSeqRef.current;
+          onAutocompleteStatusChange?.({ isGenerating: true });
+          try {
+            const res = await generateContentContinuationAction({
+              currentContent: html,
+              documentTitle: documentTitleRef.current,
+            });
+
+            // Discard if user continued typing or another request was fired
+            if (currentSeq !== autocompleteSeqRef.current) {
+              return;
+            }
+
+            onAutocompleteStatusChange?.({
+              isGenerating: false,
+              source: res.source || null,
+            });
+
+            if (res.success && res.result && res.result.trim().length > 0) {
+              if (
+                !editor.isDestroyed &&
+                editor.state.selection.empty &&
+                editor.state.selection.from === pos
+              ) {
+                (editor.commands as any).setGhostSuggestion({
+                  text: res.result,
+                  pos,
+                  source: res.source,
+                });
+              }
+            }
+          } catch {
+            if (currentSeq === autocompleteSeqRef.current) {
+              onAutocompleteStatusChange?.({ isGenerating: false, source: null });
+            }
+          }
+        }, 1000);
+      }
     },
     editorProps: {
       attributes: {
         class:
-          "prose prose-base sm:prose-lg dark:prose-invert max-w-none focus:outline-none min-h-[750px] leading-relaxed text-foreground [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:mb-5 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:mt-8 [&_h2]:mb-4 [&_h3]:text-xl [&_h3]:font-medium [&_p]:text-muted-foreground [&_p]:leading-relaxed [&_p]:mb-5 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6 [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-5 [&_blockquote]:italic [&_blockquote]:text-foreground/90",
+          "prose prose-base sm:prose-lg dark:prose-invert max-w-none focus:outline-none min-h-[400px] leading-relaxed text-foreground [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:tracking-tight [&_h1]:mb-3 [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:tracking-tight [&_h2]:mt-5 [&_h2]:mb-2.5 [&_h3]:text-xl [&_h3]:font-medium [&_p]:text-muted-foreground [&_p]:leading-relaxed [&_p]:mb-3.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-3.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-3.5 [&_blockquote]:border-l-4 [&_blockquote]:border-primary [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-foreground/90 [&_blockquote]:mb-3.5",
       },
     },
   });
+
+  useEffect(() => {
+    return () => {
+      if (autocompleteTimerRef.current) {
+        clearTimeout(autocompleteTimerRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (editor && onEditorReady) {
@@ -78,20 +171,18 @@ export function DocumentSheet({
   // Sync external content update if needed
   useEffect(() => {
     if (editor && content && content !== editor.getHTML()) {
-      if (Math.abs(content.length - editor.getHTML().length) > 10) {
-        editor.commands.setContent(content, { emitUpdate: false });
-      }
+      editor.commands.setContent(content, { emitUpdate: false });
     }
   }, [content, editor]);
 
   return (
-    <div className="w-full max-w-4xl mx-auto my-2 sm:my-4 bg-card border border-border/80 shadow-md rounded-2xl p-4 sm:p-8 md:p-10 relative transition-all min-h-[calc(100vh-120px)]">
+    <div className="w-full max-w-5xl xl:max-w-6xl 2xl:max-w-7xl mx-auto my-1.5 sm:my-2.5 bg-card border border-border/80 shadow-xs rounded-xl px-3 sm:px-6 md:px-8 py-3.5 sm:py-5 relative transition-all min-h-[calc(100vh-130px)] h-auto mb-10">
       {/* Floating Selection Bubble Menu */}
       {editor && <DocumentBubbleMenu editor={editor} />}
 
       {/* Top Document Header & Subtitle */}
-      <div className="mb-6 pb-6 border-b border-border/60">
-        <div className="flex items-center justify-between text-xs text-muted-foreground mb-4 font-medium">
+      <div className="mb-3.5 pb-3.5 border-b border-border/60">
+        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2.5 font-medium">
           <div className="flex items-center gap-1.5 truncate">
             <span className="hover:text-foreground cursor-pointer transition-colors">All notes</span>
             <span>&gt;</span>
@@ -99,7 +190,7 @@ export function DocumentSheet({
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground shrink-0">
             <Cloud size={13} className="text-primary/70" />
-            <span>Saved in Cloud</span>
+            <span>Saved locally & in Cloud</span>
           </div>
         </div>
 
@@ -109,26 +200,26 @@ export function DocumentSheet({
           value={documentTitle}
           onChange={(e) => onDocumentTitleChange(e.target.value)}
           placeholder="Untitled Document Title"
-          className="w-full text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/40 focus:ring-0 px-0 mb-1"
+          className="w-full text-2xl sm:text-3xl font-extrabold tracking-tight bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/40 focus:ring-0 px-0 mb-1"
         />
 
         {/* Subtitle / Edition Input */}
         <input
           type="text"
           value={subtitle}
-          onChange={(e) => setSubtitle(e.target.value)}
+          onChange={(e) => onSubtitleChange?.(e.target.value)}
           placeholder="Document Subtitle / Edition"
-          className="w-full text-sm sm:text-base font-medium text-muted-foreground bg-transparent border-none outline-none placeholder:text-muted-foreground/40 focus:ring-0 px-0 mb-3"
+          className="w-full text-xs sm:text-sm font-medium text-muted-foreground bg-transparent border-none outline-none placeholder:text-muted-foreground/40 focus:ring-0 px-0 mb-2"
         />
 
         {/* Featured Excerpt Box */}
-        <div className="mt-3 p-3 rounded-xl bg-muted/40 border border-border/50">
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground block mb-1">
+        <div className="mt-2 p-2.5 rounded-lg bg-muted/40 border border-border/50">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground block mb-0.5">
             Featured excerpt
           </span>
           <textarea
             value={excerpt}
-            onChange={(e) => setExcerpt(e.target.value)}
+            onChange={(e) => onExcerptChange?.(e.target.value)}
             placeholder="Brief summary or hook..."
             rows={2}
             className="w-full text-xs sm:text-sm text-foreground/80 bg-transparent border-none outline-none resize-none placeholder:text-muted-foreground/40 focus:ring-0 p-0"
@@ -136,11 +227,11 @@ export function DocumentSheet({
         </div>
       </div>
 
-      {/* Full WYSIWYG Editor Toolbar */}
-      {editor && <EditorToolbar editor={editor} />}
-
-      {/* Tiptap Editor Content Sheet */}
-      <div className="min-h-[650px] cursor-text pt-2">
+      {/* Tiptap Editor Content Sheet with Dynamic Font Family */}
+      <div
+        className="min-h-[400px] cursor-text pt-1 pb-6"
+        style={{ fontFamily: fontFamily || "'Inter', sans-serif" }}
+      >
         <EditorContent editor={editor} />
       </div>
     </div>

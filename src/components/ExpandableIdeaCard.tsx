@@ -73,95 +73,101 @@ export function ExpandableIdeaCard({ idea, onSchedule, onDelete }: ExpandableIde
 
     return (
         <>
-            <Card className="group hover:shadow-md transition-shadow w-full overflow-hidden">
-                <CardHeader>
-                    <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg group-hover:text-primary transition-colors">
+            <Card className="border border-border bg-card shadow-sm hover:shadow-md hover:border-primary/50 transition-all w-full overflow-hidden rounded-xl">
+                <CardHeader className="p-4 pb-3 border-b border-border bg-muted/20">
+                    <div className="flex justify-between items-start gap-2">
+                        <CardTitle className="text-base font-bold text-foreground group-hover:text-primary transition-colors">
                             {idea.title}
                         </CardTitle>
                         <Badge
                             variant={idea.status === "new" ? "default" : "secondary"}
-                            className="ml-2"
+                            className="ml-2 font-semibold text-[10px] uppercase tracking-wider shrink-0"
                         >
                             {idea.status}
                         </Badge>
                     </div>
-                    <CardDescription>{idea.createdAt}</CardDescription>
+                    <CardDescription className="text-xs text-muted-foreground font-medium">{idea.createdAt}</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="p-4 space-y-4">
                     {/* Description with Read More button */}
                     <div>
-                        <p className="text-muted-foreground break-words">
+                        <p className="text-foreground/80 text-xs sm:text-sm leading-relaxed break-words">
                             {truncateText(idea.description, 100)}
                         </p>
                         {shouldShowReadMore && (
                             <button
                                 onClick={() => setIsModalOpen(true)}
-                                className="text-sm text-primary hover:underline mt-1"
+                                className="text-xs font-semibold text-primary hover:underline mt-1.5 block"
                             >
-                                Read more
+                                Read more →
                             </button>
                         )}
                     </div>
 
                     {/* Always visible tags */}
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                         {idea.tags.map((tag, index) => (
-                            <Badge key={index} variant="outline">
+                            <Badge key={index} variant="outline" className="text-[10px] font-medium bg-muted/60 text-foreground border-border">
                                 {tag}
                             </Badge>
                         ))}
                     </div>
 
                     {/* Always visible action buttons */}
-                    <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" size="sm" asChild>
+                    <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-border">
+                        <Button variant="outline" size="sm" asChild className="h-7 text-xs font-semibold border-border hover:bg-muted">
                             <Link href={`/dashboard/canvas?ideaId=${idea.id}`}>
-                                <Sparkles className="mr-2 h-4 w-4" />
+                                <Sparkles className="mr-1.5 h-3.5 w-3.5 text-primary" />
                                 Use Idea
                             </Link>
                         </Button>
                         <Button
                             variant="ghost"
                             size="sm"
+                            className="h-7 text-xs font-medium text-foreground hover:bg-muted"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onSchedule(idea);
                             }}
                         >
-                            <Calendar className="mr-2 h-4 w-4" />
+                            <Calendar className="mr-1.5 h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
                             Schedule
                         </Button>
                         <Button
                             variant="ghost"
                             size="sm"
+                            className="h-7 px-2 text-muted-foreground hover:text-foreground hover:bg-muted"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 exportIdea("copy");
                             }}
+                            title="Copy idea"
                         >
-                            <Copy className="h-4 w-4" />
+                            <Copy className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                             variant="ghost"
                             size="sm"
+                            className="h-7 px-2 text-muted-foreground hover:text-foreground hover:bg-muted"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 exportIdea("download");
                             }}
+                            title="Download idea"
                         >
-                            <Download className="h-4 w-4" />
+                            <Download className="h-3.5 w-3.5" />
                         </Button>
                         <Button
                             variant="ghost"
                             size="sm"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                            className="h-7 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-auto"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDelete(idea.id);
                             }}
+                            title="Delete idea"
                         >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                     </div>
                 </CardContent>

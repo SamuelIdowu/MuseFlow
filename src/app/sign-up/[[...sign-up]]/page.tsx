@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthCard } from '@/components/auth/AuthCard';
 import { AlreadySignedInModal } from '@/components/auth/AlreadySignedInModal';
+import { WaveLoader } from '@/components/ui/wave-loader';
 
 export default function SignUpPage() {
   const { signUp, isLoaded: isSignUpLoaded } = useSignUp();
@@ -31,12 +32,10 @@ export default function SignUpPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
         {userId && <AlreadySignedInModal isOpen={showModal} />}
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-600 dark:border-orange-400 border-t-transparent" />
-          <p className="text-gray-600 dark:text-gray-400">
-            {userId ? 'Redirecting to dashboard...' : 'Loading...'}
-          </p>
-        </div>
+        <WaveLoader
+          message={userId ? "Redirecting to dashboard..." : "LOADING"}
+          size="md"
+        />
       </div>
     );
   }

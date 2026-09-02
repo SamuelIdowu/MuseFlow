@@ -4,141 +4,88 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { useFlutterwave, closePaymentModal } from 'flutterwave-react-v3';
 import toast from 'react-hot-toast';
 import { FEATURES } from '@/lib/featureFlags';
+import { createSubscriptionCheckout } from '@/server/actions/billing';
+import { BillingCycle, PlanTier } from '@/lib/payments/types';
 
 interface SubscribeButtonProps {
-    planId: string | null;
-    amount: number;
-    planName: string;
-    className?: string; // For styling
-    variant?: "default" | "destructive" | "outline" | "secondary" | "ghost" | "link";
-    buttonText?: string;
-    isPopular?: boolean;
+  planTier: 'free' | 'pro' | 'studio' | 'business';
+  billingCycle?: BillingCycle;
+  className?: string;
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  buttonText?: string;
 }
 
-export default function SubscribeButton({ planId, amount, planName, className, variant = "default", buttonText = "Subscribe" }: SubscribeButtonProps) {
-    const { isSignedIn, user } = useUser();
-    const { openSignIn } = useClerk();
-    const router = useRouter();
-    const [loading, setLoading] = useState(false);
+export default function SubscribeButton({
+  planTier,
+  billingCycle = 'monthly',
+  className,
+  variant = 'default',
+  buttonText = 'Subscribe',
+}: SubscribeButtonProps) {
+  const { isSignedIn } = useUser();
+  const { openSignIn } = useClerk();
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
 
-    // Configuration for Flutterwave
-    // Note: We create this even if planId is null, but we won't use it if planId is null
-    const config = {
-        public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY || '',
-        tx_ref: `tx-${Date.now()}-${planId}`,
-        amount: amount,
-        currency: 'USD',
-        payment_options: 'card,mobilemoney,ussd',
-        customer: {
-            email: user?.emailAddresses[0]?.emailAddress || '',
-            phone_number: '',
-            name: user?.fullName || '',
-        },
-        ...(planId ? { payment_plan: planId } : {}),
-        customizations: {
-            title: `AI Content Tool - ${planName} Plan`,
-            description: 'Monthly Subscription',
-            logo: 'https://st2.depositphotos.com/4403291/7418/v/450/depositphotos_74189661-stock-illustration-online-shop-log.jpg',
-        },
-    };
-
-    console.log("Flutterwave Config:", config);
-    if (amount <= 0) {
-        console.warn('⚠️ WARNING: Amount is 0 or negative. Flutterwave will reject this payment.');
+  const handleSubscribe = async () => {
+    // FEATURE FLAG: When payments are disabled, redirect to dashboard
+    if (!FEATURES.PAYMENTS_ENABLED) {
+      if (!isSignedIn) {
+        openSignIn();
+        return;
+      }
+      toast.success('All features are available! Redirecting to dashboard...');
+      router.push('/dashboard');
+      return;
     }
 
-    // Initialize the hook with the specific config for THIS button
-    const handlePayment = useFlutterwave(config as any);
+    if (!isSignedIn) {
+      toast.error('Please sign in to subscribe');
+      openSignIn();
+      return;
+    }
 
-    const handleSubscribe = async () => {
-        // FEATURE FLAG: When payments are disabled, redirect to dashboard
-        if (!FEATURES.PAYMENTS_ENABLED) {
-            if (!isSignedIn) {
-                openSignIn();
-                return;
-            }
-            toast.success('All features are available! Redirecting to dashboard...');
-            router.push('/dashboard');
-            return;
-        }
+    if (planTier === 'free') {
+      router.push('/dashboard');
+      return;
+    }
 
-        if (!isSignedIn) {
-            openSignIn();
-            return;
-        }
+    setLoading(true);
+    const toastId = toast.loading('Preparing checkout...');
 
-        // Handle Free Plan or case where no plan ID is present or amount is 0
-        // Flutterwave does NOT accept amount = 0, even in test mode
-        if (!planId || planId === '' || amount <= 0) {
-            console.log('Free plan detected - redirecting to dashboard');
-            toast.success('Welcome! Accessing dashboard...');
-            router.push('/dashboard');
-            return;
-        }
+    try {
+      const result = await createSubscriptionCheckout(
+        planTier,
+        billingCycle,
+        '/dashboard/settings/billing'
+      );
 
-        // Additional safety check before payment
-        if (amount <= 0) {
-            console.error('Invalid amount:', amount);
-            toast.error('Invalid subscription amount. Please contact support.');
-            return;
-        }
+      toast.dismiss(toastId);
 
-        console.log('Initiating payment with amount:', amount, 'planId:', planId);
-        setLoading(true);
+      if (result.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+      } else {
+        toast.error('Could not generate checkout link');
+        setLoading(false);
+      }
+    } catch (error: any) {
+      console.error('Subscription error:', error);
+      toast.dismiss(toastId);
+      toast.error(error?.message || 'Payment initialization failed. Please try again.');
+      setLoading(false);
+    }
+  };
 
-        try {
-            handlePayment({
-                callback: async (response) => {
-                    closePaymentModal();
-                    if (response.status === "successful") {
-                        const toastId = toast.loading("Verifying payment...");
-                        try {
-                            const verifyRes = await fetch('/api/flutterwave/verify', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ transaction_id: response.transaction_id })
-                            });
-
-                            if (verifyRes.ok) {
-                                toast.dismiss(toastId);
-                                toast.success("Subscription activated!");
-                                window.location.href = '/dashboard';
-                            } else {
-                                toast.dismiss(toastId);
-                                toast.error("Payment verification failed.");
-                            }
-                        } catch (err) {
-                            console.error(err);
-                            toast.dismiss(toastId);
-                            toast.error("Verification error");
-                        }
-                    } else {
-                        toast.error("Payment failed. Please try again.");
-                    }
-                    setLoading(false);
-                },
-                onClose: () => {
-                    setLoading(false);
-                }
-            });
-        } catch (error) {
-            console.error("Payment initialization error:", error);
-            setLoading(false);
-            toast.error("Could not initialize payment.");
-        }
-    };
-
-    return (
-        <Button
-            className={className}
-            variant={variant}
-            onClick={handleSubscribe}
-            disabled={loading}
-        >
-            {loading ? 'Processing...' : buttonText}
-        </Button>
-    );
+  return (
+    <Button
+      className={className}
+      variant={variant}
+      onClick={handleSubscribe}
+      disabled={loading}
+    >
+      {loading ? 'Redirecting...' : buttonText}
+    </Button>
+  );
 }

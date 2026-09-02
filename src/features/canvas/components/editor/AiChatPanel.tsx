@@ -3,10 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 import { marked } from 'marked';
-import { useChat } from '@ai-sdk/react';
-import { type UIMessage } from 'ai';
-import { DefaultChatTransport } from 'ai';
-import { getGlobalChatMessagesAction, addChatMessageAction } from '@/features/canvas/actions/canvasActions';
+import { getGlobalChatMessagesAction, addChatMessageAction, generateCanvasChatResponseAction } from '@/features/canvas/actions/canvasActions';
 import { toast } from 'react-hot-toast';
 
 interface AiChatPanelProps {
@@ -16,17 +13,19 @@ interface AiChatPanelProps {
 
 export function AiChatPanel({ editorContent, onApplyContent }: AiChatPanelProps) {
   const [initialLoaded, setInitialLoaded] = useState(false);
-  const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     getGlobalChatMessagesAction().then(msgs => {
-      const formattedMsgs: UIMessage[] = msgs.map(m => ({
+      const formattedMsgs = msgs.map(m => ({
         id: m.id,
         role: m.role as 'user' | 'assistant',
         content: m.content || '',
         parts: [{ type: 'text', text: m.content || '' }]
       }));
-      setInitialMessages(formattedMsgs);
+      setMessages(formattedMsgs);
       setInitialLoaded(true);
     }).catch(err => {
       console.error("Failed to load chat history", err);
@@ -34,50 +33,72 @@ export function AiChatPanel({ editorContent, onApplyContent }: AiChatPanelProps)
     });
   }, []);
 
-  const [input, setInput] = useState('');
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => setInput(e.target.value);
-
-  const { messages, sendMessage, status } = useChat({
-    transport: new DefaultChatTransport({
-      api: process.env.NEXT_PUBLIC_FASTAPI_URL || '/api/chat',
-      body: {
-        editorContent, 
-      }
-    }),
-    messages: initialMessages,
-    onFinish: async (event) => {
-      try {
-        await addChatMessageAction(event.message);
-      } catch (err) {
-        console.error("Failed to save assistant message", err);
-      }
-    },
-    onError: (error) => {
-      console.error("Agent communication error:", error);
-      toast.error("Error communicating with AI assistant");
-    }
-  });
-
-  const isLoading = status === 'streaming' || status === 'submitted';
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    const promptText = input.trim();
+    if (!promptText || isLoading) return;
 
-    // Save user message immediately
-    const userMessageId = crypto.randomUUID();
+    const userMessage = {
+      id: crypto.randomUUID(),
+      role: 'user' as const,
+      content: promptText,
+      parts: [{ type: 'text', text: promptText }]
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInput('');
+    setIsLoading(true);
+
+    // Save user message
     try {
-      await addChatMessageAction({
-        id: userMessageId,
-        role: 'user',
-        content: input,
-      });
+      await addChatMessageAction(userMessage);
     } catch (err) {
       console.error("Failed to save user message", err);
     }
 
-    sendMessage({ text: input });
-    setInput('');
+    try {
+      const plainDoc = editorContent.replace(/<[^>]*>/g, " ").slice(0, 3000);
+      const contextualInput = `[CURRENT DOCUMENT CONTEXT]:\n${plainDoc}\n\n[USER REQUEST]:\n${promptText}`;
+
+      const historyFormatted = messages.map(m => ({
+        role: m.role,
+        content: m.content || (m.parts?.[0]?.text) || ''
+      }));
+
+      const response = await generateCanvasChatResponseAction(contextualInput, historyFormatted);
+      const replyText = typeof response === 'string' ? response : (response?.message || (response as any)?.content || '');
+
+      const assistantMessage = {
+        id: crypto.randomUUID(),
+        role: 'assistant' as const,
+        content: replyText,
+        parts: [{ type: 'text', text: replyText }]
+      };
+
+      setMessages(prev => [...prev, assistantMessage]);
+
+      try {
+        await addChatMessageAction(assistantMessage);
+      } catch (err) {
+        console.error("Failed to save assistant message", err);
+      }
+    } catch (error: any) {
+      console.error("Agent communication error:", error);
+      toast.error("Error communicating with AI assistant");
+      setMessages(prev => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant' as const,
+          content: "Sorry, I ran into an issue connecting to the AI assistant.",
+          parts: [{ type: 'text', text: "Sorry, I ran into an issue connecting to the AI assistant." }]
+        }
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const renderMessageContent = (content: string) => {
@@ -136,8 +157,8 @@ export function AiChatPanel({ editorContent, onApplyContent }: AiChatPanelProps)
       </div>
       
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((m) => {
-          const textContent = m.parts?.filter(p => p.type === 'text').map(p => (p as any).text).join('') || '';
+        {messages.map((m: any) => {
+          const textContent = typeof m.content === 'string' && m.content ? m.content : (m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') || '');
           return (
             <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               <div className={`flex gap-3 max-w-[85%] ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>

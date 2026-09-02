@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { DocumentTopBar } from "@/features/canvas/components/editor/DocumentTopBar";
 import { DocumentLeftSidebar } from "@/features/canvas/components/editor/DocumentLeftSidebar";
 import { DocumentSheet } from "@/features/canvas/components/editor/DocumentSheet";
+import { EditorToolbar } from "@/features/canvas/components/editor/EditorToolbar";
 import { AiChatSidebar } from "@/features/canvas/components/editor/AiChatSidebar";
 import { getActiveProfile } from "@/lib/dashboardServerActions";
 import { toast } from "react-hot-toast";
@@ -16,22 +17,35 @@ import {
 
 export function EditorClient() {
   const [documentTitle, setDocumentTitle] = useState("Designing for High-Retention Growth");
+  const [documentSubtitle, setDocumentSubtitle] = useState("UX Research & Creator Edition");
+  const [documentExcerpt, setDocumentExcerpt] = useState(
+    "Explores how intentional design decisions and clear copywriting create high-retention experiences."
+  );
   const [documentContent, setDocumentContent] = useState("");
+  const [isLoaded, setIsLoaded] = useState(false);
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
-  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(true);
-  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(true);
+  const [isLeftSidebarOpen, setIsLeftSidebarOpen] = useState(false);
+  const [isRightSidebarOpen, setIsRightSidebarOpen] = useState(false);
   const [activeProfile, setActiveProfile] = useState<{ name: string; niche: string }>({
     name: "Creator Authority",
     niche: "Tech & SaaS",
   });
 
   const editorInstanceRef = useRef<Editor | null>(null);
+  const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+  const [documentFont, setDocumentFont] = useState<{ name: string; value: string }>({
+    name: "Inter",
+    value: "'Inter', sans-serif",
+  });
+  const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useState(true);
+  const [isGeneratingAutocomplete, setIsGeneratingAutocomplete] = useState(false);
+  const [completionSource, setCompletionSource] = useState<"research_agent" | "gemini_fallback" | null>(null);
 
-  // Load active profile info
+  // Load active profile info and restore saved document draft
   useEffect(() => {
     getActiveProfile()
       .then((profile) => {
@@ -46,14 +60,13 @@ export function EditorClient() {
         console.error("Error loading active profile for editor:", err);
       });
 
-    // Check if there is an imported draft from Home Chat
+    // 1. Check if there is an imported draft from Home Chat
     try {
       const imported = localStorage.getItem("museflow_editor_import");
       if (imported) {
         const parsed = JSON.parse(imported);
         if (parsed.title) setDocumentTitle(parsed.title);
         if (parsed.content) {
-          // Convert basic markdown line breaks to paragraph html if needed
           const htmlContent = parsed.content
             .split("\n\n")
             .map((p: string) => `<p>${p.replace(/\n/g, "<br/>")}</p>`)
@@ -62,30 +75,57 @@ export function EditorClient() {
           toast.success("Loaded draft from AI Chat Hub!", { icon: "📝" });
         }
         localStorage.removeItem("museflow_editor_import");
+        setIsLoaded(true);
+        return;
       }
     } catch (e) {
       console.error("Error reading editor import:", e);
     }
+
+    // 2. Otherwise restore previously saved document state from localStorage
+    try {
+      const savedDoc = localStorage.getItem("museflow_editor_doc");
+      if (savedDoc) {
+        const parsed = JSON.parse(savedDoc);
+        if (parsed.title !== undefined) setDocumentTitle(parsed.title);
+        if (parsed.subtitle !== undefined) setDocumentSubtitle(parsed.subtitle);
+        if (parsed.excerpt !== undefined) setDocumentExcerpt(parsed.excerpt);
+        if (parsed.content !== undefined && parsed.content.trim()) setDocumentContent(parsed.content);
+        if (parsed.updatedAt) setLastSavedAt(new Date(parsed.updatedAt));
+      }
+    } catch (e) {
+      console.error("Error restoring editor document draft:", e);
+    } finally {
+      setIsLoaded(true);
+    }
   }, []);
 
-  // Autosave simulation
+  // Autosave when any document property changes (after initial load)
   useEffect(() => {
-    if (!documentContent) return;
+    if (!isLoaded) return;
     setIsSaving(true);
     const timer = setTimeout(() => {
       setIsSaving(false);
-      setLastSavedAt(new Date());
-      // save to localStorage as quick local backup
+      const now = new Date();
+      setLastSavedAt(now);
       try {
         localStorage.setItem(
-          "museflow_editor_backup",
-          JSON.stringify({ title: documentTitle, content: documentContent, updatedAt: new Date().toISOString() })
+          "museflow_editor_doc",
+          JSON.stringify({
+            title: documentTitle,
+            subtitle: documentSubtitle,
+            excerpt: documentExcerpt,
+            content: documentContent,
+            updatedAt: now.toISOString(),
+          })
         );
-      } catch {}
-    }, 1200);
+      } catch (err) {
+        console.error("Failed to autosave document to localStorage:", err);
+      }
+    }, 600);
 
     return () => clearTimeout(timer);
-  }, [documentContent, documentTitle]);
+  }, [documentTitle, documentSubtitle, documentExcerpt, documentContent, isLoaded]);
 
   // Handle export formats
   const handleExport = (format: "markdown" | "html" | "text") => {
@@ -166,9 +206,9 @@ export function EditorClient() {
           {isLeftSidebarOpen ? (
             <>
               <ResizablePanel
-                defaultSize="22%"
-                minSize="16%"
-                maxSize="38%"
+                defaultSize="19%"
+                minSize="14%"
+                maxSize="32%"
                 className="h-full flex flex-col overflow-hidden"
               >
                 <DocumentLeftSidebar
@@ -198,12 +238,26 @@ export function EditorClient() {
           {/* Middle Column: Scrollable Document Canvas Sheet */}
           <ResizablePanel
             minSize="30%"
-            defaultSize={isLeftSidebarOpen && isRightSidebarOpen ? "52%" : isLeftSidebarOpen || isRightSidebarOpen ? "74%" : "100%"}
+            defaultSize={isLeftSidebarOpen && isRightSidebarOpen ? "59%" : isLeftSidebarOpen ? "81%" : isRightSidebarOpen ? "78%" : "100%"}
             className="h-full flex flex-col overflow-hidden"
           >
-            <main className="w-full h-full overflow-y-auto px-4 sm:px-8 bg-zinc-100/70 dark:bg-zinc-950/60 transition-all flex justify-center">
+            {/* Sticky Toolbar — lives outside the scroll area so it always pins to the top */}
+            <div className="sticky top-0 z-30 px-2 sm:px-4 py-1.5 bg-zinc-100/95 dark:bg-zinc-950/90 backdrop-blur-md border-b border-border/40">
+              <EditorToolbar
+                editor={editorInstance}
+                activeFont={documentFont.name}
+                onFontChange={(name, value) => setDocumentFont({ name, value })}
+                isAutocompleteEnabled={isAutocompleteEnabled}
+                onToggleAutocomplete={() => setIsAutocompleteEnabled((prev) => !prev)}
+                isGeneratingAutocomplete={isGeneratingAutocomplete}
+                completionSource={completionSource}
+              />
+            </div>
+
+            <main className="w-full flex-1 overflow-y-auto py-1.5 sm:py-2.5 px-2 sm:px-4 bg-zinc-100/70 dark:bg-zinc-950/60 transition-all">
               <DocumentSheet
                 content={documentContent}
+                fontFamily={documentFont.value}
                 onChange={(html, words, chars) => {
                   setDocumentContent(html);
                   setWordCount(words);
@@ -211,8 +265,18 @@ export function EditorClient() {
                 }}
                 documentTitle={documentTitle}
                 onDocumentTitleChange={setDocumentTitle}
+                subtitle={documentSubtitle}
+                onSubtitleChange={setDocumentSubtitle}
+                excerpt={documentExcerpt}
+                onExcerptChange={setDocumentExcerpt}
+                isAutocompleteEnabled={isAutocompleteEnabled}
+                onAutocompleteStatusChange={({ isGenerating, source }) => {
+                  setIsGeneratingAutocomplete(isGenerating);
+                  if (source !== undefined) setCompletionSource(source);
+                }}
                 onEditorReady={(editor) => {
                   editorInstanceRef.current = editor;
+                  setEditorInstance(editor);
                 }}
               />
             </main>
@@ -223,9 +287,9 @@ export function EditorClient() {
             <>
               <ResizableHandle withHandle />
               <ResizablePanel
-                defaultSize="26%"
-                minSize="18%"
-                maxSize="42%"
+                defaultSize="22%"
+                minSize="16%"
+                maxSize="36%"
                 className="h-full flex flex-col overflow-hidden"
               >
                 <AiChatSidebar

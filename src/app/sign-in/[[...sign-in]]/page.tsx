@@ -7,6 +7,7 @@ import { AuthCard } from '@/components/auth/AuthCard';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AlreadySignedInModal } from '@/components/auth/AlreadySignedInModal';
+import { WaveLoader } from '@/components/ui/wave-loader';
 
 export default function SignInPage() {
   const { signIn, isLoaded: isSignInLoaded } = useSignIn();
@@ -20,16 +21,14 @@ export default function SignInPage() {
   // Redirect or show modal if already signed in
   useEffect(() => {
     if (isAuthLoaded && userId) {
-      setShowModal(true);
-      
-      // If we were just redirected from the dashboard, don't auto-redirect back
-      // to avoid infinite loops if the session is invalid on the server side
-      if (redirectedFrom === '/dashboard' || redirectedFrom?.includes('dashboard')) {
-        console.warn('Detected potential redirect loop from dashboard. Staying on sign-in page.');
+      // Check if we're in a redirect loop
+      if (redirectedFrom === 'auth-error') {
         setIsLooping(true);
+        setShowModal(true);
         return;
       }
 
+      setShowModal(true);
       // Wait a bit to show the modal before redirecting automatically
       const timer = setTimeout(() => {
         router.push('/dashboard');
@@ -44,8 +43,8 @@ export default function SignInPage() {
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
         <AlreadySignedInModal isOpen={showModal} />
         <div className="flex flex-col items-center gap-4 text-center max-w-md px-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-orange-600 dark:border-orange-400 border-t-transparent" />
-          {isLooping ? (
+          <WaveLoader message={isLooping ? "" : "Redirecting to dashboard..."} size="md" />
+          {isLooping && (
             <div className="space-y-2">
               <p className="text-gray-900 dark:text-gray-100 font-semibold">Session sync needed</p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -60,8 +59,6 @@ export default function SignInPage() {
                 Refresh page
               </Button>
             </div>
-          ) : (
-            <p className="text-gray-600 dark:text-gray-400 animate-pulse">Redirecting to dashboard...</p>
           )}
         </div>
       </div>

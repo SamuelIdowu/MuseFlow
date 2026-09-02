@@ -44,11 +44,10 @@ import {
     deleteEdgeAction,
     addChatMessageAction,
     getGlobalChatMessagesAction,
-    updateCanvasChatHistoryAction
+    updateCanvasChatHistoryAction,
+    generateCanvasChatResponseAction,
 } from "@/features/canvas/actions/canvasActions";
 import { saveToIdeasAction } from "@/features/ideas/actions/ideaActions";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
 
 import {
     ReactFlow,
@@ -103,107 +102,8 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
     const [modelProvider, setModelProvider] = useState<string | null>(null);
     const [selectedFiles, setSelectedFiles] = useState<{ name: string; type: string; data: string }[]>([]);
     const [chatInput, setChatInput] = useState('');
-    
-    const { 
-        messages: chatMessages, 
-        sendMessage,
-        status: chatStatus,
-        setMessages: setChatMessages,
-        addToolResult
-    } = useChat({
-        id: `canvas-${activeCanvasId}`,
-        transport: new DefaultChatTransport({ 
-            api: process.env.NEXT_PUBLIC_FASTAPI_URL || '/api/chat',
-            body: {
-                canvasId: activeCanvasId || searchParams.get('id') || undefined,
-                profile: activeProfile,
-                clerkId
-            }
-        }),
-        onFinish: async (event) => {
-            if (activeCanvasId) {
-                try {
-                    await addChatMessageAction(event.message, activeCanvasId);
-                } catch (error) {
-                    console.error("Failed to save message", error);
-                }
-            }
-        }
-    });
-
-    const isChatLoading = chatStatus === 'streaming' || chatStatus === 'submitted';
-
-    // Handle tool invocations automatically
-    useEffect(() => {
-        const lastMessage = chatMessages[chatMessages.length - 1];
-        if (!lastMessage || lastMessage.role !== 'assistant' || !lastMessage.parts) return;
-
-        const handleTools = async () => {
-            const toolParts = lastMessage.parts.filter(p => p.type === 'tool-invocation' || (p as any).type === 'tool-call');
-            for (const part of toolParts) {
-                const toolInvocation = (part as any).toolInvocation || part;
-                if (toolInvocation.state === 'input-available' && toolInvocation.toolName === 'manage_canvas') {
-                    setAgentStatus("Managing canvas...");
-                    const args = toolInvocation.input || toolInvocation.args;
-                    const results = [];
-                    const currentCount = nodes.length;
-
-                    for (const action of (args.actions || [])) {
-                        try {
-                            let data = action.data;
-                            if (typeof data === 'string') {
-                                try { data = JSON.parse(data); } catch { data = {}; }
-                            }
-                            data = data || {};
-
-                            const blockId = data.id || action.id || data.blockId || data.nodeId;
-
-                            if (action.action === 'add_node' || action.action === 'create') {
-                                const added = await addCanvasBlockAction({
-                                    type: data.type || 'paragraph',
-                                    content: data.content || '',
-                                    order: currentCount + results.length
-                                });
-                                results.push({ action: 'add_node', status: 'success', data: added });
-                            } else if (action.action === 'update_node' || action.action === 'update') {
-                                if (blockId) {
-                                    await updateCanvasBlockAction(blockId, {
-                                        type: data.type,
-                                        content: data.content
-                                    });
-                                    results.push({ action: 'update_node', status: 'success' });
-                                } else {
-                                    results.push({ action: 'update_node', status: 'error', error: 'Missing block id' });
-                                }
-                            } else if (action.action === 'delete_node' || action.action === 'delete') {
-                                if (blockId) {
-                                    await deleteCanvasBlockAction(blockId);
-                                    results.push({ action: 'delete_node', status: 'success' });
-                                } else {
-                                    results.push({ action: 'delete_node', status: 'error', error: 'Missing block id' });
-                                }
-                            } else {
-                                results.push({ action: action.action, status: 'error', error: 'Unknown action' });
-                            }
-                        } catch (e: any) {
-                            console.error("Tool execution failed for action:", action, e);
-                            results.push({ action: action.action, status: 'error', error: e.message });
-                        }
-                    }
-                    
-                    await fetchBlocks(true);
-                    setAgentStatus(null);
-                    addToolResult({
-                        tool: 'manage_canvas',
-                        toolCallId: toolInvocation.toolCallId,
-                        output: { status: 'success', results, blocksAdded: results.filter((r: any) => r.status === 'success').length }
-                    } as any);
-                }
-            }
-        };
-
-        handleTools();
-    }, [chatMessages, addToolResult, nodes.length]);
+    const [chatMessages, setChatMessages] = useState<any[]>([]);
+    const [isChatLoading, setIsChatLoading] = useState(false);
     const chatEndRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -273,25 +173,108 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
 
     const handleSendMessage = async (e?: React.FormEvent) => {
         if (e) e.preventDefault();
-        if (!chatInput.trim() && selectedFiles.length === 0) return;
+        const text = chatInput.trim();
+        if (!text && selectedFiles.length === 0) return;
 
-        // Persist user message locally before submitting to AI sdk
+        const userMsg = {
+            id: crypto.randomUUID(),
+            role: 'user' as const,
+            content: text,
+            parts: [{ type: 'text', text }]
+        };
+
+        setChatMessages(prev => [...prev, userMsg]);
+        setChatInput('');
+        const filesToSend = [...selectedFiles];
+        setSelectedFiles([]);
+        setIsChatLoading(true);
+        setAgentStatus("AI is generating canvas content...");
+
+        // Persist user message to Supabase
         if (activeCanvasId) {
             try {
-                await addChatMessageAction({
-                    id: crypto.randomUUID(),
-                    role: 'user',
-                    content: chatInput
-                }, activeCanvasId);
+                await addChatMessageAction(userMsg, activeCanvasId);
             } catch (error) {
                 console.error("Failed to save user message", error);
             }
         }
-        
-        // Use the new sendMessage API
-        sendMessage({ text: chatInput });
-        setChatInput('');
-        setSelectedFiles([]);
+
+        try {
+            // Build current canvas context
+            const currentCanvas = {
+                blocks: nodes.map(n => ({ id: n.id, type: n.data?.type || 'paragraph', content: n.data?.content || '' })),
+                edges: edges.map(e => ({ id: e.id, source: e.source, target: e.target, label: e.label }))
+            };
+
+            const historyFormatted = chatMessages.map(m => ({
+                role: m.role,
+                content: m.content || (m.parts?.[0]?.text) || ''
+            }));
+
+            const response = await generateCanvasChatResponseAction(
+                text,
+                historyFormatted,
+                filesToSend.map(f => ({ data: f.data, mimeType: f.type })),
+                currentCanvas
+            );
+
+            let replyMessage = "";
+            let generatedBlocks: any[] = [];
+
+            if (typeof response === "string") {
+                replyMessage = response;
+            } else if (response) {
+                replyMessage = response.message || (response as any).content || "";
+                generatedBlocks = response.blocks || [];
+            }
+
+            // Create newly generated blocks if any
+            if (generatedBlocks && generatedBlocks.length > 0) {
+                setAgentStatus("Applying blocks to canvas...");
+                for (let i = 0; i < generatedBlocks.length; i++) {
+                    const blk = generatedBlocks[i];
+                    await addCanvasBlockAction({
+                        type: blk.type || 'paragraph',
+                        content: blk.content || '',
+                        order: nodes.length + i,
+                        position: blk.position
+                    });
+                }
+                await fetchBlocks(true);
+            }
+
+            const assistantMsg = {
+                id: crypto.randomUUID(),
+                role: 'assistant' as const,
+                content: replyMessage,
+                parts: [{ type: 'text', text: replyMessage }]
+            };
+
+            setChatMessages(prev => [...prev, assistantMsg]);
+
+            if (activeCanvasId) {
+                try {
+                    await addChatMessageAction(assistantMsg, activeCanvasId);
+                } catch (error) {
+                    console.error("Failed to save assistant message", error);
+                }
+            }
+        } catch (error: any) {
+            console.error("Canvas AI Error:", error);
+            toast.error("Failed to generate AI response");
+            setChatMessages(prev => [
+                ...prev,
+                {
+                    id: crypto.randomUUID(),
+                    role: 'assistant' as const,
+                    content: "Sorry, I ran into an issue connecting to the AI model. Please try again.",
+                    parts: [{ type: 'text', text: "Sorry, I ran into an issue connecting to the AI model. Please try again." }]
+                }
+            ]);
+        } finally {
+            setIsChatLoading(false);
+            setAgentStatus(null);
+        }
     };
 
     const fetchBlocks = async (isSilent = false) => {
@@ -1028,9 +1011,9 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                                 </p>
                             </div>
                         )}
-                        {chatMessages.map((msg) => {
-                            const textContent = msg.parts?.filter(p => p.type === 'text').map(p => (p as any).text).join('') || '';
-                            const toolInvocations = msg.parts?.filter(p => p.type === 'tool-invocation' || (p as any).type === 'tool-call').map(p => (p as any).toolInvocation || p) || [];
+                        {chatMessages.map((msg: any) => {
+                            const textContent = typeof msg.content === 'string' && msg.content ? msg.content : (msg.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('') || '');
+                            const toolInvocations = msg.parts?.filter((p: any) => p.type === 'tool-invocation' || p.type === 'tool-call').map((p: any) => p.toolInvocation || p) || [];
                             
                             return (
                             <div key={msg.id} className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : 'items-start'}`}>

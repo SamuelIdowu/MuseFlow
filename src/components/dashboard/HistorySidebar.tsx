@@ -98,25 +98,25 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
 
     return (
         <div
-            className={cn("flex flex-col h-full bg-background/95 backdrop-blur-sm border-l border-border transition-all duration-300 relative", isExpanded ? "w-72" : "w-12 items-center", className)}
+            className={cn("flex flex-col h-full bg-card border-l border-border transition-all duration-300 relative shadow-2xs", isExpanded ? "w-72" : "w-12 items-center", className)}
         >
 
             {/* Toggle Button */}
-            <div className={cn("flex items-center p-3 border-b border-border/40", isCollapsed ? "justify-center p-2" : "justify-between")}>
-                {!isCollapsed && <h2 className="font-semibold text-sm">Idea History</h2>}
+            <div className={cn("flex items-center p-3 border-b border-border", isCollapsed ? "justify-center p-2" : "justify-between")}>
+                {!isCollapsed && <h2 className="font-bold text-sm text-foreground">Idea History</h2>}
 
                 <Button
                     variant="ghost"
                     size="icon"
                     onClick={toggleSidebar}
-                    className={cn("h-7 w-7", isCollapsed ? "" : "")}
+                    className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
                 >
                     {isCollapsed ? <PanelRightOpen className="h-4 w-4" /> : <PanelRightClose className="h-4 w-4" />}
                 </Button>
 
                 {!isCollapsed && (
                     <Link href="/dashboard/ideas" onClick={onNavClick}>
-                        <Button size="sm" variant="secondary" className="rounded-lg h-7 bg-primary text-primary-foreground hover:bg-primary/90 text-[11px] font-medium px-2.5">
+                        <Button size="sm" variant="secondary" className="rounded-lg h-7 bg-primary text-primary-foreground hover:bg-primary/90 text-[11px] font-semibold px-2.5 shadow-2xs">
                             <Plus className="h-3 w-3 mr-1" /> New Idea
                         </Button>
                     </Link>
@@ -126,11 +126,11 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
             {/* Collapsed State Content (Optional: Show Icon) */}
             {!isExpanded && (
                 <div className="flex-1 flex flex-col items-center pt-3 gap-3">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground" title="History">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" title="History">
                         <History className="h-4 w-4" />
                     </Button>
                     <Link href="/dashboard/ideas" onClick={onNavClick} title="New Idea">
-                        <Button size="icon" variant="secondary" className="rounded-full h-7 w-7 bg-primary text-primary-foreground hover:bg-primary/90">
+                        <Button size="icon" variant="secondary" className="rounded-full h-7 w-7 bg-primary text-primary-foreground hover:bg-primary/90 shadow-2xs">
                             <Plus className="h-3.5 w-3.5" />
                         </Button>
                     </Link>
@@ -151,7 +151,7 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
                                 ))}
                             </div>
                         ) : recentChats.length === 0 ? (
-                            <div className="text-center text-muted-foreground text-[13px] py-8">No recent chats</div>
+                            <div className="text-center text-muted-foreground text-[13px] font-medium py-8">No recent chats</div>
                         ) : (
                             <div className="space-y-4">
                                 {groupOrder.map(group => {
@@ -160,21 +160,21 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
 
                                     return (
                                         <div key={group} className="space-y-1.5">
-                                            <h3 className="text-[11px] font-medium text-muted-foreground pl-2 uppercase tracking-wider">{group}</h3>
+                                            <h3 className="text-[11px] font-bold text-muted-foreground pl-2 uppercase tracking-wider">{group}</h3>
                                             <div className="space-y-0.5">
                                                 {chats.map(chat => (
                                                     <div key={chat.id} className="group relative">
                                                         <Link
-                                                            href={`/dashboard/ideas?chatId=${chat.id}`}
+                                                             href={`/dashboard/ideas?chatId=${chat.id}`}
                                                             onClick={onNavClick}
                                                             className={cn(
-                                                                'flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] transition-all duration-200 border border-transparent',
+                                                                'flex items-center gap-2.5 rounded-lg px-3 py-2 text-[13px] font-medium transition-all duration-200 border',
                                                                 currentChatId === chat.id
-                                                                    ? 'bg-muted/40 border-primary/20 text-foreground shadow-sm'
-                                                                    : 'hover:bg-muted/30 hover:border-white/5 text-muted-foreground hover:text-foreground'
+                                                                    ? 'bg-primary/10 border-primary/30 text-primary font-semibold shadow-2xs'
+                                                                    : 'border-transparent text-foreground/80 hover:bg-muted/80 hover:text-foreground'
                                                             )}
                                                         >
-                                                            <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 opacity-70" />
+                                                            <MessageSquare className="h-3.5 w-3.5 flex-shrink-0 opacity-80" />
                                                             <span className="truncate flex-1">{chat.title}</span>
                                                         </Link>
                                                     </div>

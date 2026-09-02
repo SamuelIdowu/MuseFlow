@@ -107,14 +107,14 @@ function MonthCalendarView({
   return (
     <div className="space-y-3">
       {/* Month nav */}
-      <div className="flex items-center justify-between px-1">
-        <Button variant="ghost" size="sm" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
+      <div className="flex items-center justify-between px-2 py-1 bg-muted/30 rounded-lg border border-border">
+        <Button variant="ghost" size="sm" onClick={() => setCurrentMonth((m) => subMonths(m, 1))} className="h-7 w-7 p-0 font-bold hover:bg-muted">
           ←
         </Button>
-        <span className="text-sm font-semibold">
+        <span className="text-sm font-bold text-foreground">
           {format(currentMonth, 'MMMM yyyy')}
         </span>
-        <Button variant="ghost" size="sm" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
+        <Button variant="ghost" size="sm" onClick={() => setCurrentMonth((m) => addMonths(m, 1))} className="h-7 w-7 p-0 font-bold hover:bg-muted">
           →
         </Button>
       </div>
@@ -122,17 +122,17 @@ function MonthCalendarView({
       {/* Weekday headers */}
       <div className="grid grid-cols-7 text-center">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-          <div key={d} className="text-[11px] font-medium text-muted-foreground py-1">
+          <div key={d} className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider py-1">
             {d}
           </div>
         ))}
       </div>
 
       {/* Days grid */}
-      <div className="grid grid-cols-7 gap-1">
+      <div className="grid grid-cols-7 gap-1.5">
         {/* Leading empty cells */}
         {Array.from({ length: leadingPad }).map((_, i) => (
-          <div key={`pad-${i}`} />
+          <div key={`pad-${i}`} className="min-h-[72px] rounded-xl border border-transparent bg-muted/10" />
         ))}
 
         {days.map((day) => {
@@ -145,25 +145,32 @@ function MonthCalendarView({
               key={key}
               onClick={() => onScheduleOnDay(day)}
               className={`
-                min-h-[64px] rounded-lg border p-1.5 text-left transition-colors hover:bg-muted/50
-                ${today ? 'border-primary bg-primary/5' : 'border-border'}
+                min-h-[72px] rounded-xl border p-2 text-left transition-all hover:bg-muted/50 hover:border-primary/50 shadow-2xs flex flex-col justify-between
+                ${today ? 'border-primary bg-primary/10 ring-1 ring-primary/30 shadow-xs' : 'border-border bg-card'}
               `}
             >
-              <span
-                className={`text-xs font-semibold ${
-                  today
-                    ? 'flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground'
-                    : 'text-muted-foreground'
-                }`}
-              >
-                {format(day, 'd')}
-              </span>
+              <div className="flex items-center justify-between">
+                <span
+                  className={`text-xs font-bold ${
+                    today
+                      ? 'flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xs'
+                      : 'text-foreground/80'
+                  }`}
+                >
+                  {format(day, 'd')}
+                </span>
+                {dayPosts.length > 0 && (
+                  <span className="text-[9px] font-semibold text-muted-foreground bg-muted px-1.5 py-0.2 rounded-md border border-border">
+                    {dayPosts.length}
+                  </span>
+                )}
+              </div>
 
-              <div className="mt-1 space-y-0.5">
-                {dayPosts.slice(0, 3).map((post) => (
+              <div className="mt-1 space-y-1 w-full">
+                {dayPosts.slice(0, 2).map((post) => (
                   <div
                     key={post.id}
-                    className={`truncate rounded px-1 py-0.5 text-[10px] font-medium text-white ${
+                    className={`truncate rounded-md px-1.5 py-0.5 text-[10px] font-bold text-white shadow-2xs ${
                       CHANNEL_COLORS[post.channel] ?? 'bg-muted-foreground'
                     }`}
                     title={getContentPreview(post)}
@@ -171,9 +178,9 @@ function MonthCalendarView({
                     {format(new Date(post.scheduled_time), 'h:mm a')} · {getChannelLabel(post.channel)}
                   </div>
                 ))}
-                {dayPosts.length > 3 && (
-                  <div className="text-[10px] text-muted-foreground pl-1">
-                    +{dayPosts.length - 3} more
+                {dayPosts.length > 2 && (
+                  <div className="text-[10px] text-muted-foreground font-semibold pl-1">
+                    +{dayPosts.length - 2} more
                   </div>
                 )}
               </div>
@@ -448,11 +455,11 @@ export default function SchedulePage() {
 
         <div className="flex items-center gap-2">
           {/* View toggle */}
-          <div className="flex items-center rounded-lg border bg-muted/30 p-0.5">
+          <div className="flex items-center rounded-xl border border-border bg-muted p-0.5 shadow-2xs">
             <Button
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
               size="sm"
-              className="h-7 px-2.5 text-xs gap-1.5"
+              className="h-7 px-3 text-xs font-semibold gap-1.5 data-[state=active]:shadow-2xs"
               onClick={() => setViewMode('list')}
             >
               <List className="h-3.5 w-3.5" />
@@ -461,7 +468,7 @@ export default function SchedulePage() {
             <Button
               variant={viewMode === 'calendar' ? 'secondary' : 'ghost'}
               size="sm"
-              className="h-7 px-2.5 text-xs gap-1.5"
+              className="h-7 px-3 text-xs font-semibold gap-1.5 data-[state=active]:shadow-2xs"
               onClick={() => setViewMode('calendar')}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
@@ -469,8 +476,8 @@ export default function SchedulePage() {
             </Button>
           </div>
 
-          <Button size="sm" onClick={() => { setSelectedDate(new Date()); setShowScheduler(true); }}>
-            <Plus className="mr-2 h-4 w-4" />
+          <Button size="sm" onClick={() => { setSelectedDate(new Date()); setShowScheduler(true); }} className="font-semibold shadow-2xs">
+            <Plus className="mr-1.5 h-4 w-4" />
             Schedule Post
           </Button>
         </div>
@@ -478,17 +485,17 @@ export default function SchedulePage() {
 
       {/* ── Scheduler Modal ─────────────────────────────────────────────────── */}
       {showScheduler && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-2xl max-h-[90vh] bg-background rounded-xl border shadow-lg flex flex-col">
+        <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] bg-card rounded-2xl border border-border shadow-2xl flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="flex justify-between items-center p-4 border-b">
-              <h3 className="text-md font-semibold">
+            <div className="flex justify-between items-center p-4 border-b border-border bg-muted/30">
+              <h3 className="text-md font-bold text-foreground">
                 {editingPost ? 'Edit Scheduled Post' : 'Schedule New Post'}
               </h3>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted"
                 onClick={() => {
                   setShowScheduler(false);
                   setEditingPost(null);
@@ -500,11 +507,11 @@ export default function SchedulePage() {
             </div>
 
             {/* Body */}
-            <div className="overflow-y-auto flex-1 p-4">
+            <div className="overflow-y-auto flex-1 p-5">
               <div className="space-y-4">
                 {/* Content */}
                 <div>
-                  <Label htmlFor="content" className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                  <Label htmlFor="content" className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-1.5 block">
                     Content
                   </Label>
                   <Textarea
@@ -512,21 +519,21 @@ export default function SchedulePage() {
                     value={newPost.content}
                     onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
                     placeholder="Enter your content..."
-                    className="min-h-[100px] text-[13px]"
+                    className="min-h-[110px] text-xs sm:text-sm border-border bg-background"
                   />
                 </div>
 
                 {/* Channel + Time */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-1.5 block">
                       Channel
                     </Label>
                     <Select
                       value={newPost.channel}
                       onValueChange={(v) => setNewPost({ ...newPost, channel: v })}
                     >
-                      <SelectTrigger className="h-8 text-[13px]">
+                      <SelectTrigger className="h-9 text-xs sm:text-sm border-border bg-background font-medium">
                         <SelectValue placeholder="Select channel" />
                       </SelectTrigger>
                       <SelectContent>
@@ -539,12 +546,12 @@ export default function SchedulePage() {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-1.5 block">
                       Time
                     </Label>
                     <Input
                       type="time"
-                      className="h-8 text-[13px]"
+                      className="h-9 text-xs sm:text-sm border-border bg-background font-medium"
                       value={newPost.time}
                       onChange={(e) => setNewPost({ ...newPost, time: e.target.value })}
                     />
@@ -554,10 +561,10 @@ export default function SchedulePage() {
                 {/* Date picker + options */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-2 block">
+                    <Label className="text-xs uppercase tracking-wider text-muted-foreground font-bold mb-2 block">
                       Date
                     </Label>
-                    <div className="border rounded-lg p-1.5 w-full bg-muted/20">
+                    <div className="border border-border rounded-xl p-2 w-full bg-card shadow-2xs">
                       <Calendar
                         mode="single"
                         selected={selectedDate}
@@ -568,15 +575,15 @@ export default function SchedulePage() {
                     </div>
                   </div>
 
-                  <div className="space-y-3 pt-4">
+                  <div className="space-y-3 pt-2">
                     {/* AI time optimisation */}
-                    <div className="flex items-center space-x-2 bg-muted/30 p-2 rounded-lg border">
+                    <div className="flex items-center space-x-2 bg-muted/40 p-2.5 rounded-xl border border-border">
                       <Switch
                         id="optimize_time"
                         checked={newPost.optimize_time}
                         onCheckedChange={(checked) => setNewPost({ ...newPost, optimize_time: checked })}
                       />
-                      <Label htmlFor="optimize_time" className="text-[12px] leading-tight">
+                      <Label htmlFor="optimize_time" className="text-xs font-semibold leading-tight text-foreground">
                         Use AI to optimise posting time
                       </Label>
                     </div>
@@ -586,29 +593,29 @@ export default function SchedulePage() {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="w-full text-[12px] h-8"
+                        className="w-full text-xs h-8 font-medium border-border hover:bg-muted"
                         onClick={suggestBestTime}
                       >
-                        <Sparkles className="mr-1.5 h-3.5 w-3.5 text-yellow-500" />
+                        <Sparkles className="mr-1.5 h-3.5 w-3.5 text-primary" />
                         Get AI Suggestion
                       </Button>
                     )}
 
                     {/* Reminder toggle */}
-                    <div className="flex items-center space-x-2 bg-muted/30 p-2 rounded-lg border">
+                    <div className="flex items-center space-x-2 bg-muted/40 p-2.5 rounded-xl border border-border">
                       <Switch
                         id="reminder"
                         checked={newPost.reminder}
                         onCheckedChange={(checked) => setNewPost({ ...newPost, reminder: checked })}
                       />
-                      <Label htmlFor="reminder" className="text-[12px] leading-tight flex items-center gap-1">
-                        <Bell className="h-3 w-3 text-orange-500" />
+                      <Label htmlFor="reminder" className="text-xs font-semibold leading-tight text-foreground flex items-center gap-1.5">
+                        <Bell className="h-3.5 w-3.5 text-primary" />
                         Remind me when it's time to post
                       </Label>
                     </div>
 
                     {newPost.reminder && (
-                      <p className="text-[11px] text-muted-foreground px-1">
+                      <p className="text-[11px] text-muted-foreground px-1 font-medium leading-relaxed">
                         You'll get a browser notification at the scheduled time. Keep this tab open or add MuseFlow to your home screen.
                       </p>
                     )}
@@ -618,10 +625,10 @@ export default function SchedulePage() {
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t">
+            <div className="p-4 border-t border-border bg-muted/30">
               <Button
                 size="sm"
-                className="w-full h-8"
+                className="w-full h-9 font-bold shadow-xs"
                 onClick={handleSchedulePost}
                 disabled={scheduling}
               >
@@ -640,12 +647,12 @@ export default function SchedulePage() {
       )}
 
       {/* ── Main content area ─────────────────────────────────────────────────── */}
-      <Card className="py-4">
-        <CardHeader className="px-4 pb-2">
-          <CardTitle className="text-lg">
+      <Card className="py-4 border border-border bg-card shadow-sm rounded-xl">
+        <CardHeader className="px-5 pb-3 border-b border-border bg-muted/20">
+          <CardTitle className="text-base font-bold text-foreground">
             {viewMode === 'list' ? 'Upcoming Posts' : format(new Date(), 'MMMM yyyy')}
           </CardTitle>
-          <CardDescription className="text-[13px]">
+          <CardDescription className="text-xs text-muted-foreground font-medium">
             {viewMode === 'list'
               ? 'Your scheduled content pieces — click the bell to set a reminder'
               : 'Click any day to schedule a post on that date'}

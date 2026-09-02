@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ProfileCard } from "@/components/dashboard/ProfileCard";
 import { ProfileFormDialog } from "@/components/dashboard/ProfileFormDialog";
+import { BYOKConfigDialog } from "@/components/dashboard/BYOKConfigDialog";
+import { syncProfileToAgent } from "@/lib/researchAgentClient";
 import toast from "react-hot-toast";
 import { Search, PlusCircle, Archive, Trash2 } from "lucide-react";
 import { Profile } from "@/types/profile";
@@ -33,6 +35,8 @@ export default function ProfilesManagementPage() {
     const [dialogMode, setDialogMode] = useState<"create" | "edit">("create");
     const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
     const [profileToDelete, setProfileToDelete] = useState<string | null>(null);
+    const [byokProfile, setByokProfile] = useState<Profile | null>(null);
+
 
     const fetchProfiles = useCallback(async () => {
         setLoading(true);
@@ -95,6 +99,13 @@ export default function ProfilesManagementPage() {
                 throw new Error(errorData.error || "Failed to create profile");
             }
 
+            const data = await response.json();
+            const created = data.profile || data;
+            if (created && created.id) {
+                // Synchronize brand voice with the Research Agent backend
+                syncProfileToAgent(created.id, created.profile_name, profileData.niche).catch(console.warn);
+            }
+
             toast.success("Profile created successfully!");
             await fetchProfiles();
         } catch (error: unknown) {
@@ -122,6 +133,9 @@ export default function ProfilesManagementPage() {
                 const errorData = await response.json();
                 throw new Error(errorData.error || "Failed to update profile");
             }
+
+            // Sync update with Research Agent
+            syncProfileToAgent(selectedProfile.id, profileData.profile_name || selectedProfile.profile_name, profileData.niche).catch(console.warn);
 
             toast.success("Profile updated successfully!");
             await fetchProfiles();
@@ -314,6 +328,7 @@ export default function ProfilesManagementPage() {
                                 onEdit={openEditDialog}
                                 onDelete={handleDeleteProfile}
                                 onSetActive={handleSetActiveProfile}
+                                onConfigureBYOK={(p) => setByokProfile(p)}
                             />
                         ))}
                     </div>
@@ -327,6 +342,14 @@ export default function ProfilesManagementPage() {
                 profile={selectedProfile}
                 mode={dialogMode}
                 onSave={dialogMode === "create" ? handleCreateProfile : handleEditProfile}
+            />
+
+            {/* BYOK & Model Config Dialog */}
+            <BYOKConfigDialog
+                open={!!byokProfile}
+                onOpenChange={(open) => !open && setByokProfile(null)}
+                profileId={byokProfile?.id || ""}
+                profileName={byokProfile?.profile_name || ""}
             />
 
             {/* Delete Confirmation Dialog */}

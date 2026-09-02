@@ -312,24 +312,24 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
   return (
     <div className="flex flex-col gap-4">
       {/* ── Main Chat Container ──────────────────────────────────────────────── */}
-      <Card className="border-border/70 bg-gradient-to-b from-card via-card/95 to-background shadow-md overflow-hidden relative">
+      <Card className="border border-border bg-card shadow-sm overflow-hidden relative">
         {/* Decorative background glow */}
         <div className="absolute top-0 right-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl pointer-events-none -mt-24" />
 
         {/* Card Header Toolbar */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/50 bg-muted/20 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-border bg-muted/40 backdrop-blur-sm">
           <div className="flex items-center gap-2.5">
-            <div className="h-8 w-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center font-bold">
+            <div className="h-8 w-8 rounded-lg bg-primary/15 text-primary flex items-center justify-center font-bold shadow-2xs">
               <Sparkles className="w-4 h-4 text-primary" />
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-foreground">AI Creation Hub</span>
-                <Badge variant="outline" className="text-[10px] py-0 font-medium text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/10">
+                <Badge variant="outline" className="text-[10px] py-0 font-medium text-emerald-700 dark:text-emerald-300 border-emerald-500/40 bg-emerald-500/10">
                   Ready
                 </Badge>
               </div>
-              <p className="text-[11px] text-muted-foreground hidden sm:block">
+              <p className="text-[11px] text-muted-foreground hidden sm:block font-medium">
                 Chat, brainstorm hooks, write drafts, or transform ideas into multi-channel campaigns.
               </p>
             </div>
@@ -341,7 +341,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                 variant="ghost"
                 size="sm"
                 onClick={handleClearChat}
-                className="h-7 px-2.5 text-xs text-muted-foreground hover:text-destructive gap-1.5"
+                className="h-7 px-2.5 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 gap-1.5"
                 title="Start a new chat session"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -355,7 +355,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
           {/* ── Empty State / Starter Prompts ─────────────────────────────────── */}
           {messages.length === 0 && (
             <div className="py-6 sm:py-8 flex flex-col items-center text-center max-w-2xl mx-auto">
-              <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-3 shadow-inner">
+              <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-3 shadow-xs border border-primary/20">
                 <Bot className="w-6 h-6" />
               </div>
               <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
@@ -366,7 +366,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
               </p>
 
               {/* Starter Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full mt-6 text-left">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full mt-6 text-left">
                 {STARTER_PROMPTS.map((item, idx) => (
                   <button
                     key={idx}
@@ -375,7 +375,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                       setSelectedChannel(item.channel);
                       handleSendMessage(item.prompt, item.channel);
                     }}
-                    className="p-3.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 hover:border-primary/50 transition-all text-left group flex flex-col justify-between"
+                    className="p-4 rounded-xl border border-border bg-card hover:bg-muted/40 hover:border-primary/60 hover:shadow-xs transition-all text-left group flex flex-col justify-between"
                   >
                     <div>
                       <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors block mb-1">
@@ -385,7 +385,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                         {item.prompt}
                       </p>
                     </div>
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border/40 text-[10px] text-muted-foreground">
+                    <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-border/60 text-[10px] text-muted-foreground font-medium">
                       <span className="capitalize">{item.channel} format</span>
                       <ArrowRight className="w-3 h-3 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                     </div>
@@ -408,7 +408,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                 >
                   {/* Assistant Avatar */}
                   {msg.role === 'assistant' && (
-                    <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 font-bold">
+                    <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0 mt-0.5 font-bold shadow-2xs">
                       <Bot className="w-4 h-4" />
                     </div>
                   )}
@@ -416,26 +416,26 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                   {/* Message Bubble */}
                   <div
                     className={cn(
-                      'rounded-2xl px-4 py-3 max-w-[88%] sm:max-w-[80%]',
+                      'rounded-2xl px-4.5 py-3.5 max-w-[88%] sm:max-w-[80%]',
                       msg.role === 'user'
-                        ? 'bg-primary text-primary-foreground rounded-br-xs shadow-sm'
-                        : 'bg-muted/40 border border-border/70 text-foreground rounded-tl-xs shadow-xs'
+                        ? 'bg-primary text-primary-foreground rounded-br-xs shadow-xs font-medium'
+                        : 'bg-card border border-border text-foreground rounded-tl-xs shadow-xs'
                     )}
                   >
                     {/* Header info */}
                     {msg.role === 'assistant' && msg.channel && msg.channel !== 'all' && (
-                      <div className="mb-2 pb-1.5 border-b border-border/40 flex items-center justify-between">
-                        <Badge variant="outline" className="text-[10px] py-0 capitalize bg-background font-normal">
+                      <div className="mb-2 pb-1.5 border-b border-border flex items-center justify-between">
+                        <Badge variant="outline" className="text-[10px] py-0 capitalize bg-muted/60 text-foreground font-medium border-border">
                           {msg.channel} format
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground">
+                        <span className="text-[10px] text-muted-foreground font-medium">
                           {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                     )}
 
                     {/* Markdown Output */}
-                    <div className="prose prose-xs sm:prose-sm dark:prose-invert max-w-none break-words leading-relaxed">
+                    <div className="prose prose-xs sm:prose-sm dark:prose-invert max-w-none break-words leading-relaxed text-foreground [&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground [&_p]:text-foreground/90 [&_li]:text-foreground/90 [&_strong]:text-foreground">
                       <ReactMarkdown remarkPlugins={[remarkGfm]}>
                         {msg.content}
                       </ReactMarkdown>
@@ -443,17 +443,17 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
 
                     {/* ── Assistant Action Bar ───────────────────────────────── */}
                     {msg.role === 'assistant' && (
-                      <div className="mt-3.5 pt-2.5 border-t border-border/40 flex items-center justify-between flex-wrap gap-2">
+                      <div className="mt-3.5 pt-2.5 border-t border-border flex items-center justify-between flex-wrap gap-2">
                         {/* Quick Transfer Actions */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Button
                             size="sm"
                             variant="secondary"
                             onClick={() => handleOpenInEditor(msg)}
-                            className="h-7 text-[11px] px-2.5 gap-1.5 bg-background hover:bg-accent border border-border/60"
+                            className="h-7 text-[11px] px-2.5 gap-1.5 bg-muted/70 hover:bg-muted text-foreground border border-border font-medium shadow-2xs"
                             title="Continue drafting in the full rich text editor"
                           >
-                            <FileEdit className="w-3 h-3 text-purple-500" />
+                            <FileEdit className="w-3 h-3 text-purple-600 dark:text-purple-400" />
                             <span>Editor</span>
                           </Button>
 
@@ -461,10 +461,10 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                             size="sm"
                             variant="secondary"
                             onClick={() => handleSendToCanvas(msg)}
-                            className="h-7 text-[11px] px-2.5 gap-1.5 bg-background hover:bg-accent border border-border/60"
+                            className="h-7 text-[11px] px-2.5 gap-1.5 bg-muted/70 hover:bg-muted text-foreground border border-border font-medium shadow-2xs"
                             title="Open inside the visual node canvas planner"
                           >
-                            <SquarePen className="w-3 h-3 text-sky-500" />
+                            <SquarePen className="w-3 h-3 text-sky-600 dark:text-sky-400" />
                             <span>Canvas</span>
                           </Button>
 
@@ -472,10 +472,10 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                             size="sm"
                             variant="secondary"
                             onClick={() => handleOpenScheduleModal(msg)}
-                            className="h-7 text-[11px] px-2.5 gap-1.5 bg-background hover:bg-accent border border-border/60"
+                            className="h-7 text-[11px] px-2.5 gap-1.5 bg-muted/70 hover:bg-muted text-foreground border border-border font-medium shadow-2xs"
                             title="Schedule this post with browser reminders"
                           >
-                            <Calendar className="w-3 h-3 text-emerald-500" />
+                            <Calendar className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                             <span>Schedule</span>
                           </Button>
 
@@ -484,10 +484,10 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                             variant="ghost"
                             onClick={() => handleSaveToIdeas(msg)}
                             disabled={msg.savedToIdeas}
-                            className="h-7 text-[11px] px-2 text-muted-foreground hover:text-amber-500"
+                            className="h-7 text-[11px] px-2 text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10"
                             title="Bookmark in Ideas collection"
                           >
-                            <BookmarkPlus className={cn('w-3 h-3', msg.savedToIdeas && 'text-amber-500 fill-amber-500')} />
+                            <BookmarkPlus className={cn('w-3.5 h-3.5', msg.savedToIdeas && 'text-amber-500 fill-amber-500')} />
                           </Button>
                         </div>
 
@@ -496,11 +496,11 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                           size="sm"
                           variant="ghost"
                           onClick={() => handleCopy(msg)}
-                          className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                          className="h-7 px-2 text-[11px] text-muted-foreground hover:text-foreground hover:bg-muted"
                           title="Copy markdown text"
                         >
                           {copiedId === msg.id ? (
-                            <Check className="w-3.5 h-3.5 text-emerald-500" />
+                            <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                           ) : (
                             <Copy className="w-3.5 h-3.5" />
                           )}
@@ -511,7 +511,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
 
                   {/* User Avatar */}
                   {msg.role === 'user' && (
-                    <div className="w-7 h-7 rounded-lg bg-muted text-muted-foreground flex items-center justify-center shrink-0 mt-0.5">
+                    <div className="w-7 h-7 rounded-lg bg-muted text-foreground border border-border flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                       <User className="w-4 h-4" />
                     </div>
                   )}
@@ -521,12 +521,12 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
               {/* Loading Indicator */}
               {isLoading && (
                 <div className="flex gap-3 justify-start items-center text-muted-foreground text-xs pl-1">
-                  <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                  <div className="w-7 h-7 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shadow-2xs">
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   </div>
-                  <div className="flex items-center gap-2 bg-muted/30 px-3.5 py-2 rounded-xl border border-border/40">
+                  <div className="flex items-center gap-2 bg-card px-3.5 py-2 rounded-xl border border-border shadow-2xs">
                     <Sparkles className="w-3 h-3 text-primary animate-pulse" />
-                    <span>Gemini is generating your content...</span>
+                    <span className="font-medium text-foreground">Gemini is generating your content...</span>
                   </div>
                 </div>
               )}
@@ -538,7 +538,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
           {/* ── Follow-up Refinement Chips (Shown when messages exist) ──────────── */}
           {messages.length > 0 && !isLoading && (
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px]">
-              <span className="text-muted-foreground shrink-0 flex items-center gap-1 mr-1">
+              <span className="text-muted-foreground font-medium shrink-0 flex items-center gap-1 mr-1">
                 <SlidersHorizontal className="w-3 h-3" /> Refine:
               </span>
               {REFINEMENT_ACTIONS.map((refine, idx) => (
@@ -546,7 +546,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                   key={idx}
                   type="button"
                   onClick={() => handleSendMessage(refine)}
-                  className="shrink-0 px-2.5 py-1 rounded-full border border-border/60 bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
+                  className="shrink-0 px-3 py-1 rounded-full border border-border bg-card hover:bg-muted/80 hover:border-primary/40 text-foreground/80 hover:text-foreground font-medium shadow-2xs transition-all"
                 >
                   "{refine}"
                 </button>
@@ -555,7 +555,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
           )}
 
           {/* ── Input Omnibar ──────────────────────────────────────────────────── */}
-          <div className="space-y-2 pt-2 border-t border-border/40">
+          <div className="space-y-2 pt-2 border-t border-border">
             {/* Format Channels Selector */}
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
               <span className="text-[11px] font-medium text-muted-foreground mr-1 hidden sm:inline">
@@ -570,10 +570,10 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                     type="button"
                     onClick={() => setSelectedChannel(preset.id)}
                     className={cn(
-                      'text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all shrink-0 flex items-center gap-1.5',
+                      'text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all shrink-0 flex items-center gap-1.5 border',
                       isSelected
-                        ? 'bg-primary text-primary-foreground shadow-xs'
-                        : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
+                        ? 'bg-primary text-primary-foreground border-primary shadow-2xs font-semibold'
+                        : 'bg-muted/60 text-foreground/80 border-border hover:bg-muted hover:text-foreground'
                     )}
                   >
                     <Icon className="w-3 h-3" />
@@ -589,7 +589,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                 e.preventDefault();
                 handleSendMessage();
               }}
-              className="relative flex items-end rounded-2xl border border-border/80 bg-background/90 shadow-inner focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary transition-all p-1.5"
+              className="relative flex items-end rounded-2xl border border-border bg-card shadow-xs focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary transition-all p-1.5"
             >
               <Textarea
                 ref={textareaRef}
@@ -602,7 +602,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                   }
                 }}
                 placeholder="What would you like to create or refine? (Press Enter to send, Shift+Enter for new line)"
-                className="min-h-[44px] max-h-[140px] resize-none border-0 shadow-none focus-visible:ring-0 text-xs sm:text-sm py-2 px-2.5 bg-transparent"
+                className="min-h-[44px] max-h-[140px] resize-none border-0 shadow-none focus-visible:ring-0 text-xs sm:text-sm py-2 px-2.5 bg-transparent text-foreground placeholder:text-muted-foreground"
                 rows={1}
               />
 

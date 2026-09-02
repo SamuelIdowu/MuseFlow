@@ -104,7 +104,7 @@ export function Sidebar({
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
-          'flex flex-col h-full border-r border-zinc-900 bg-zinc-950 text-zinc-400 flex-shrink-0 transition-all duration-300 ease-in-out select-none',
+          'flex flex-col h-full border-r border-border bg-card text-muted-foreground flex-shrink-0 transition-all duration-300 ease-in-out select-none',
           isCollapsed ? 'w-14' : 'w-56'
         )}
       >
@@ -112,7 +112,7 @@ export function Sidebar({
           {/* Header: Brand & Collapse Button */}
           <div
             className={cn(
-              'flex items-center py-3.5 px-3 flex-shrink-0 border-b border-zinc-900/60',
+              'flex items-center py-3.5 px-3 flex-shrink-0 border-b border-border/60',
               isCollapsed ? 'justify-center' : 'justify-between'
             )}
           >
@@ -130,10 +130,10 @@ export function Sidebar({
               />
               {!isCollapsed && (
                 <div className="flex flex-col truncate">
-                  <span className="font-semibold text-xs text-zinc-100 tracking-tight leading-none truncate">
+                  <span className="font-semibold text-xs text-foreground tracking-tight leading-none truncate">
                     MuseFlow
                   </span>
-                  <span className="text-[10px] text-zinc-500 font-medium leading-tight truncate">
+                  <span className="text-[10px] text-muted-foreground font-medium leading-tight truncate">
                     AI Content Studio
                   </span>
                 </div>
@@ -145,7 +145,7 @@ export function Sidebar({
                 variant="ghost"
                 size="icon"
                 onClick={toggleSidebar}
-                className="h-7 w-7 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/60 rounded-lg flex-shrink-0"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg flex-shrink-0"
                 title="Collapse sidebar"
               >
                 <PanelLeftClose className="w-[15px] h-[15px]" />
@@ -200,9 +200,9 @@ export function Sidebar({
                         href={item.href}
                         onClick={onNavClick}
                         className={cn(
-                          'flex items-center justify-center h-8.5 w-8.5 mx-auto rounded-xl transition-all duration-200 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 group relative',
+                          'flex items-center justify-center h-8.5 w-8.5 mx-auto rounded-xl transition-all duration-200 text-muted-foreground hover:text-foreground hover:bg-muted/80 group relative',
                           isActive &&
-                            'bg-zinc-800 text-zinc-50 before:absolute before:left-[-6px] before:top-1/2 before:-translate-y-1/2 before:h-4 before:w-1 before:rounded-r-full before:bg-primary'
+                            'bg-primary/10 text-primary font-semibold before:absolute before:left-[-6px] before:top-1/2 before:-translate-y-1/2 before:h-4 before:w-1 before:rounded-r-full before:bg-primary'
                         )}
                       >
                         <Icon
@@ -224,9 +224,9 @@ export function Sidebar({
                   href={item.href}
                   onClick={onNavClick}
                   className={cn(
-                    'flex items-center gap-3 px-3 h-8.5 rounded-lg text-xs font-medium transition-all duration-150 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 group relative',
+                    'flex items-center gap-3 px-3 h-8.5 rounded-lg text-xs font-medium transition-all duration-150 text-muted-foreground hover:text-foreground hover:bg-muted/80 group relative',
                     isActive &&
-                      'bg-zinc-800/90 text-zinc-50 font-semibold border-l-2 border-primary rounded-l-none pl-2.5'
+                      'bg-primary/10 text-primary font-semibold border-l-2 border-primary rounded-l-none pl-2.5'
                   )}
                 >
                   <Icon
@@ -242,7 +242,7 @@ export function Sidebar({
           <div className="flex-1" />
 
           {/* Footer Controls */}
-          <div className="p-2 border-t border-zinc-900/60 flex flex-col gap-1.5">
+          <div className="p-2 border-t border-border/60 flex flex-col gap-1.5">
             {isCollapsed ? (
               <>
                 <Tooltip>
@@ -251,7 +251,7 @@ export function Sidebar({
                       variant="ghost"
                       size="icon"
                       onClick={toggleSidebar}
-                      className="h-8.5 w-8.5 mx-auto text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50 rounded-xl"
+                      className="h-8.5 w-8.5 mx-auto text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl"
                     >
                       <PanelLeftOpen className="w-[15px] h-[15px]" />
                     </Button>

@@ -319,6 +319,10 @@ export interface Database {
           flutterwave_customer_id: string | null
           flutterwave_transaction_ref: string | null
           flutterwave_plan_id: string | null
+          plan_tier: string | null
+          payment_provider: string | null
+          subscription_id: string | null
+          customer_id: string | null
           subscription_status: string | null
           current_period_end: string | null
           subscription_plan: string | null
@@ -332,6 +336,10 @@ export interface Database {
           flutterwave_customer_id?: string | null
           flutterwave_transaction_ref?: string | null
           flutterwave_plan_id?: string | null
+          plan_tier?: string | null
+          payment_provider?: string | null
+          subscription_id?: string | null
+          customer_id?: string | null
           subscription_status?: string | null
           current_period_end?: string | null
           subscription_plan?: string | null
@@ -345,6 +353,10 @@ export interface Database {
           flutterwave_customer_id?: string | null
           flutterwave_transaction_ref?: string | null
           flutterwave_plan_id?: string | null
+          plan_tier?: string | null
+          payment_provider?: string | null
+          subscription_id?: string | null
+          customer_id?: string | null
           subscription_status?: string | null
           current_period_end?: string | null
           subscription_plan?: string | null
@@ -477,6 +489,33 @@ export interface Database {
             referencedColumns: ["id"]
           }
         ]
+      }
+      billing_webhook_events: {
+        Row: {
+          id: string
+          event_id: string
+          provider: string
+          event_type: string
+          payload: Json
+          processed_at: string
+        }
+        Insert: {
+          id?: string
+          event_id: string
+          provider: string
+          event_type: string
+          payload: Json
+          processed_at?: string
+        }
+        Update: {
+          id?: string
+          event_id?: string
+          provider?: string
+          event_type?: string
+          payload?: Json
+          processed_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {

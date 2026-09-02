@@ -27,9 +27,10 @@ export function DashboardMetricsGrid({ stats, usage }: DashboardMetricsGridProps
       label: 'Angles & Hooks',
       icon: Sparkles,
       href: '/dashboard/ideas',
-      iconColor: 'text-indigo-500 dark:text-indigo-400',
+      iconColor: 'text-indigo-600 dark:text-indigo-400',
+      iconBg: 'bg-indigo-500/10 border-indigo-500/20',
       bgGlow: 'from-indigo-500/10 to-transparent',
-      borderColor: 'hover:border-indigo-500/40',
+      borderColor: 'hover:border-indigo-500/50',
     },
     {
       title: 'Visual Canvases',
@@ -37,9 +38,10 @@ export function DashboardMetricsGrid({ stats, usage }: DashboardMetricsGridProps
       label: 'Active Workspaces',
       icon: SquarePen,
       href: '/dashboard/canvas',
-      iconColor: 'text-sky-500 dark:text-sky-400',
+      iconColor: 'text-sky-600 dark:text-sky-400',
+      iconBg: 'bg-sky-500/10 border-sky-500/20',
       bgGlow: 'from-sky-500/10 to-transparent',
-      borderColor: 'hover:border-sky-500/40',
+      borderColor: 'hover:border-sky-500/50',
     },
     {
       title: 'Saved Campaigns',
@@ -47,9 +49,10 @@ export function DashboardMetricsGrid({ stats, usage }: DashboardMetricsGridProps
       label: 'Multi-Channel Sets',
       icon: Megaphone,
       href: '/dashboard/campaigns',
-      iconColor: 'text-emerald-500 dark:text-emerald-400',
+      iconColor: 'text-emerald-600 dark:text-emerald-400',
+      iconBg: 'bg-emerald-500/10 border-emerald-500/20',
       bgGlow: 'from-emerald-500/10 to-transparent',
-      borderColor: 'hover:border-emerald-500/40',
+      borderColor: 'hover:border-emerald-500/50',
     },
     {
       title: 'Scheduled Posts',
@@ -57,9 +60,10 @@ export function DashboardMetricsGrid({ stats, usage }: DashboardMetricsGridProps
       label: 'Queued for Publishing',
       icon: Calendar,
       href: '/dashboard/schedule',
-      iconColor: 'text-amber-500 dark:text-amber-400',
+      iconColor: 'text-amber-600 dark:text-amber-400',
+      iconBg: 'bg-amber-500/10 border-amber-500/20',
       bgGlow: 'from-amber-500/10 to-transparent',
-      borderColor: 'hover:border-amber-500/40',
+      borderColor: 'hover:border-amber-500/50',
     },
   ];
 
@@ -71,25 +75,27 @@ export function DashboardMetricsGrid({ stats, usage }: DashboardMetricsGridProps
           <Link key={card.title} href={card.href} className="group block focus:outline-none">
             <Card
               className={cn(
-                'relative overflow-hidden transition-all duration-200 border-border/60 hover:shadow-md hover:-translate-y-0.5 bg-card/80 backdrop-blur-sm',
+                'relative overflow-hidden transition-all duration-200 border border-border shadow-sm hover:shadow-md hover:-translate-y-0.5 bg-card',
                 card.borderColor
               )}
             >
-              <div className={cn('absolute inset-0 bg-gradient-to-br opacity-50 pointer-events-none', card.bgGlow)} />
+              <div className={cn('absolute inset-0 bg-gradient-to-br opacity-40 pointer-events-none', card.bgGlow)} />
               <CardContent className="p-4 relative flex flex-col justify-between h-full">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-muted-foreground">{card.title}</span>
-                  <div className="flex items-center gap-1">
-                    <Icon className={cn('w-4 h-4', card.iconColor)} />
+                  <span className="text-xs font-semibold text-foreground/80">{card.title}</span>
+                  <div className="flex items-center gap-1.5">
+                    <div className={cn('w-7 h-7 rounded-lg border flex items-center justify-center shadow-2xs', card.iconBg)}>
+                      <Icon className={cn('w-3.5 h-3.5', card.iconColor)} />
+                    </div>
                     <ArrowUpRight className="w-3.5 h-3.5 text-muted-foreground/50 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 </div>
 
                 <div className="mt-3 flex items-baseline justify-between">
-                  <span className="text-2xl font-bold tracking-tight text-foreground font-mono">
+                  <span className="text-2xl font-extrabold tracking-tight text-foreground font-mono">
                     {card.value.toLocaleString()}
                   </span>
-                  <span className="text-[11px] font-medium text-muted-foreground/80">{card.label}</span>
+                  <span className="text-[11px] font-medium text-muted-foreground">{card.label}</span>
                 </div>
               </CardContent>
             </Card>
@@ -99,15 +105,17 @@ export function DashboardMetricsGrid({ stats, usage }: DashboardMetricsGridProps
 
       {/* AI Allowance / Quota Card */}
       <Link href="/dashboard/settings/billing" className="group block focus:outline-none sm:col-span-2 lg:col-span-1">
-        <Card className="relative overflow-hidden transition-all duration-200 border-border/60 hover:shadow-md hover:-translate-y-0.5 bg-card/80 backdrop-blur-sm hover:border-purple-500/40 h-full">
-          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-60 pointer-events-none" />
+        <Card className="relative overflow-hidden transition-all duration-200 border border-border shadow-sm hover:shadow-md hover:-translate-y-0.5 bg-card hover:border-purple-500/50 h-full">
+          <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-50 pointer-events-none" />
           <CardContent className="p-4 relative flex flex-col justify-between h-full">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
-                <Zap className="w-4 h-4 text-purple-500 dark:text-purple-400 fill-purple-500/20" />
-                <span className="text-xs font-medium text-muted-foreground">AI Quota</span>
+                <div className="w-7 h-7 rounded-lg border border-purple-500/20 bg-purple-500/10 flex items-center justify-center shadow-2xs">
+                  <Zap className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 fill-purple-500/20" />
+                </div>
+                <span className="text-xs font-semibold text-foreground/80">AI Quota</span>
               </div>
-              <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0 h-4">
+              <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0 h-4 bg-muted text-foreground border border-border">
                 {usage.plan}
               </Badge>
             </div>
@@ -117,11 +125,11 @@ export function DashboardMetricsGrid({ stats, usage }: DashboardMetricsGridProps
                 <span className="text-lg font-bold tracking-tight text-foreground font-mono">
                   {usage.current} <span className="text-xs font-normal text-muted-foreground">/ {usage.limit}</span>
                 </span>
-                <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400">
+                <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300">
                   {usage.percentage}% used
                 </span>
               </div>
-              <Progress value={usage.percentage} className="h-1.5 bg-muted" />
+              <Progress value={usage.percentage} className="h-1.5 bg-muted border border-border/40" />
             </div>
           </CardContent>
         </Card>

@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Edit, Trash2 } from "lucide-react";
+import { CheckCircle, Edit, Trash2, Cpu } from "lucide-react";
 import { Profile, ToneConfig } from "@/types/profile";
 
 interface ProfileCardProps {
@@ -11,6 +11,7 @@ interface ProfileCardProps {
     onEdit: (profile: Profile) => void;
     onDelete: (profileId: string) => void;
     onSetActive: (profileId: string) => void;
+    onConfigureBYOK?: (profile: Profile) => void;
 }
 
 // Extract tone keywords from tone_config
@@ -37,7 +38,7 @@ function getToneKeywords(toneConfig: ToneConfig | null): string[] {
     return keywords.length > 0 ? keywords : ["Standard"];
 }
 
-export function ProfileCard({ profile, onEdit, onDelete, onSetActive }: ProfileCardProps) {
+export function ProfileCard({ profile, onEdit, onDelete, onSetActive, onConfigureBYOK }: ProfileCardProps) {
     const isActive = profile.is_active;
     const toneKeywords = getToneKeywords(profile.tone_config);
 
@@ -99,25 +100,39 @@ export function ProfileCard({ profile, onEdit, onDelete, onSetActive }: ProfileC
                     )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        className="flex-1 flex items-center justify-center gap-2 transition-all duration-200"
-                        onClick={() => onEdit(profile)}
-                    >
-                        <Edit className="h-4 w-4" />
-                        <span>Edit</span>
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="flex-1 flex items-center justify-center gap-2 text-destructive hover:bg-destructive/10 transition-all duration-200"
-                        onClick={() => onDelete(profile.id)}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                        <span>Delete</span>
-                    </Button>
+                <div className="flex flex-col gap-2">
+                    {onConfigureBYOK && (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="w-full flex items-center justify-center gap-2 text-xs"
+                            onClick={() => onConfigureBYOK(profile)}
+                        >
+                            <Cpu className="h-3.5 w-3.5 text-indigo-500" />
+                            <span>Model & BYOK Settings</span>
+                        </Button>
+                    )}
+                    <div className="flex items-center gap-2">
+                        <Button
+                            variant="outline"
+                            className="flex-1 flex items-center justify-center gap-2 transition-all duration-200"
+                            onClick={() => onEdit(profile)}
+                        >
+                            <Edit className="h-4 w-4" />
+                            <span>Edit</span>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="flex-1 flex items-center justify-center gap-2 text-destructive hover:bg-destructive/10 transition-all duration-200"
+                            onClick={() => onDelete(profile.id)}
+                        >
+                            <Trash2 className="h-4 w-4" />
+                            <span>Delete</span>
+                        </Button>
+                    </div>
                 </div>
             </CardContent>
         </Card>
     );
 }
+

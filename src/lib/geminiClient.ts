@@ -9,6 +9,27 @@ const model = genAI.getGenerativeModel({
   model: "gemini-2.0-flash",
 });
 
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number = 15000,
+  fallbackValue?: T
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<T>((resolve, reject) => {
+    timer = setTimeout(() => {
+      if (fallbackValue !== undefined) {
+        resolve(fallbackValue);
+      } else {
+        reject(new Error(`AI generation timed out after ${ms}ms`));
+      }
+    }, ms);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
+
 async function buildProfileContext(profile?: Profile | null): Promise<string> {
   if (!profile) return "";
 
@@ -118,7 +139,7 @@ export async function generateChatResponse(input: string, activeProfile?: Profil
     
     Return only the response text.`;
 
-    const result = await model.generateContent(prompt);
+    const result = await withTimeout(model.generateContent(prompt), 15000);
     const response = result.response;
 
     // Check if there's a response before trying to get text
@@ -557,7 +578,7 @@ export async function generateCanvasBlocksFromChat(
     }
 
 
-    const result = await model.generateContent(parts);
+    const result = await withTimeout(model.generateContent(parts), 15000);
     const response = result.response;
     
     if (!response) {

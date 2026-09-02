@@ -201,13 +201,13 @@ export function AiChatSidebar({
       </div>
 
       {/* Quick Prompt Catalyst Chips */}
-      <div className="px-3.5 py-2 border-b border-border/50 bg-muted/10 overflow-x-auto no-scrollbar flex items-center gap-1.5 shrink-0">
+      <div className="px-3 py-1.5 border-b border-border/50 bg-muted/10 overflow-x-auto no-scrollbar flex items-center gap-1.5 shrink-0">
         {QUICK_PROMPTS.map((prompt, idx) => (
           <button
             key={idx}
             onClick={() => handleSendMessage(prompt)}
             disabled={isLoading}
-            className="text-[10px] font-medium px-2.5 py-1 rounded-full border border-border/70 bg-card hover:bg-muted/70 hover:border-primary/40 text-muted-foreground hover:text-foreground whitespace-nowrap transition-all shrink-0"
+            className="text-[9.5px] font-medium px-2 py-0.5 rounded-full border border-border/70 bg-card hover:bg-muted/70 hover:border-primary/40 text-muted-foreground hover:text-foreground whitespace-nowrap transition-all shrink-0"
           >
             {prompt}
           </button>
@@ -215,35 +215,35 @@ export function AiChatSidebar({
       </div>
 
       {/* Messages Scroll Area */}
-      <ScrollArea className="flex-1 p-4 space-y-4">
+      <ScrollArea className="flex-1 p-3 space-y-3">
         {messages.map((m) => {
           const isUser = m.role === "user";
           return (
-            <div key={m.id} className={`flex gap-2.5 mb-4 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+            <div key={m.id} className={`flex gap-2 mb-3.5 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
               {/* Avatar */}
               <div
-                className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                   isUser
-                    ? "bg-primary text-primary-foreground font-semibold text-xs"
+                    ? "bg-primary text-primary-foreground font-semibold text-[10px]"
                     : "bg-primary/15 text-primary border border-primary/25"
                 }`}
               >
-                {isUser ? <User size={13} /> : <Bot size={14} />}
+                {isUser ? <User size={11} /> : <Bot size={12} />}
               </div>
 
               {/* Message Box */}
               <div
-                className={`max-w-[84%] rounded-2xl p-3 text-xs leading-relaxed ${
+                className={`max-w-[86%] rounded-xl p-2.5 text-[11.5px] leading-relaxed ${
                   isUser
-                    ? "bg-primary text-primary-foreground rounded-tr-none shadow-xs"
+                    ? "bg-primary text-primary-foreground rounded-tr-none shadow-2xs"
                     : "bg-muted/40 text-foreground border border-border/70 rounded-tl-none"
                 }`}
               >
                 {/* Message Body */}
                 <div
-                  className={`prose prose-xs max-w-none ${
+                  className={`prose max-w-none text-[11.5px] leading-relaxed [&_p]:text-[11.5px] [&_p]:leading-relaxed [&_p]:mb-1.5 [&_li]:text-[11px] [&_h1]:text-xs [&_h2]:text-xs [&_h3]:text-[11px] [&_strong]:text-foreground [&_code]:text-[10px] ${
                     isUser
-                      ? "prose-invert text-white [&_p]:text-white [&_a]:text-white"
+                      ? "prose-invert text-white [&_p]:text-white [&_a]:text-white [&_strong]:text-white"
                       : "dark:prose-invert text-foreground"
                   }`}
                   dangerouslySetInnerHTML={{ __html: marked.parse(m.content) as string }}
@@ -251,29 +251,29 @@ export function AiChatSidebar({
 
                 {/* Assistant Action Buttons */}
                 {!isUser && m.id !== "welcome" && (
-                  <div className="mt-2.5 pt-2 border-t border-border/50 flex items-center gap-1.5">
+                  <div className="mt-2 pt-1.5 border-t border-border/50 flex items-center gap-1">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => handleInsertHtml(m.content)}
-                      className="h-6 px-2 text-[10px] font-medium text-primary hover:bg-primary/10 border-primary/30 flex items-center gap-1"
+                      className="h-5 px-1.5 text-[9px] font-medium text-primary hover:bg-primary/10 border-primary/30 flex items-center gap-1"
                     >
-                      <PlusCircle size={10} />
-                      Insert into Editor
+                      <PlusCircle size={9} />
+                      Insert
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={() => handleCopyMessage(m.content, m.id)}
-                      className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground flex items-center gap-1"
+                      className="h-5 px-1.5 text-[9px] text-muted-foreground hover:text-foreground flex items-center gap-1"
                     >
-                      {copiedId === m.id ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
+                      {copiedId === m.id ? <Check size={9} className="text-emerald-500" /> : <Copy size={9} />}
                       {copiedId === m.id ? "Copied" : "Copy"}
                     </Button>
                   </div>
                 )}
 
-                <div className={`text-[9px] mt-1 text-right ${isUser ? "text-white/70" : "text-muted-foreground/70"}`}>
+                <div className={`text-[8.5px] mt-1 text-right ${isUser ? "text-white/70" : "text-muted-foreground/70"}`}>
                   {m.timestamp}
                 </div>
               </div>
@@ -283,11 +283,11 @@ export function AiChatSidebar({
 
         {/* Loading Indicator */}
         {isLoading && (
-          <div className="flex gap-2.5 items-center mb-4">
-            <div className="w-7 h-7 rounded-full bg-primary/15 text-primary border border-primary/25 flex items-center justify-center shrink-0">
-              <Bot size={14} />
+          <div className="flex gap-2 items-center mb-3">
+            <div className="w-6 h-6 rounded-full bg-primary/15 text-primary border border-primary/25 flex items-center justify-center shrink-0">
+              <Bot size={12} />
             </div>
-            <div className="p-3 rounded-2xl bg-muted/40 border border-border/70 rounded-tl-none flex items-center gap-1.5">
+            <div className="p-2.5 rounded-xl bg-muted/40 border border-border/70 rounded-tl-none flex items-center gap-1.5">
               <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce" />
               <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0.2s]" />
               <div className="w-1.5 h-1.5 rounded-full bg-primary animate-bounce [animation-delay:0.4s]" />
@@ -298,7 +298,7 @@ export function AiChatSidebar({
       </ScrollArea>
 
       {/* Input Area */}
-      <div className="p-3 bg-card border-t border-border/70">
+      <div className="p-2.5 bg-card border-t border-border/70">
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -312,15 +312,15 @@ export function AiChatSidebar({
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask AI to write, edit, expand..."
             disabled={isLoading}
-            className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-border bg-muted/20 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+            className="w-full pl-2.5 pr-9 py-2 rounded-lg border border-border bg-muted/20 text-[11.5px] text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
           />
           <Button
             type="submit"
             size="icon"
             disabled={!input.trim() || isLoading}
-            className="absolute right-1.5 h-7 w-7 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-30 transition-all"
+            className="absolute right-1 h-6 w-6 rounded-md bg-primary hover:bg-primary/90 text-primary-foreground disabled:opacity-30 transition-all"
           >
-            <CornerDownLeft size={12} />
+            <CornerDownLeft size={11} />
           </Button>
         </form>
       </div>

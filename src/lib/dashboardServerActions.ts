@@ -105,22 +105,33 @@ export async function getDashboardStats() {
 
 export async function getActiveProfile(): Promise<Profile | null> {
   try {
-    const supabaseUserId = await getAuthenticatedSupabaseUserId();
-    const supabase = await createClerkSupabaseClient();
+    const fetchProfilePromise = (async () => {
+      const supabaseUserId = await getAuthenticatedSupabaseUserId();
+      const supabase = await createClerkSupabaseClient();
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', supabaseUserId)
-      .eq('is_active', true)
-      .maybeSingle();
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', supabaseUserId)
+        .eq('is_active', true)
+        .maybeSingle();
 
-    if (error) {
-      console.error('Error fetching active profile:', error);
-      return null;
-    }
+      if (error) {
+        console.error('Error fetching active profile:', error);
+        return null;
+      }
 
-    return data as Profile;
+      return data as Profile;
+    })();
+
+    let timer: NodeJS.Timeout | undefined;
+    const timeoutPromise = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), 5000);
+    });
+
+    return await Promise.race([fetchProfilePromise, timeoutPromise]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
   } catch (err) {
     console.error('Error in getActiveProfile:', err);
     return null;
