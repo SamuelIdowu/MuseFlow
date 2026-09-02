@@ -61,18 +61,62 @@ async function buildProfileContext(profile?: Profile | null): Promise<string> {
   return context;
 }
 
+async function tryGenerateWithResearchAgent(input: string, profileId?: string, contentTypeId?: string): Promise<string | null> {
+  try {
+    const agentUrl = process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || process.env.RESEARCH_AGENT_URL || 'http://localhost:8000';
+    const apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
+    const clientId = profileId || '00000000-0000-0000-0000-000000000000';
+
+    const brief = contentTypeId ? `[Format Requirement: ${contentTypeId}]\n\n${input}` : input;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+
+    const res = await fetch(`${agentUrl.replace(/\/$/, '')}/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { 'X-Api-Key': apiKey } : {}),
+      },
+      body: JSON.stringify({
+        brief,
+        client_id: clientId,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.draft && typeof data.draft === 'string') {
+        return data.draft;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function generateChatResponse(input: string, activeProfile?: Profile | null, history: any[] = [], contentTypeId?: string): Promise<string> {
-  // Check if API key is available
-  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
-    console.error("GEMINI_API_KEY is not set");
-    return `Here is some placeholder content for specific topic: "${input}". 
-    
-    1. Introduction to the topic.
-    2. Key concepts and importance.
-    3. Practical applications and examples.
-    4. Conclusion and next steps.
-    
-    This is a simulated response because the API key is missing.`;
+  // 1. Primary: Try Research Agent (with RAG, Web Search, and BYOK support)
+  const agentDraft = await tryGenerateWithResearchAgent(input, activeProfile?.id, contentTypeId);
+  if (agentDraft && agentDraft.trim().length > 0) {
+    return agentDraft;
+  }
+
+  // 2. Fallback: Native Gemini API
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "" || process.env.GEMINI_API_KEY.includes("your_gemini_api_key")) {
+    console.error("GEMINI_API_KEY is not configured or invalid in environment");
+    return `### AI Configuration Notice
+
+Please ensure your **GEMINI_API_KEY** is set to a valid Google AI Studio key in your \`.env.local\` file, or configure your personal API key under **Brand Profiles → Model & BYOK Settings**.
+
+*(Sample preview for topic: "${input}")*
+1. **Hook & Concept**: Key perspective tailored to ${activeProfile?.profile_name || 'your audience'}.
+2. **Core Insights**: High-impact, value-dense breakdown.
+3. **Actionable Takeaway**: Practical next step.`;
   }
 
   try {
@@ -123,10 +167,14 @@ export async function generateChatResponse(input: string, activeProfile?: Profil
       }
     }
 
-    const prompt = `You are a helpful AI creative assistant.
-    ${profileContext}
+    const prompt = `You are an elite ghostwriter and content creation strategist for top creators and brands.
+    
+    Active Creator Persona:
+    ${profileContext || "Professional, authoritative, high-value, direct."}
+    
     ${contentTypeInstruction}
     ${historyContext}
+    
     User Input: "${input}"
     ${urlContext ? `\nAdditional Context from URLs:\n${urlContext}` : ""}
     
@@ -149,8 +197,11 @@ export async function generateChatResponse(input: string, activeProfile?: Profil
     }
 
     return response.text();
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating chat response with Gemini:", error);
+    if (error?.message?.includes("API_KEY_INVALID") || error?.message?.includes("API key not valid")) {
+      return `### Invalid API Key Error\n\nThe Google Gemini API key in your \`.env.local\` file is invalid or expired. Please update \`GEMINI_API_KEY\` with a valid key from [Google AI Studio](https://aistudio.google.com/apikey), or configure BYOK in **Brand Profiles → Model & BYOK Settings**.`;
+    }
     return "I'm sorry, I encountered an error while generating the response. Please try again.";
   }
 }
