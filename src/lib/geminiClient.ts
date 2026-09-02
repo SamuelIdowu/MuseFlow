@@ -215,9 +215,19 @@ export async function expandContentBlock(
   contentTypeId?: string,
   mode: 'expand' | 'regenerate' = 'expand'
 ): Promise<string> {
-  // Check if API key is available
-  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
-    console.error("GEMINI_API_KEY is not set for expandContentBlock");
+  const taskDescription = mode === 'expand' 
+    ? `Expand and enhance the following ${blockType} content significantly for "${canvasTitle || 'Canvas Post'}": "${content}"`
+    : `Regenerate and rewrite the following ${blockType} content with a fresh angle for "${canvasTitle || 'Canvas Post'}": "${content}"`;
+
+  // 1. Primary: Try Research Agent
+  const agentOutput = await tryGenerateWithResearchAgent(taskDescription, activeProfile?.id, contentTypeId);
+  if (agentOutput && agentOutput.trim().length > 0) {
+    return agentOutput;
+  }
+
+  // 2. Fallback: Native Gemini
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "" || process.env.GEMINI_API_KEY.includes("your_gemini_api_key")) {
+    console.warn("GEMINI_API_KEY is not set or invalid for expandContentBlock. Returning original content.");
     return content;
   }
 
@@ -255,12 +265,12 @@ export async function expandContentBlock(
       contextPart += "\n";
     }
 
-    const taskDescription = mode === 'expand' 
+    const taskText = mode === 'expand' 
       ? `EXPAND and ENHANCE the following ${blockType} content. Your goal is to increase the depth, detail, and length of the content SIGNIFICANTLY (at least 2x the original length).`
       : `REGENERATE and REWRITE the following ${blockType} content. Your goal is to provide a completely fresh linguistic take, using different vocabulary and sentence structures while maintaining the core message.`;
 
     const prompt = `${contextPart}
-    Task: ${taskDescription}
+    Task: ${taskText}
     
     Original Content: "${contentToExpand}"
     
@@ -282,7 +292,6 @@ export async function expandContentBlock(
     const response = result.response;
 
     if (!response) {
-      console.error("No response received from Gemini API in expandContentBlock");
       return content;
     }
 
@@ -290,7 +299,6 @@ export async function expandContentBlock(
     return text || content;
   } catch (error) {
     console.error("Error expanding/regenerating content block with Gemini:", error);
-    // Return original content in case of error
     return content;
   }
 }
@@ -303,9 +311,17 @@ export async function generateContentBlock(
   userInstruction?: string,
   contentTypeId?: string
 ): Promise<string> {
-  // Check if API key is available
-  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
-    console.error("GEMINI_API_KEY is not set for generateContentBlock");
+  const brief = `Generate a compelling ${blockType} block for "${canvasTitle || 'Canvas Post'}". ${userInstruction || ''}`;
+
+  // 1. Primary: Try Research Agent
+  const agentOutput = await tryGenerateWithResearchAgent(brief, activeProfile?.id, contentTypeId);
+  if (agentOutput && agentOutput.trim().length > 0) {
+    return agentOutput;
+  }
+
+  // 2. Fallback: Native Gemini
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "" || process.env.GEMINI_API_KEY.includes("your_gemini_api_key")) {
+    console.warn("GEMINI_API_KEY is not set or invalid for generateContentBlock");
     return `[Generated ${blockType} content for "${canvasTitle}"]`;
   }
 

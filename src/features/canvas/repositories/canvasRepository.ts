@@ -110,7 +110,9 @@ export const canvasRepository = {
       .order("created_at", { ascending: true });
 
     if (chatError) {
-      console.error("Error fetching chat messages:", chatError);
+      if (chatError.code !== 'PGRST205' && chatError.code !== '42P01') {
+        console.error("Error fetching chat messages:", chatError);
+      }
     }
 
     const chatHistory = (chatMessagesData || []).map(msg => ({
@@ -154,6 +156,10 @@ export const canvasRepository = {
       }]);
 
     if (error) {
+      if (error.code === 'PGRST205' || error.code === '42P01') {
+        console.warn('chat_messages table not yet created in Supabase database. Please run 20260708000000_add_chat_messages.sql migration.');
+        return;
+      }
       console.error('Error inserting chat message:', error);
       throw new Error('Failed to insert chat message');
     }
