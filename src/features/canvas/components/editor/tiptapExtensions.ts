@@ -1,5 +1,5 @@
 import { Extension, Mark, Node, mergeAttributes } from "@tiptap/react";
-import { Plugin, PluginKey } from "@tiptap/pm/state";
+import { Plugin, PluginKey, TextSelection } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 
 // 1. Underline Mark
@@ -413,9 +413,13 @@ export const InlineCompletion = Extension.create({
           if (pluginState?.suggestion && pluginState.pos !== null) {
             const { suggestion, pos } = pluginState;
             if (dispatch) {
-              const tr = state.tr
-                .insertText(suggestion, pos)
-                .setMeta(inlineCompletionPluginKey, { suggestion: null, pos: null });
+              const insertPos = pos;
+              const tr = state.tr.insertText(suggestion, insertPos);
+              const nextPos = insertPos + suggestion.length;
+              try {
+                tr.setSelection(TextSelection.create(tr.doc, nextPos));
+              } catch {}
+              tr.setMeta(inlineCompletionPluginKey, { suggestion: null, pos: null });
               dispatch(tr);
             }
             return true;
@@ -471,13 +475,20 @@ export const InlineCompletion = Extension.create({
 
             const { suggestion, pos, source } = pluginState;
 
+            // Guard pos against doc size boundary
+            const safePos = Math.min(Math.max(0, pos), state.doc.content.size);
+
             const widget = Decoration.widget(
-              pos,
+              safePos,
               () => {
                 const span = document.createElement("span");
                 span.className =
-                  "inline-flex items-baseline text-zinc-400 dark:text-zinc-500 italic select-none pointer-events-none opacity-80 transition-opacity duration-150";
+                  "inline font-normal italic opacity-60 text-muted-foreground select-none pointer-events-none transition-opacity duration-150";
                 span.setAttribute("data-ghost-text", "true");
+                span.style.opacity = "0.6";
+                span.style.fontStyle = "italic";
+                span.style.pointerEvents = "none";
+                span.style.userSelect = "none";
 
                 const textSpan = document.createElement("span");
                 textSpan.textContent = suggestion;
@@ -485,7 +496,11 @@ export const InlineCompletion = Extension.create({
 
                 const badge = document.createElement("span");
                 badge.className =
-                  "inline-flex items-center gap-0.5 ml-1.5 px-1.5 py-0.5 text-[10px] not-italic font-mono font-medium rounded-md bg-zinc-200/80 dark:bg-zinc-800/90 text-zinc-600 dark:text-zinc-300 border border-zinc-300 dark:border-zinc-700 shadow-2xs select-none";
+                  "inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 text-[11px] not-italic font-mono font-semibold rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 align-middle select-none shadow-xs";
+                badge.style.display = "inline-flex";
+                badge.style.verticalAlign = "middle";
+                badge.style.marginLeft = "8px";
+                badge.style.cursor = "pointer";
 
                 const agentIcon = source === "research_agent" ? "⚡ " : "✨ ";
                 badge.textContent = `${agentIcon}Tab ⇥`;

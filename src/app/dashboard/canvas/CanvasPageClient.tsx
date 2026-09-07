@@ -845,7 +845,7 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                                 onClick={handleSaveCanvasToIdeas}
                             >
                                 <Save className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                                <span className="hidden sm:inline">Save Interest</span>
+                                <span className="hidden sm:inline">Save to Ideas</span>
                                 <span className="sm:hidden">Save</span>
                             </Button>
 

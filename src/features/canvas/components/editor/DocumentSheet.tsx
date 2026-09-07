@@ -53,12 +53,14 @@ export function DocumentSheet({
   onAutocompleteStatusChange,
 }: DocumentSheetProps) {
   const autocompleteTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const activeAbortControllerRef = useRef<AbortController | null>(null);
   const isAutocompleteEnabledRef = useRef(isAutocompleteEnabled);
   isAutocompleteEnabledRef.current = isAutocompleteEnabled;
 
   const documentTitleRef = useRef(documentTitle);
   documentTitleRef.current = documentTitle;
   const autocompleteSeqRef = useRef(0);
+  const lastLocalContentRef = useRef(content);
 
   const editor = useEditor({
     extensions: [
@@ -87,12 +89,18 @@ export function DocumentSheet({
       `<h2>Introduction</h2><p>Every great product begins not with wireframes or fancy UI kits, but with a deep understanding of human behavior. Good UX is like an invisible hand that gently guides users to where they need to go without them even noticing.</p><p>The biggest mistake many creators make is assuming they already know what users want. But real users are unpredictable. They get distracted, they misunderstand labels, and sometimes, they just want the fastest way to finish a task.</p>`,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();
+      lastLocalContentRef.current = html;
       const text = editor.getText();
       const words = text.trim() ? text.trim().split(/\s+/).length : 0;
       const chars = text.length;
       onChange(html, words, chars);
 
-      // Debounced inline ghost autocomplete trigger
+      // Cancel any ongoing fetch
+      if (activeAbortControllerRef.current) {
+        activeAbortControllerRef.current.abort();
+        activeAbortControllerRef.current = null;
+      }
+
       if (autocompleteTimerRef.current) {
         clearTimeout(autocompleteTimerRef.current);
       }
@@ -105,45 +113,56 @@ export function DocumentSheet({
 
           const pos = selection.from;
           const docText = editor.state.doc.textBetween(0, pos, "\n");
-          if (docText.trim().length < 8) return;
+          if (docText.trim().length < 3) return;
 
           const currentSeq = ++autocompleteSeqRef.current;
           onAutocompleteStatusChange?.({ isGenerating: true });
+
+          const abortCtrl = new AbortController();
+          activeAbortControllerRef.current = abortCtrl;
+
           try {
-            const res = await generateContentContinuationAction({
-              currentContent: html,
-              documentTitle: documentTitleRef.current,
+            const res = await fetch("/api/editor/autocomplete", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                text: docText,
+                documentTitle: documentTitleRef.current,
+              }),
+              signal: abortCtrl.signal,
             });
 
-            // Discard if user continued typing or another request was fired
-            if (currentSeq !== autocompleteSeqRef.current) {
-              return;
-            }
+            if (currentSeq !== autocompleteSeqRef.current) return;
 
-            onAutocompleteStatusChange?.({
-              isGenerating: false,
-              source: res.source || null,
-            });
+            if (res.ok) {
+              const data = await res.json();
+              onAutocompleteStatusChange?.({
+                isGenerating: false,
+                source: data.source || null,
+              });
 
-            if (res.success && res.result && res.result.trim().length > 0) {
-              if (
-                !editor.isDestroyed &&
-                editor.state.selection.empty &&
-                editor.state.selection.from === pos
-              ) {
-                (editor.commands as any).setGhostSuggestion({
-                  text: res.result,
-                  pos,
-                  source: res.source,
-                });
+              if (data.success && data.result && data.result.trim().length > 0) {
+                if (
+                  !editor.isDestroyed &&
+                  editor.state.selection.empty &&
+                  editor.state.selection.from === pos
+                ) {
+                  (editor.commands as any).setGhostSuggestion({
+                    text: data.result,
+                    pos,
+                    source: data.source,
+                  });
+                }
               }
+            } else {
+              onAutocompleteStatusChange?.({ isGenerating: false, source: null });
             }
-          } catch {
-            if (currentSeq === autocompleteSeqRef.current) {
+          } catch (err: any) {
+            if (err.name !== "AbortError" && currentSeq === autocompleteSeqRef.current) {
               onAutocompleteStatusChange?.({ isGenerating: false, source: null });
             }
           }
-        }, 1000);
+        }, 350);
       }
     },
     editorProps: {
@@ -159,6 +178,9 @@ export function DocumentSheet({
       if (autocompleteTimerRef.current) {
         clearTimeout(autocompleteTimerRef.current);
       }
+      if (activeAbortControllerRef.current) {
+        activeAbortControllerRef.current.abort();
+      }
     };
   }, []);
 
@@ -168,10 +190,18 @@ export function DocumentSheet({
     }
   }, [editor, onEditorReady]);
 
-  // Sync external content update if needed
+  // Sync external content update only when genuinely changed from outside (e.g. initial load / template / chat import)
   useEffect(() => {
-    if (editor && content && content !== editor.getHTML()) {
-      editor.commands.setContent(content, { emitUpdate: false });
+    if (
+      editor &&
+      content &&
+      content !== lastLocalContentRef.current &&
+      content !== editor.getHTML()
+    ) {
+      if (Math.abs(content.length - editor.getHTML().length) > 15) {
+        editor.commands.setContent(content, { emitUpdate: false });
+        lastLocalContentRef.current = content;
+      }
     }
   }, [content, editor]);
 
@@ -184,13 +214,13 @@ export function DocumentSheet({
       <div className="mb-3.5 pb-3.5 border-b border-border/60">
         <div className="flex items-center justify-between text-xs text-muted-foreground mb-2.5 font-medium">
           <div className="flex items-center gap-1.5 truncate">
-            <span className="hover:text-foreground cursor-pointer transition-colors">All notes</span>
+            <span className="hover:text-foreground cursor-pointer transition-colors">All documents</span>
             <span>&gt;</span>
             <span className="text-foreground font-semibold truncate">{documentTitle || "Untitled Document"}</span>
           </div>
           <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground shrink-0">
             <Cloud size={13} className="text-primary/70" />
-            <span>Saved locally & in Cloud</span>
+            <span>Saved</span>
           </div>
         </div>
 

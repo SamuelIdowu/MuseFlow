@@ -89,10 +89,10 @@ export function RecentWorkTabs({
         <CardHeader className="p-4 pb-3 border-b border-border bg-muted/30 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <CardTitle className="text-base font-semibold tracking-tight text-foreground">
-              Recent Workspace Activity
+              Recent Work
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground font-medium">
-              Continue where you left off across ideation, canvas mapping, campaigns, and scheduling.
+              Quickly pick up where you left off.
             </CardDescription>
           </div>
 
@@ -136,12 +136,12 @@ export function RecentWorkTabs({
                 <Sparkles className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2.5" />
                 <h4 className="text-sm font-semibold text-foreground">No ideas generated yet</h4>
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
-                  Spark hooks, blog outlines, or social content angles with your active brand persona.
+                  Spark hooks, blog outlines, or angles with your brand persona.
                 </p>
                 <Link href="/dashboard/ideas">
                   <Button size="sm" className="gap-1.5 text-xs">
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Create Your First Idea</span>
+                    <span>Generate Ideas</span>
                   </Button>
                 </Link>
               </div>
@@ -248,14 +248,14 @@ export function RecentWorkTabs({
             {recentCanvases.length === 0 ? (
               <div className="text-center py-10 px-4 border border-dashed rounded-xl border-border bg-muted/20">
                 <SquarePen className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2.5" />
-                <h4 className="text-sm font-semibold text-foreground">No canvas workspaces yet</h4>
+                <h4 className="text-sm font-semibold text-foreground">No canvases yet</h4>
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
-                  Visual node graphs help you expand one idea into a connected network of multi-channel formats.
+                  Mind-map content strategies and branch out into multi-channel formats.
                 </p>
                 <Link href="/dashboard/canvas">
                   <Button size="sm" className="gap-1.5 text-xs">
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Open Smart Canvas</span>
+                    <span>Open Canvas</span>
                   </Button>
                 </Link>
               </div>
@@ -313,14 +313,14 @@ export function RecentWorkTabs({
             {recentCampaigns.length === 0 ? (
               <div className="text-center py-10 px-4 border border-dashed rounded-xl border-border bg-muted/20">
                 <Megaphone className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2.5" />
-                <h4 className="text-sm font-semibold text-foreground">No saved campaigns yet</h4>
+                <h4 className="text-sm font-semibold text-foreground">No campaigns yet</h4>
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
-                  Orchestrate synchronized multi-post campaigns across Twitter, LinkedIn, and newsletters.
+                  Launch synchronized multi-post campaigns across X, LinkedIn, and newsletters.
                 </p>
                 <Link href="/dashboard/campaigns">
                   <Button size="sm" className="gap-1.5 text-xs">
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Launch Campaign Generator</span>
+                    <span>Create Campaign</span>
                   </Button>
                 </Link>
               </div>
@@ -389,12 +389,12 @@ export function RecentWorkTabs({
                 <Calendar className="w-8 h-8 text-muted-foreground/40 mx-auto mb-2.5" />
                 <h4 className="text-sm font-semibold text-foreground">No posts scheduled</h4>
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
-                  Plan your weekly publishing cadence across all your distribution channels.
+                  Queue your upcoming posts and keep your publishing consistent.
                 </p>
                 <Link href="/dashboard/schedule">
                   <Button size="sm" className="gap-1.5 text-xs">
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Open Calendar & Queue</span>
+                    <span>View Schedule</span>
                   </Button>
                 </Link>
               </div>

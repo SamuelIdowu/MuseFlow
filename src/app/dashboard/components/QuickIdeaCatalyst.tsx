@@ -10,9 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 const PRESET_CHANNELS = [
-  { id: 'all', label: 'All Angles' },
-  { id: 'linkedin', label: 'LinkedIn Hook' },
-  { id: 'twitter', label: 'X / Twitter' },
+  { id: 'all', label: 'All Formats' },
+  { id: 'linkedin', label: 'LinkedIn' },
+  { id: 'twitter', label: 'X (Twitter)' },
   { id: 'newsletter', label: 'Newsletter' },
   { id: 'script', label: 'Video Script' },
 ];
@@ -65,13 +65,13 @@ export function QuickIdeaCatalyst() {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-foreground tracking-tight flex items-center gap-2">
-                Instant Content Catalyst
+                Quick Idea Catalyst
                 <Badge variant="outline" className="text-[10px] font-normal py-0 text-primary border-primary/30">
-                  Fast Generator
+                  Fast
                 </Badge>
               </h3>
               <p className="text-xs text-muted-foreground">
-                Drop any topic, raw thought, or trend to instantly spark hooks, outlines, or visual maps.
+                Enter any topic or trend to instantly spark hooks, outlines, or canvases.
               </p>
             </div>
           </div>
@@ -99,7 +99,7 @@ export function QuickIdeaCatalyst() {
           <Input
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="What would you like to create or explore today? (e.g. 5 lessons from building an AI agent...)"
+            placeholder="Enter a topic or idea (e.g., 5 lessons building an AI agent)..."
             className="pr-40 h-11 bg-background/80 border-border/80 text-sm focus-visible:ring-primary shadow-inner"
           />
 

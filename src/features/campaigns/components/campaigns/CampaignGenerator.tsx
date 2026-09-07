@@ -180,7 +180,7 @@ export function CampaignGenerator({ onSaved }: CampaignGeneratorProps) {
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Topic / Goal</label>
                         <Input
-                            placeholder="e.g. promoting my new SaaS for dog walkers..."
+                            placeholder="e.g., Launching an AI developer tool, driving signups with a 20% discount..."
                             value={topic}
                             onChange={(e) => setTopic(e.target.value)}
                         />
@@ -250,7 +250,7 @@ export function CampaignGenerator({ onSaved }: CampaignGeneratorProps) {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="linkedin">LinkedIn</SelectItem>
-                                    <SelectItem value="x">Twitter / X</SelectItem>
+                                    <SelectItem value="x">X (Twitter)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

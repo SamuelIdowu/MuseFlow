@@ -56,7 +56,7 @@ export function AiChatSidebar({
       id: "welcome",
       role: "assistant",
       content:
-        "👋 I'm your AI Writing Copilot. I have full context of your document.\n\nAsk me to brainstorm hooks, rewrite sections, expand bullet points, or optimize for your brand voice!",
+        "👋 I'm your AI Writing Copilot.\n\nAsk me to brainstorm hooks, rewrite paragraphs, expand bullet points, or polish your draft for your brand voice.",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     },
   ]);

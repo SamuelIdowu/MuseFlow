@@ -141,15 +141,13 @@ function sanitizeContinuation(text: string): string {
   return cleaned;
 }
 
-async function tryResearchAgentContinuation(brief: string, profileId?: string): Promise<string | null> {
+async function tryResearchAgentContinuation(brief: string): Promise<string | null> {
   const agentUrl = process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || process.env.RESEARCH_AGENT_URL || 'http://localhost:8000';
   const apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
-  
-  // Use active profile ID as the client_id for strict brand voice isolation
-  const clientId = profileId || process.env.RESEARCH_AGENT_CLIENT_ID || '00000000-0000-0000-0000-000000000000';
+  const clientId = process.env.RESEARCH_AGENT_CLIENT_ID || 'd53be5da-b708-42f1-9357-ea293feb37f8';
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 3000);
+  const timeout = setTimeout(() => controller.abort(), 1200);
 
   try {
     const headers: Record<string, string> = {
@@ -198,10 +196,10 @@ export async function generateDocumentDraftWithAgentAction({
   documentTitle?: string;
 }): Promise<{ success: boolean; draft?: string; sources?: any[]; error?: string }> {
   try {
-    const activeProfile = await withTimeout(getActiveProfile(), 4000, null).catch(() => null);
+    const activeProfile = await withTimeout(getActiveProfile(), 2000, null).catch(() => null);
     const agentUrl = process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || process.env.RESEARCH_AGENT_URL || 'http://localhost:8000';
     const apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
-    const clientId = activeProfile?.id || '00000000-0000-0000-0000-000000000000';
+    const clientId = process.env.RESEARCH_AGENT_CLIENT_ID || activeProfile?.id || 'd53be5da-b708-42f1-9357-ea293feb37f8';
 
     const promptWithContext = documentTitle ? `[Document: ${documentTitle}]\n\n${brief}` : brief;
 
@@ -245,21 +243,19 @@ export async function generateContentContinuationAction({
 }): Promise<{ success: boolean; result?: string; source?: 'research_agent' | 'gemini_fallback'; error?: string }> {
   try {
     const plainText = currentContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    if (!plainText || plainText.length < 5) {
+    if (!plainText || plainText.length < 3) {
       return { success: false, error: 'Not enough context to suggest continuation' };
     }
 
-    const snippet = plainText.slice(-600);
+    const snippet = plainText.slice(-450);
 
-    const activeProfile = await withTimeout(getActiveProfile(), 3000, null).catch(() => null);
-
-    // 1. Primary: Try Research Agent service (with 3s timeout)
+    // 1. Primary: Fast check to Research Agent service (with 1.2s timeout)
     const researchBrief = `Continue this piece of content seamlessly with a single natural, high-impact sentence or phrase.
 ${documentTitle ? `Title: ${documentTitle}. ` : ''}
 Context snippet: "${snippet}".
 ${instruction ? `Directive: ${instruction}` : 'Provide the immediate next logical thought without repeating words.'}`;
 
-    const raResult = await tryResearchAgentContinuation(researchBrief, activeProfile?.id);
+    const raResult = await tryResearchAgentContinuation(researchBrief);
     if (raResult) {
       return {
         success: true,
@@ -268,7 +264,7 @@ ${instruction ? `Directive: ${instruction}` : 'Provide the immediate next logica
       };
     }
 
-    // 2. Fallback: MuseFlow Native Gemini AI
+    // 2. Fallback: MuseFlow Native Gemini AI (ultra fast response)
     if (!process.env.GEMINI_API_KEY) {
       return {
         success: true,
@@ -276,6 +272,8 @@ ${instruction ? `Directive: ${instruction}` : 'Provide the immediate next logica
         source: 'gemini_fallback',
       };
     }
+
+    const activeProfile = await withTimeout(getActiveProfile(), 800, null).catch(() => null);
 
     let profileContext = '';
     if (activeProfile) {
@@ -286,19 +284,19 @@ ${instruction ? `Directive: ${instruction}` : 'Provide the immediate next logica
 ${profileContext}
 ${documentTitle ? `Document Title: "${documentTitle}"` : ''}
 
-Task: Continue the following text naturally with ONLY the immediate next 1-2 phrases or short sentence (12 to 25 words max).
+Task: Continue the following text naturally with ONLY the immediate next 1-2 phrases or short sentence (10 to 20 words max).
 ${instruction ? `Directive: ${instruction}` : ''}
 
 Strict Rules:
 - Return ONLY the continuation text.
-- Do NOT repeat the last few words of the input.
+- Do NOT repeat the last words of the input.
 - Do NOT output HTML tags, markdown blocks, quotes, or conversational intros/outros.
 - Must connect smoothly to the preceding text.
 
 Preceding text:
 "...${snippet}"`;
 
-    const response = await withTimeout(model.generateContent(prompt), 8000);
+    const response = await withTimeout(model.generateContent(prompt), 4000);
     const rawOutput = response.response.text();
     const cleanOutput = sanitizeContinuation(rawOutput);
 

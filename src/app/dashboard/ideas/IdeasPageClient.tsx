@@ -212,13 +212,13 @@ export function IdeasPageClient({ activeProfile }: IdeasPageClientProps) {
                         )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                        Browse your AI-generated content ideas and start creating
+                        Filter, refine, and turn saved ideas into published content.
                     </p>
                 </div>
                 <Button asChild size="sm" className="w-full md:w-auto">
                     <Link href="/dashboard">
                         <PlusCircle className="mr-2 h-4 w-4" />
-                        Generate New Ideas
+                        Generate Ideas
                     </Link>
                 </Button>
             </div>
@@ -280,7 +280,7 @@ export function IdeasPageClient({ activeProfile }: IdeasPageClientProps) {
                     </div>
                     <h3 className="text-md font-medium mb-1">No ideas generated yet</h3>
                     <p className="text-sm text-muted-foreground mb-4">
-                        Generate your first content ideas to get started
+                        Generate fresh concepts from the dashboard to get started.
                     </p>
                     <Button asChild size="sm">
                         <Link href="/dashboard">Generate Ideas</Link>

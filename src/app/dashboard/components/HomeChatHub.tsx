@@ -54,10 +54,10 @@ interface HomeChatHubProps {
 
 const CHANNEL_PRESETS = [
   { id: 'all', label: 'All Formats', icon: Zap },
-  { id: 'linkedin', label: 'LinkedIn Post', icon: Share2 },
-  { id: 'x', label: 'X / Thread', icon: Sparkles },
+  { id: 'linkedin', label: 'LinkedIn', icon: Share2 },
+  { id: 'x', label: 'X (Twitter)', icon: Sparkles },
   { id: 'newsletter', label: 'Newsletter', icon: FileEdit },
-  { id: 'script', label: 'Short Video Script', icon: Lightbulb },
+  { id: 'script', label: 'Short Video', icon: Lightbulb },
 ];
 
 const STARTER_PROMPTS = [
@@ -330,7 +330,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                 </Badge>
               </div>
               <p className="text-[11px] text-muted-foreground hidden sm:block font-medium">
-                Chat, brainstorm hooks, write drafts, or transform ideas into multi-channel campaigns.
+                Brainstorm, draft, and refine multi-channel content with AI.
               </p>
             </div>
           </div>
@@ -362,7 +362,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                 What are you creating today?
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-md">
-                Type any idea or prompt below, or start with a pre-configured template tailored for creators:
+                Type an idea below or choose a starter template:
               </p>
 
               {/* Starter Grid */}
@@ -601,7 +601,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                     handleSendMessage();
                   }
                 }}
-                placeholder="What would you like to create or refine? (Press Enter to send, Shift+Enter for new line)"
+                placeholder="Ask anything, paste a draft, or brainstorm new ideas... (Enter to send, Shift+Enter for newline)"
                 className="min-h-[44px] max-h-[140px] resize-none border-0 shadow-none focus-visible:ring-0 text-xs sm:text-sm py-2 px-2.5 bg-transparent text-foreground placeholder:text-muted-foreground"
                 rows={1}
               />

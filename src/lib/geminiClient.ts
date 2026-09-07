@@ -61,16 +61,16 @@ async function buildProfileContext(profile?: Profile | null): Promise<string> {
   return context;
 }
 
-async function tryGenerateWithResearchAgent(input: string, profileId?: string, contentTypeId?: string): Promise<string | null> {
+async function tryGenerateWithResearchAgent(input: string, profileId?: string, contentTypeId?: string): Promise<{ success: boolean; data?: string; error?: string }> {
   try {
     const agentUrl = process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || process.env.RESEARCH_AGENT_URL || 'http://localhost:8000';
     const apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
-    const clientId = profileId || '00000000-0000-0000-0000-000000000000';
+    const clientId = profileId || process.env.RESEARCH_AGENT_CLIENT_ID || process.env.NEXT_PUBLIC_RESEARCH_AGENT_CLIENT_ID || '00000000-0000-0000-0000-000000000000';
 
     const brief = contentTypeId ? `[Format Requirement: ${contentTypeId}]\n\n${input}` : input;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 60000);
 
     const res = await fetch(`${agentUrl.replace(/\/$/, '')}/generate`, {
       method: 'POST',
@@ -90,120 +90,27 @@ async function tryGenerateWithResearchAgent(input: string, profileId?: string, c
     if (res.ok) {
       const data = await res.json();
       if (data && data.draft && typeof data.draft === 'string') {
-        return data.draft;
+        return { success: true, data: data.draft };
       }
+    } else {
+      const errBody = await res.text();
+      return { success: false, error: `Research Agent returned ${res.status}: ${errBody}` };
     }
-    return null;
-  } catch {
-    return null;
+    return { success: false, error: 'No draft returned from Research Agent' };
+  } catch (err: any) {
+    return { success: false, error: `Could not connect to Research Agent at http://localhost:8000 (${err.message})` };
   }
 }
 
 export async function generateChatResponse(input: string, activeProfile?: Profile | null, history: any[] = [], contentTypeId?: string): Promise<string> {
-  // 1. Primary: Try Research Agent (with RAG, Web Search, and BYOK support)
-  const agentDraft = await tryGenerateWithResearchAgent(input, activeProfile?.id, contentTypeId);
-  if (agentDraft && agentDraft.trim().length > 0) {
-    return agentDraft;
+  // Exclusively route to Research Agent (Fallback disabled)
+  const agentResult = await tryGenerateWithResearchAgent(input, activeProfile?.id, contentTypeId);
+  if (agentResult.success && agentResult.data) {
+    return agentResult.data;
   }
 
-  // 2. Fallback: Native Gemini API
-  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "" || process.env.GEMINI_API_KEY.includes("your_gemini_api_key")) {
-    console.error("GEMINI_API_KEY is not configured or invalid in environment");
-    return `### AI Configuration Notice
-
-Please ensure your **GEMINI_API_KEY** is set to a valid Google AI Studio key in your \`.env.local\` file, or configure your personal API key under **Brand Profiles → Model & BYOK Settings**.
-
-*(Sample preview for topic: "${input}")*
-1. **Hook & Concept**: Key perspective tailored to ${activeProfile?.profile_name || 'your audience'}.
-2. **Core Insights**: High-impact, value-dense breakdown.
-3. **Actionable Takeaway**: Practical next step.`;
-  }
-
-  try {
-    const profileContext = await buildProfileContext(activeProfile);
-
-    // Check for URLs in input
-    const urls = extractUrls(input);
-    let urlContext = "";
-    if (urls.length > 0) {
-      const contents = await Promise.all(urls.map(async url => {
-        const content = await fetchUrlContent(url);
-        return content ? `\nContent from ${url}:\n${content}\n` : "";
-      }));
-      urlContext = contents.join("");
-    }
-
-    // Format history for the prompt
-    let historyContext = "";
-    if (history && history.length > 0) {
-      historyContext = "\n\nChat History:\n";
-      history.forEach((msg, index) => {
-        const role = msg.role === 'user' ? 'User' : 'Assistant';
-        // Skip the current input if it's somehow already in history (shouldn't be, but good saftey)
-        if (msg.content === input && index === history.length - 1) return;
-        historyContext += `${role}: ${msg.content}\n`;
-      });
-      historyContext += "\n";
-    }
-
-    // Look up content type if provided
-    let contentTypeInstruction = "";
-    if (contentTypeId) {
-      const typeDef = CONTENT_TYPES.find(t => t.id === contentTypeId);
-      if (typeDef) {
-        contentTypeInstruction = `\nOUTPUT FORMATTING REQUIREMENT:\nThe user explicitly requested a "${typeDef.label}" (${typeDef.category}).\nStructure the response strictly as a ${typeDef.label}.\n`;
-        // Add specific hints based on category
-        if (typeDef.category === 'Social Posts') {
-          contentTypeInstruction += "Include relevant hashtags and keep it concise/platform-appropriate.\n";
-        } else if (typeDef.category === 'Scripts') {
-          contentTypeInstruction += "Include scene/segment headers and spoken lines. Use a conversational tone.\n";
-        } else if (typeDef.category === 'Articles & Blogs') {
-          contentTypeInstruction += "Use clear headings, structured paragraphs, and an educational tone.\n";
-        } else if (typeDef.category === 'Copywriting') {
-          contentTypeInstruction += "Use persuasive language, strong hooks, and clear calls to action.\n";
-        } else if (typeDef.category === 'Technical & Professional') {
-          contentTypeInstruction += "Use formal language, objective tone, and precise terminology.\n";
-        }
-      }
-    }
-
-    const prompt = `You are an elite ghostwriter and content creation strategist for top creators and brands.
-    
-    Active Creator Persona:
-    ${profileContext || "Professional, authoritative, high-value, direct."}
-    
-    ${contentTypeInstruction}
-    ${historyContext}
-    
-    User Input: "${input}"
-    ${urlContext ? `\nAdditional Context from URLs:\n${urlContext}` : ""}
-    
-    Task: Generate a comprehensive, engaging, and conversational response based on the user's input.
-    - If there is chat history, treat the User Input as a follow-up instruction to refine, expand, or modify the previous context.
-    - If the user asks for ideas, provide them in a fluid, well-structured format (not just a raw list).
-    - If the user asks to write something, write a high-quality draft.
-    - Use Markdown formatting (headings, bullet points, bold text) to make it readable.
-    - Ensure the tone matches the active profile settings.
-    
-    Return only the response text.`;
-
-    const result = await withTimeout(model.generateContent(prompt), 15000);
-    const response = result.response;
-
-    // Check if there's a response before trying to get text
-    if (!response) {
-      console.error("No response received from Gemini API");
-      return "I'm sorry, I couldn't generate a response at this time. Please try again.";
-    }
-
-    return response.text();
-  } catch (error: any) {
-    console.error("Error generating chat response with Gemini:", error);
-    if (error?.message?.includes("API_KEY_INVALID") || error?.message?.includes("API key not valid")) {
-      return `### Invalid API Key Error\n\nThe Google Gemini API key in your \`.env.local\` file is invalid or expired. Please update \`GEMINI_API_KEY\` with a valid key from [Google AI Studio](https://aistudio.google.com/apikey), or configure BYOK in **Brand Profiles → Model & BYOK Settings**.`;
-    }
-    return "I'm sorry, I encountered an error while generating the response. Please try again.";
-  }
+  // If agent returned error or is offline, report exact agent status
+  return `### Research Agent Generation\n\n${agentResult.error || "Agent is currently offline or did not return a response."}\n\n*Please ensure \`uvicorn src.main:app --port 8000\` is running in the \`research_agent\` project.*`;
 }
 
 export async function expandContentBlock(
@@ -221,8 +128,8 @@ export async function expandContentBlock(
 
   // 1. Primary: Try Research Agent
   const agentOutput = await tryGenerateWithResearchAgent(taskDescription, activeProfile?.id, contentTypeId);
-  if (agentOutput && agentOutput.trim().length > 0) {
-    return agentOutput;
+  if (agentOutput.success && agentOutput.data && agentOutput.data.trim().length > 0) {
+    return agentOutput.data;
   }
 
   // 2. Fallback: Native Gemini
@@ -315,8 +222,8 @@ export async function generateContentBlock(
 
   // 1. Primary: Try Research Agent
   const agentOutput = await tryGenerateWithResearchAgent(brief, activeProfile?.id, contentTypeId);
-  if (agentOutput && agentOutput.trim().length > 0) {
-    return agentOutput;
+  if (agentOutput.success && agentOutput.data && agentOutput.data.trim().length > 0) {
+    return agentOutput.data;
   }
 
   // 2. Fallback: Native Gemini
@@ -672,16 +579,29 @@ export async function generateCanvasBlocksFromChat(
       return JSON.parse(cleanText);
     } catch (parseError) {
       console.error("Failed to parse Gemini JSON response:", cleanText);
-      throw new Error("Failed to parse AI response as JSON");
+      return {
+        message: text,
+        blocks: [
+          { id: crypto.randomUUID(), type: "paragraph", content: text, action: 'create' }
+        ],
+        edges: []
+      };
     }
   } catch (error: any) {
     console.error("Error in generateCanvasBlocksFromChat:", error);
     
-    // Check for specific error types
     const errorMessage = error.message || "Unknown error";
+    if (errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("API key not valid")) {
+      return {
+        message: "Your Google Gemini API key in `.env.local` is invalid or expired. Please update it in `.env.local` or configure BYOK in **Brand Profiles → Model & BYOK Settings**.",
+        blocks: [],
+        edges: []
+      };
+    }
+
     if (errorMessage.includes("400") || errorMessage.includes("Bad Request")) {
       return {
-        message: "The AI request failed (possibly due to an unsupported file type or too much data). Please try again with fewer files or different content.",
+        message: "The AI request failed. Please check your API key configuration or reduce payload size.",
         blocks: [],
         edges: []
       };
@@ -693,5 +613,4 @@ export async function generateCanvasBlocksFromChat(
       edges: []
     };
   }
-
 }

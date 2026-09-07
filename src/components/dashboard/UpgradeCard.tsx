@@ -43,11 +43,11 @@ export function UpgradeCard() {
                 </div>
 
                 <h3 className="text-[13px] font-semibold text-white mb-0.5">
-                    Upgrade to Premium
+                    Upgrade to Pro
                 </h3>
 
                 <p className="text-[11px] text-slate-400 mb-3 leading-tight">
-                    Unlock unlimited AI generation and priority support.
+                    Unlimited AI generations, custom voices, and campaigns.
                 </p>
 
                 <Link href="/pricing" className="block w-full">

@@ -22,22 +22,22 @@ export function BrandVoiceRadarCard({ profile }: BrandVoiceRadarCardProps) {
             </div>
             <div>
               <CardTitle className="text-sm font-semibold tracking-tight text-foreground">
-                Brand Voice Persona
+                Brand Voice
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground font-medium">
-                No active brand profile selected
+                No active persona selected
               </CardDescription>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-5 flex-1 flex flex-col justify-center text-center">
           <p className="text-xs text-foreground/80 mb-4 leading-relaxed font-medium">
-            Set up your tone of voice, target audience, and style samples to ensure all AI outputs sound authentically like you.
+            Define tone, target audience, and writing samples to keep all AI generations on-brand.
           </p>
           <Link href="/dashboard/profiles" className="w-full">
             <Button size="sm" className="w-full text-xs gap-1.5 shadow-sm font-semibold">
               <Plus className="w-3.5 h-3.5" />
-              <span>Configure Brand Profile</span>
+              <span>Create Brand Persona</span>
             </Button>
           </Link>
         </CardContent>

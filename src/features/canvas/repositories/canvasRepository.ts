@@ -143,84 +143,88 @@ export const canvasRepository = {
   },
 
   async addChatMessage(supabase: SupabaseClient<Database>, userId: string, message: any, canvasId?: string) {
-    const { error } = await supabase
-      .from("chat_messages")
-      .insert([{
-        id: message.id,
-        user_id: userId,
-        canvas_id: canvasId || null,
-        role: message.role,
-        content: message.content || '',
-        tool_invocations: message.toolInvocations || null,
-        created_at: message.createdAt || new Date().toISOString()
-      }]);
+    try {
+      const { error } = await supabase
+        .from("chat_messages")
+        .insert([{
+          id: message.id,
+          user_id: userId,
+          canvas_id: canvasId || null,
+          role: message.role,
+          content: message.content || '',
+          tool_invocations: message.toolInvocations || null,
+          created_at: message.createdAt || new Date().toISOString()
+        }]);
 
-    if (error) {
-      if (error.code === 'PGRST205' || error.code === '42P01') {
-        console.warn('chat_messages table not yet created in Supabase database. Please run 20260708000000_add_chat_messages.sql migration.');
-        return;
+      if (error) {
+        console.warn('Could not persist chat message (non-fatal):', error.message || error);
       }
-      console.error('Error inserting chat message:', error);
-      throw new Error('Failed to insert chat message');
+    } catch (err) {
+      console.warn('Non-fatal error in addChatMessage:', err);
     }
   },
 
   async getGlobalChatMessages(supabase: SupabaseClient<Database>, userId: string) {
-    const { data, error } = await supabase
-      .from("chat_messages")
-      .select("*")
-      .eq("user_id", userId)
-      .is("canvas_id", null)
-      .order("created_at", { ascending: true });
+    try {
+      const { data, error } = await supabase
+        .from("chat_messages")
+        .select("*")
+        .eq("user_id", userId)
+        .is("canvas_id", null)
+        .order("created_at", { ascending: true });
 
-    if (error) {
-      console.error('Error fetching global chat messages:', error);
+      if (error) {
+        return [];
+      }
+
+      return (data || []).map(msg => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        createdAt: msg.created_at,
+        toolInvocations: msg.tool_invocations || undefined,
+      }));
+    } catch {
       return [];
     }
-
-    return (data || []).map(msg => ({
-      id: msg.id,
-      role: msg.role,
-      content: msg.content,
-      createdAt: msg.created_at,
-      toolInvocations: msg.tool_invocations || undefined,
-    }));
   },
 
   async updateCanvasChatHistory(supabase: SupabaseClient<Database>, userId: string, chatHistory: any[], canvasId?: string) {
-    let targetCanvasId = canvasId;
+    try {
+      let targetCanvasId = canvasId;
 
-    if (!targetCanvasId) {
-      const { data: sessions } = await supabase
-        .from("canvas_sessions")
-        .select("id")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(1);
+      if (!targetCanvasId) {
+        const { data: sessions } = await supabase
+          .from("canvas_sessions")
+          .select("id")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(1);
 
-      if (!sessions || sessions.length === 0) throw new Error('No canvas session found');
-      targetCanvasId = sessions[0].id;
-    }
-
-    await supabase.from("chat_messages").delete().eq("canvas_id", targetCanvasId).eq("user_id", userId);
-    
-    if (chatHistory.length > 0) {
-      const { error } = await supabase.from("chat_messages").insert(
-        chatHistory.map(message => ({
-          id: message.id || crypto.randomUUID(),
-          user_id: userId,
-          canvas_id: targetCanvasId,
-          role: message.role,
-          content: message.content || '',
-          tool_invocations: message.toolInvocations || message.toolCalls || null,
-          created_at: message.createdAt || message.timestamp || new Date().toISOString()
-        }))
-      );
-
-      if (error) {
-        console.error('Error updating chat history:', error);
-        throw new Error('Failed to update chat history');
+        if (sessions && sessions.length > 0) {
+          targetCanvasId = sessions[0].id;
+        }
       }
+
+      if (targetCanvasId) {
+        await supabase.from("chat_messages").delete().eq("canvas_id", targetCanvasId).eq("user_id", userId);
+        
+        if (chatHistory.length > 0) {
+          await supabase.from("chat_messages").insert(
+            chatHistory.map(message => ({
+              id: message.id || crypto.randomUUID(),
+              user_id: userId,
+              canvas_id: targetCanvasId,
+              role: message.role,
+              content: message.content || '',
+              tool_invocations: message.toolInvocations || null,
+              created_at: message.createdAt || new Date().toISOString()
+            }))
+          );
+        }
+      }
+    } catch (err) {
+      console.warn('Non-fatal error in updateCanvasChatHistory:', err);
     }
   },
 

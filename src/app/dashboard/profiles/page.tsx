@@ -259,11 +259,10 @@ export default function ProfilesManagementPage() {
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
                     <div className="flex flex-col gap-2">
                         <h1 className="text-foreground text-3xl font-bold leading-tight tracking-tight">
-                            Content Profiles
+                            Brand Profiles
                         </h1>
                         <p className="text-muted-foreground text-sm font-normal leading-normal">
-                            Manage your brand identities. The active profile will guide the AI
-                            in generating new content.
+                            Manage brand voices, target audiences, and tone parameters for AI generations.
                         </p>
                     </div>
                     <Button
@@ -272,7 +271,7 @@ export default function ProfilesManagementPage() {
                         className="flex items-center justify-center gap-2"
                     >
                         <PlusCircle className="h-4 w-4" />
-                        <span>Create New Profile</span>
+                        <span>Create Profile</span>
                     </Button>
                 </div>
 
@@ -305,7 +304,7 @@ export default function ProfilesManagementPage() {
                                 <p className="text-muted-foreground text-sm font-normal leading-normal">
                                     {searchQuery
                                         ? "Try adjusting your search query."
-                                        : "Create your first Content Profile to start generating tailored ideas."}
+                                        : "Create your first Brand Profile to generate content tailored to your voice."}
                                 </p>
                             </div>
                             {!searchQuery && (
@@ -314,7 +313,7 @@ export default function ProfilesManagementPage() {
                                     className="flex items-center justify-center gap-2"
                                 >
                                     <PlusCircle className="h-4 w-4" />
-                                    <span>Create New Profile</span>
+                                    <span>Create Profile</span>
                                 </Button>
                             )}
                         </div>

@@ -449,7 +449,7 @@ export default function SchedulePage() {
         <div>
           <h2 className="text-xl font-bold tracking-tight">Content Calendar</h2>
           <p className="text-sm text-muted-foreground">
-            Schedule your content and track your publishing calendar
+            Manage your publishing schedule and queued posts across all channels.
           </p>
         </div>
 
@@ -490,7 +490,7 @@ export default function SchedulePage() {
             {/* Header */}
             <div className="flex justify-between items-center p-4 border-b border-border bg-muted/30">
               <h3 className="text-md font-bold text-foreground">
-                {editingPost ? 'Edit Scheduled Post' : 'Schedule New Post'}
+                {editingPost ? 'Edit Post' : 'Schedule Post'}
               </h3>
               <Button
                 variant="ghost"

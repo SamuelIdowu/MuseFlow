@@ -384,6 +384,9 @@ export function DashboardClient({
     try {
       await saveToIdeasAction(editingContent, "Saved from Chat");
       toast.success("Saved to Ideas!");
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('museflow:chat_updated'));
+      }
       router.refresh();
       setIsEditModalOpen(false);
     } catch (error) {

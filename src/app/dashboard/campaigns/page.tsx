@@ -40,7 +40,7 @@ export default function CampaignPage() {
             <div className="flex flex-col gap-1">
                 <h2 className="text-2xl font-bold tracking-tight">Campaign Generator</h2>
                 <p className="text-sm text-muted-foreground">
-                    Generate bulk content aligned with your active profile.
+                    Launch cross-platform content campaigns tailored to your brand voice.
                 </p>
             </div>
             <div className="pt-2">

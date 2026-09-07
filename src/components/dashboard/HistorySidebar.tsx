@@ -103,7 +103,7 @@ export function HistorySidebar({ onNavClick, className }: { onNavClick?: () => v
 
             {/* Toggle Button */}
             <div className={cn("flex items-center p-3 border-b border-border", isCollapsed ? "justify-center p-2" : "justify-between")}>
-                {!isCollapsed && <h2 className="font-bold text-sm text-foreground">Idea History</h2>}
+                {!isCollapsed && <h2 className="font-bold text-sm text-foreground">Chat History</h2>}
 
                 <Button
                     variant="ghost"

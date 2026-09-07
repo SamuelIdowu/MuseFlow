@@ -1,6 +1,4 @@
-'use client';
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import {
   Home,
@@ -14,10 +12,15 @@ import {
   FileEdit,
   PanelLeftClose,
   PanelLeftOpen,
+  MessageSquare,
+  Trash2,
+  History,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ModeToggle } from '@/components/mode-toggle';
 import {
@@ -27,6 +30,20 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { UserNav } from '@/components/dashboard/UserNav';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { getRecentChats, deleteIdeaAction } from '@/features/ideas/actions/ideaActions';
+import { toast } from 'react-hot-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const navItems = [
   {
@@ -71,6 +88,12 @@ const navItems = [
   },
 ];
 
+interface RecentChatItem {
+  id: string;
+  title: string;
+  createdAt?: string;
+}
+
 export function Sidebar({
   onNavClick,
   defaultCollapsed = true,
@@ -80,10 +103,38 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const currentChatId = searchParams.get('chatId');
+
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
+  const [recentChats, setRecentChats] = useState<RecentChatItem[]>([]);
+  const [isLoadingChats, setIsLoadingChats] = useState(true);
+  const [chatToDelete, setChatToDelete] = useState<string | null>(null);
+
+  const fetchChats = useCallback(async () => {
+    try {
+      setIsLoadingChats(true);
+      const chats = await getRecentChats(20);
+      setRecentChats(chats || []);
+    } catch (err) {
+      console.error('Failed to load recent chats for sidebar:', err);
+    } finally {
+      setIsLoadingChats(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // Only load saved preference if defaultCollapsed wasn't explicitly forced false (e.g. mobile sheet)
+    fetchChats();
+
+    const handleChatUpdated = () => {
+      fetchChats();
+    };
+
+    window.addEventListener('museflow:chat_updated', handleChatUpdated);
+    return () => window.removeEventListener('museflow:chat_updated', handleChatUpdated);
+  }, [fetchChats, currentChatId]);
+
+  useEffect(() => {
     if (defaultCollapsed !== false) {
       const savedState = localStorage.getItem('museflow_sidebar_collapsed');
       if (savedState !== null) {
@@ -100,19 +151,38 @@ export function Sidebar({
     });
   };
 
+  const handleDeleteChat = async (e: React.MouseEvent, id: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    setRecentChats((prev) => prev.filter((c) => c.id !== id));
+
+    try {
+      await deleteIdeaAction(id);
+      toast.success('Chat deleted');
+      if (currentChatId === id) {
+        router.push('/dashboard');
+      }
+    } catch (error) {
+      console.error('Failed to delete chat:', error);
+      toast.error('Failed to delete chat');
+      fetchChats();
+    }
+  };
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
         className={cn(
           'flex flex-col h-full border-r border-border bg-card text-muted-foreground flex-shrink-0 transition-all duration-300 ease-in-out select-none',
-          isCollapsed ? 'w-14' : 'w-56'
+          isCollapsed ? 'w-14' : 'w-60'
         )}
       >
         <div className="flex flex-col flex-1 h-full overflow-hidden">
           {/* Header: Brand & Collapse Button */}
           <div
             className={cn(
-              'flex items-center py-3.5 px-3 flex-shrink-0 border-b border-border/60',
+              'flex items-center py-3 px-3 flex-shrink-0 border-b border-border/60',
               isCollapsed ? 'justify-center' : 'justify-between'
             )}
           >
@@ -133,7 +203,7 @@ export function Sidebar({
                   <span className="font-semibold text-xs text-foreground tracking-tight leading-none truncate">
                     MuseFlow
                   </span>
-                  <span className="text-[10px] text-muted-foreground font-medium leading-tight truncate">
+                  <span className="text-[10px] text-muted-foreground font-medium leading-tight truncate mt-0.5">
                     AI Content Studio
                   </span>
                 </div>
@@ -154,12 +224,12 @@ export function Sidebar({
           </div>
 
           {/* Quick Action: New Idea */}
-          <div className="px-2.5 pt-3 pb-2 flex-shrink-0">
+          <div className="px-2.5 pt-2.5 pb-2 flex-shrink-0">
             {isCollapsed ? (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="flex justify-center">
-                    <Link href="/dashboard/ideas" onClick={onNavClick}>
+                    <Link href="/dashboard" onClick={onNavClick}>
                       <Button
                         size="icon"
                         className="h-7 w-7 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-md transition-transform hover:scale-105"
@@ -170,11 +240,11 @@ export function Sidebar({
                   </div>
                 </TooltipTrigger>
                 <TooltipContent side="right" className="font-semibold text-xs">
-                  New Idea
+                  New Idea / Chat
                 </TooltipContent>
               </Tooltip>
             ) : (
-              <Link href="/dashboard/ideas" onClick={onNavClick}>
+              <Link href="/dashboard" onClick={onNavClick}>
                 <Button
                   size="sm"
                   className="w-full h-8 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm text-xs font-medium flex items-center justify-center gap-2"
@@ -187,9 +257,9 @@ export function Sidebar({
           </div>
 
           {/* Nav Items */}
-          <div className="flex flex-col gap-1 w-full px-2 pt-1 flex-shrink-0">
+          <div className="flex flex-col gap-0.5 w-full px-2 pt-0.5 flex-shrink-0">
             {navItems.map((item) => {
-              const isActive = pathname === item.href && !searchParams.get('chatId');
+              const isActive = pathname === item.href && !currentChatId;
               const Icon = item.icon;
 
               if (isCollapsed) {
@@ -224,13 +294,13 @@ export function Sidebar({
                   href={item.href}
                   onClick={onNavClick}
                   className={cn(
-                    'flex items-center gap-3 px-3 h-8.5 rounded-lg text-xs font-medium transition-all duration-150 text-muted-foreground hover:text-foreground hover:bg-muted/80 group relative',
+                    'flex items-center gap-3 px-2.5 h-8 rounded-lg text-xs font-medium transition-all duration-150 text-muted-foreground hover:text-foreground hover:bg-muted/80 group relative',
                     isActive &&
-                      'bg-primary/10 text-primary font-semibold border-l-2 border-primary rounded-l-none pl-2.5'
+                      'bg-primary/10 text-primary font-semibold border-l-2 border-primary rounded-l-none pl-2'
                   )}
                 >
                   <Icon
-                    className="w-[17px] h-[17px] flex-shrink-0"
+                    className="w-[16px] h-[16px] flex-shrink-0"
                     strokeWidth={isActive ? 2.3 : 1.8}
                   />
                   <span className="truncate">{item.title}</span>
@@ -239,10 +309,97 @@ export function Sidebar({
             })}
           </div>
 
-          <div className="flex-1" />
+          {/* Chat History Section */}
+          {isCollapsed ? (
+            <div className="pt-2 px-2 border-t border-border/40 mt-2 flex justify-center">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setIsCollapsed(false)}
+                    className="h-8.5 w-8.5 mx-auto text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl"
+                  >
+                    <History className="w-[17px] h-[17px]" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="font-semibold text-xs">
+                  Chat History ({recentChats.length})
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col min-h-0 pt-3 px-2 mt-2 border-t border-border/50 overflow-hidden">
+              <div className="flex items-center justify-between px-2 mb-1.5 flex-shrink-0">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  <History className="w-3.5 h-3.5 text-primary" />
+                  <span>Recent Chats</span>
+                </div>
+                {recentChats.length > 0 && (
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-muted font-medium text-muted-foreground">
+                    {recentChats.length}
+                  </span>
+                )}
+              </div>
+
+              <ScrollArea className="flex-1 -mr-1 pr-1">
+                <div className="flex flex-col gap-0.5 pb-2">
+                  {isLoadingChats ? (
+                    <div className="space-y-1.5 px-2 py-2">
+                      <div className="h-6 bg-muted/60 rounded animate-pulse" />
+                      <div className="h-6 bg-muted/60 rounded animate-pulse" />
+                      <div className="h-6 bg-muted/60 rounded animate-pulse" />
+                    </div>
+                  ) : recentChats.length === 0 ? (
+                    <div className="text-center py-6 px-3">
+                      <MessageSquare className="w-6 h-6 mx-auto mb-1 text-muted-foreground/30" />
+                      <p className="text-[11px] text-muted-foreground/70">No recent chats</p>
+                    </div>
+                  ) : (
+                    recentChats.map((chat) => {
+                      const isChatActive = currentChatId === chat.id;
+
+                      return (
+                        <div
+                          key={chat.id}
+                          className={cn(
+                            'group relative flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-all duration-150 hover:bg-muted/80',
+                            isChatActive
+                              ? 'bg-primary/10 text-primary font-medium border-l-2 border-primary rounded-l-none pl-1.5'
+                              : 'text-muted-foreground hover:text-foreground'
+                          )}
+                        >
+                          <Link
+                            href={`/dashboard?chatId=${chat.id}`}
+                            onClick={onNavClick}
+                            className="flex items-center gap-2 flex-1 min-w-0 pr-1"
+                            title={chat.title}
+                          >
+                            <MessageSquare className="w-3.5 h-3.5 flex-shrink-0 opacity-70 group-hover:opacity-100" />
+                            <span className="truncate text-[11.5px] leading-tight">
+                              {chat.title || 'Untitled Chat'}
+                            </span>
+                          </Link>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleDeleteChat(e, chat.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground flex-shrink-0"
+                            title="Delete chat"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
 
           {/* Footer Controls */}
-          <div className="p-2 border-t border-border/60 flex flex-col gap-1.5">
+          <div className="p-2 border-t border-border/60 flex flex-col gap-1.5 flex-shrink-0 bg-card">
             {isCollapsed ? (
               <>
                 <Tooltip>
@@ -269,7 +426,7 @@ export function Sidebar({
                 </div>
               </>
             ) : (
-              <div className="flex items-center justify-between px-1 py-1">
+              <div className="flex items-center justify-between px-1 py-0.5">
                 <div className="flex items-center gap-2 overflow-hidden">
                   <UserNav />
                 </div>
