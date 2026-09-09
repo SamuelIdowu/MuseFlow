@@ -172,7 +172,7 @@ export function CampaignGenerator({ onSaved }: CampaignGeneratorProps) {
 
     return (
         <div className="space-y-8">
-            <Card className="max-w-4xl mx-auto">
+            <Card className="max-w-7xl mx-auto">
                 <CardHeader>
                     <CardTitle>Campaign Generator</CardTitle>
                 </CardHeader>

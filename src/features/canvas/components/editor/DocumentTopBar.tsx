@@ -41,6 +41,7 @@ interface DocumentTopBarProps {
   onToggleRightSidebar: () => void;
   onExport: (format: "markdown" | "html" | "text") => void;
   onCopyContent: () => void;
+  onLoadRecentChat?: () => void;
 }
 
 export function DocumentTopBar({
@@ -56,6 +57,7 @@ export function DocumentTopBar({
   onToggleRightSidebar,
   onExport,
   onCopyContent,
+  onLoadRecentChat,
 }: DocumentTopBarProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
@@ -167,52 +169,74 @@ export function DocumentTopBar({
         </span>
       </div>
 
-      {/* Right section: Copy, Export, Schedule & AI Copilot Toggle */}
+      {/* Right section: Unified Actions & AI Copilot */}
       <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        {/* Quick Copy shortcut on wide screens */}
         <Button
-          variant="outline"
+          variant="ghost"
           size="sm"
           onClick={handleCopy}
-          className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground hidden sm:flex items-center gap-1.5"
+          className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground hidden lg:flex items-center gap-1.5"
+          title="Quick copy to clipboard"
         >
           {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
           <span>{copied ? "Copied" : "Copy"}</span>
         </Button>
 
-        {/* Export Dropdown */}
+        {/* Unified Document Actions Dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground">
-              <Download size={13} className="mr-1.5" />
-              <span>Export</span>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1.5"
+            >
+              <Share2 size={13} />
+              <span>Actions</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44 text-xs">
-            <DropdownMenuItem onClick={() => onExport("markdown")} className="cursor-pointer">
-              <FileDown size={14} className="mr-2 text-primary" />
-              Download Markdown (.md)
+          <DropdownMenuContent align="end" className="w-52 text-xs">
+            <DropdownMenuItem onClick={handleCopy} className="cursor-pointer gap-2">
+              {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+              <span>{copied ? "Copied to Clipboard" : "Copy Content"}</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onExport("html")} className="cursor-pointer">
-              <FileDown size={14} className="mr-2 text-blue-500" />
-              Download HTML (.html)
+
+            {onLoadRecentChat && (
+              <DropdownMenuItem
+                onClick={onLoadRecentChat}
+                className="cursor-pointer gap-2 text-amber-600 dark:text-amber-400 focus:text-amber-600 dark:focus:text-amber-400"
+              >
+                <Sparkles size={14} className="text-amber-500 fill-amber-500/20" />
+                <span>Import Latest AI Draft</span>
+              </DropdownMenuItem>
+            )}
+
+            <Link href="/dashboard/schedule" className="w-full">
+              <DropdownMenuItem className="cursor-pointer gap-2">
+                <Calendar size={14} className="text-primary" />
+                <span>Schedule Post...</span>
+              </DropdownMenuItem>
+            </Link>
+
+            <DropdownMenuSeparator />
+            <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Export As
+            </div>
+
+            <DropdownMenuItem onClick={() => onExport("markdown")} className="cursor-pointer gap-2">
+              <FileDown size={14} className="text-primary" />
+              <span>Markdown (.md)</span>
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onExport("text")} className="cursor-pointer">
-              <FileDown size={14} className="mr-2 text-emerald-500" />
-              Download Plain Text (.txt)
+            <DropdownMenuItem onClick={() => onExport("html")} className="cursor-pointer gap-2">
+              <FileDown size={14} className="text-blue-500" />
+              <span>HTML Document (.html)</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onExport("text")} className="cursor-pointer gap-2">
+              <FileDown size={14} className="text-emerald-500" />
+              <span>Plain Text (.txt)</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-
-        <Link href="/dashboard/schedule">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground hidden sm:flex items-center gap-1.5"
-          >
-            <Calendar size={13} className="text-primary" />
-            <span>Schedule</span>
-          </Button>
-        </Link>
 
         {/* AI Copilot Toggle */}
         <Button

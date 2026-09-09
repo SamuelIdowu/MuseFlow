@@ -3,15 +3,44 @@ import { Profile } from "@/types/profile";
 import { CONTENT_TYPES } from "@/types/content";
 import { fetchUrlContent, extractUrls, isValidUrl } from "./urlUtils";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+export function getGeminiApiKey(): string {
+  const envKey = process.env.GEMINI_API_KEY?.trim();
+  if (envKey && !envKey.startsWith("AIzaSyCstRJ") && envKey.length > 20) {
+    return envKey;
+  }
 
-const model = genAI.getGenerativeModel({
-  model: "gemini-2.0-flash",
-});
+  // Read directly from .env.local on disk in case dev server process cached an old/missing key
+  try {
+    const fs = require("fs");
+    const path = require("path");
+    const envPath = path.join(process.cwd(), ".env.local");
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, "utf8");
+      const match = content.match(/^GEMINI_API_KEY=(.+)$/m);
+      if (match && match[1]) {
+        const parsedKey = match[1].trim();
+        if (!parsedKey.startsWith("AIzaSyCstRJ") && parsedKey.length > 20) {
+          return parsedKey;
+        }
+      }
+    }
+  } catch {}
+
+  return "";
+}
+
+export function getGenerativeModel(modelName: string = "gemini-2.5-flash") {
+  const apiKey = getGeminiApiKey();
+  const genAI = new GoogleGenerativeAI(apiKey);
+  return genAI.getGenerativeModel({ model: modelName });
+}
+
+// Default export model for backward compatibility
+const model = getGenerativeModel("gemini-2.5-flash");
 
 function withTimeout<T>(
   promise: Promise<T>,
-  ms: number = 15000,
+  ms: number = 45000,
   fallbackValue?: T
 ): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
@@ -61,18 +90,63 @@ async function buildProfileContext(profile?: Profile | null): Promise<string> {
   return context;
 }
 
+function getResearchAgentConfig() {
+  let agentUrl = process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || process.env.RESEARCH_AGENT_URL || 'http://localhost:8000';
+  let apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
+  let clientId = process.env.RESEARCH_AGENT_CLIENT_ID || process.env.NEXT_PUBLIC_RESEARCH_AGENT_CLIENT_ID || '';
+
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const envPath = path.join(process.cwd(), '.env.local');
+    if (fs.existsSync(envPath)) {
+      const content = fs.readFileSync(envPath, 'utf8');
+      if (!apiKey) {
+        const mKey = content.match(/^RESEARCH_AGENT_API_KEY=(.+)$/m);
+        if (mKey) apiKey = mKey[1].trim();
+      }
+      if (!clientId) {
+        const mClient = content.match(/^RESEARCH_AGENT_CLIENT_ID=(.+)$/m);
+        if (mClient) clientId = mClient[1].trim();
+      }
+      if (!agentUrl || agentUrl === 'http://localhost:8000') {
+        const mUrl = content.match(/^(?:NEXT_PUBLIC_)?RESEARCH_AGENT_URL=(.+)$/m);
+        if (mUrl) agentUrl = mUrl[1].trim();
+      }
+    }
+  } catch {}
+
+  return {
+    agentUrl: agentUrl.replace(/\/$/, ''),
+    apiKey,
+    clientId: clientId || '00000000-0000-0000-0000-000000000000'
+  };
+}
+
+export async function checkResearchAgentHealth(): Promise<boolean> {
+  try {
+    const { agentUrl } = getResearchAgentConfig();
+    const res = await fetch(`${agentUrl}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(2000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function tryGenerateWithResearchAgent(input: string, profileId?: string, contentTypeId?: string): Promise<{ success: boolean; data?: string; error?: string }> {
   try {
-    const agentUrl = process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || process.env.RESEARCH_AGENT_URL || 'http://localhost:8000';
-    const apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
-    const clientId = profileId || process.env.RESEARCH_AGENT_CLIENT_ID || process.env.NEXT_PUBLIC_RESEARCH_AGENT_CLIENT_ID || '00000000-0000-0000-0000-000000000000';
+    const { agentUrl, apiKey, clientId: defaultClientId } = getResearchAgentConfig();
+    const clientId = profileId || defaultClientId;
 
     const brief = contentTypeId ? `[Format Requirement: ${contentTypeId}]\n\n${input}` : input;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60000);
 
-    const res = await fetch(`${agentUrl.replace(/\/$/, '')}/generate`, {
+    const res = await fetch(`${agentUrl}/generate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -440,9 +514,11 @@ export async function generateCanvasBlocksFromChat(
 ): Promise<{ 
   blocks: { id: string; type: string; content: string; title?: string; x?: number; y?: number; action?: 'create' | 'update' | 'delete' }[]; 
   edges: { source: string; target: string; label?: string; action?: 'create' | 'delete' }[];
-  message: string 
+  message: string;
+  source?: 'research_agent' | 'gemini';
 }> {
-  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
     return {
       message: "API Key missing. Cannot generate blocks.",
       blocks: [
@@ -450,12 +526,30 @@ export async function generateCanvasBlocksFromChat(
         { id: "node-2", type: "paragraph", content: `This is a placeholder for: ${input}`, action: 'create' }
       ],
       edges: [
-        { source: "node-1", target: "node-2", action: 'create' }
-      ]
+        { source: "node-1", target: "node-2", action: 'create' },
+      ],
+      source: 'gemini'
     };
   }
 
   try {
+    // 1. Primary: Run deep research & persona synthesis via Research Agent (RAG + Web Search)
+    let agentDraft = "";
+    let usedAgent = false;
+    try {
+      const agentRes = await tryGenerateWithResearchAgent(input, activeProfile?.id);
+      if (agentRes.success && agentRes.data && agentRes.data.trim().length > 0) {
+        agentDraft = agentRes.data.trim();
+        usedAgent = true;
+      }
+    } catch (agentErr) {
+      console.warn("[Canvas AI] Research Agent pass skipped/offline:", agentErr);
+    }
+
+    const agentContext = agentDraft 
+      ? `\n\n═══════════════════════════════════════════════════\nVERIFIED RESEARCH & GROUNDED CONTENT (from Research Agent):\n"${agentDraft}"\n═══════════════════════════════════════════════════\nInstruction: Use the structured sections, key insights, and verified facts from this research draft to populate the content blocks on the canvas.\n`
+      : "";
+
     const profileContext = await buildProfileContext(activeProfile);
     
     // Format history
@@ -486,6 +580,7 @@ export async function generateCanvasBlocksFromChat(
     ${profileContext}
     ${historyContext}
     ${canvasContext}
+    ${agentContext}
     
     User Request: "${input}"
     
@@ -511,9 +606,6 @@ export async function generateCanvasBlocksFromChat(
     - Maintain at least 400px horizontal spacing and 300px vertical spacing.
     
     Return ONLY raw JSON.`;
-
-
-
 
     const parts: any[] = [{ text: prompt }];
     
@@ -551,12 +643,27 @@ export async function generateCanvasBlocksFromChat(
       });
     }
 
+    // Try primary model (gemini-2.5-flash), fallback to gemini-2.0-flash
+    const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash"];
+    let response: any = null;
+    let lastError: any = null;
 
-    const result = await withTimeout(model.generateContent(parts), 15000);
-    const response = result.response;
-    
+    for (const modelName of modelsToTry) {
+      try {
+        const activeModel = getGenerativeModel(modelName);
+        const result = await withTimeout(activeModel.generateContent(parts), 45000);
+        if (result?.response) {
+          response = result.response;
+          break;
+        }
+      } catch (err: any) {
+        console.warn(`[Gemini Canvas] Generation failed with ${modelName}:`, err?.message || err);
+        lastError = err;
+      }
+    }
+
     if (!response) {
-      throw new Error("No response from Gemini API");
+      throw lastError || new Error("No response from Gemini API models");
     }
 
     // Check if the response was blocked by safety filters
@@ -573,20 +680,37 @@ export async function generateCanvasBlocksFromChat(
       throw new Error("Empty response from Gemini API");
     }
 
-    const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
-    
+    let parsed: any = null;
+    const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
     try {
-      return JSON.parse(cleanText);
-    } catch (parseError) {
-      console.error("Failed to parse Gemini JSON response:", cleanText);
+      parsed = JSON.parse(cleanText);
+    } catch {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch {}
+      }
+    }
+
+    if (parsed && (parsed.blocks || parsed.edges || parsed.message)) {
       return {
-        message: text,
-        blocks: [
-          { id: crypto.randomUUID(), type: "paragraph", content: text, action: 'create' }
-        ],
-        edges: []
+        blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [],
+        edges: Array.isArray(parsed.edges) ? parsed.edges : [],
+        message: parsed.message || (usedAgent ? "Generated canvas blocks grounded in Research Agent intelligence." : "Here is your generated canvas structure."),
+        source: usedAgent ? 'research_agent' : 'gemini'
       };
     }
+
+    // Fallback if parsing didn't return standard format
+    return {
+      message: text,
+      blocks: [
+        { id: crypto.randomUUID(), type: "paragraph", content: text, action: 'create' }
+      ],
+      edges: [],
+      source: usedAgent ? 'research_agent' : 'gemini'
+    };
   } catch (error: any) {
     console.error("Error in generateCanvasBlocksFromChat:", error);
     
@@ -594,6 +718,22 @@ export async function generateCanvasBlocksFromChat(
     if (errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("API key not valid")) {
       return {
         message: "Your Google Gemini API key in `.env.local` is invalid or expired. Please update it in `.env.local` or configure BYOK in **Brand Profiles → Model & BYOK Settings**.",
+        blocks: [],
+        edges: []
+      };
+    }
+
+    if (errorMessage.includes("timed out") || errorMessage.includes("timeout")) {
+      return {
+        message: "The AI request timed out. Please try again with a more specific prompt.",
+        blocks: [],
+        edges: []
+      };
+    }
+
+    if (errorMessage.includes("429") || errorMessage.includes("quota") || errorMessage.includes("Resource has been exhausted")) {
+      return {
+        message: "The Gemini AI service is currently rate-limited. Please wait a moment and try again.",
         blocks: [],
         edges: []
       };
@@ -608,7 +748,7 @@ export async function generateCanvasBlocksFromChat(
     }
 
     return {
-      message: "I'm sorry, I encountered an error while generating the blocks. Please try again.",
+      message: `I encountered an issue generating the blocks (${errorMessage}). Please try again.`,
       blocks: [],
       edges: []
     };

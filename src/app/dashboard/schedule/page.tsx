@@ -457,7 +457,7 @@ export default function SchedulePage() {
           {/* View toggle */}
           <div className="flex items-center rounded-xl border border-border bg-muted p-0.5 shadow-2xs">
             <Button
-              variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+              variant={viewMode === 'list' ? 'default' : 'ghost'}
               size="sm"
               className="h-7 px-3 text-xs font-semibold gap-1.5 data-[state=active]:shadow-2xs"
               onClick={() => setViewMode('list')}
@@ -466,7 +466,7 @@ export default function SchedulePage() {
               List
             </Button>
             <Button
-              variant={viewMode === 'calendar' ? 'secondary' : 'ghost'}
+              variant={viewMode === 'calendar' ? 'default' : 'ghost'}
               size="sm"
               className="h-7 px-3 text-xs font-semibold gap-1.5 data-[state=active]:shadow-2xs"
               onClick={() => setViewMode('calendar')}

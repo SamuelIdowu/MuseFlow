@@ -1,12 +1,7 @@
 'use server';
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getActiveProfile } from '@/lib/dashboardServerActions';
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-const model = genAI.getGenerativeModel({
-  model: 'gemini-2.0-flash',
-});
+import { getGenerativeModel, getGeminiApiKey } from '@/lib/geminiClient';
 
 export type AiTransformCommand =
   | 'adjust_tone'
@@ -55,7 +50,7 @@ export async function transformSelectedTextAction({
       return { success: false, error: 'No text provided to transform' };
     }
 
-    if (!process.env.GEMINI_API_KEY) {
+    if (!getGeminiApiKey()) {
       return {
         success: true,
         result: `${text} (Transformed: ${command}${tone ? ` - ${tone}` : ''})`,
@@ -93,7 +88,8 @@ export async function transformSelectedTextAction({
 
     const prompt = `${instruction}\n\nStrict Rule: Return ONLY the transformed text replacement. Do NOT include markdown code blocks (like \`\`\`), no conversational intro or outro.\n\nOriginal Text:\n${text}`;
 
-    const response = await withTimeout(model.generateContent(prompt), 10000);
+    const activeModel = getGenerativeModel('gemini-2.5-flash');
+    const response = await withTimeout(activeModel.generateContent(prompt), 20000);
     let output = response.response.text().trim();
 
     if (output.startsWith('```') && output.endsWith('```')) {
@@ -264,8 +260,8 @@ ${instruction ? `Directive: ${instruction}` : 'Provide the immediate next logica
       };
     }
 
-    // 2. Fallback: MuseFlow Native Gemini AI (ultra fast response)
-    if (!process.env.GEMINI_API_KEY) {
+    // 2. Fallback: MuseFlow Native Gemini AI (fast response)
+    if (!getGeminiApiKey()) {
       return {
         success: true,
         result: ' and streamline your content creation process with measurable clarity.',
@@ -273,7 +269,7 @@ ${instruction ? `Directive: ${instruction}` : 'Provide the immediate next logica
       };
     }
 
-    const activeProfile = await withTimeout(getActiveProfile(), 800, null).catch(() => null);
+    const activeProfile = await withTimeout(getActiveProfile(), 1200, null).catch(() => null);
 
     let profileContext = '';
     if (activeProfile) {
@@ -296,7 +292,8 @@ Strict Rules:
 Preceding text:
 "...${snippet}"`;
 
-    const response = await withTimeout(model.generateContent(prompt), 4000);
+    const activeModel = getGenerativeModel('gemini-2.5-flash');
+    const response = await withTimeout(activeModel.generateContent(prompt), 10000);
     const rawOutput = response.response.text();
     const cleanOutput = sanitizeContinuation(rawOutput);
 

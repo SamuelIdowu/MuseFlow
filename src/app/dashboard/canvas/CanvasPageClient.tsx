@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Profile } from "@/types/profile";
 import { CONTENT_TYPES, CATEGORIES } from "@/types/content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Trash2, Loader2, Eye, Download, FileText, FileCode, FileType, Save, PlusCircle, Sparkles, X, MessageSquare, Paperclip, Send, ChevronRight, Maximize, Minimize, Search, Calculator, Database, Layout, CheckCircle2, AlertCircle, Info } from "lucide-react";
+import { Trash2, Loader2, Eye, Download, FileText, FileCode, FileType, Save, PlusCircle, Sparkles, X, MessageSquare, Paperclip, Send, ChevronRight, Maximize, Minimize, Search, Calculator, Database, Layout, CheckCircle2, AlertCircle, Info, SquarePen, Layers, Plus, ChevronDown, Check, MoreHorizontal } from "lucide-react";
 import { toast } from "react-hot-toast";
 import {
     AlertDialog,
@@ -32,6 +32,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -46,13 +47,17 @@ import {
     getGlobalChatMessagesAction,
     updateCanvasChatHistoryAction,
     generateCanvasChatResponseAction,
+    createCanvasSessionAction,
+    getUserCanvasSessionsAction,
+    updateCanvasSessionNameAction,
+    getCanvasModelProviderAction,
 } from "@/features/canvas/actions/canvasActions";
-import { saveToIdeasAction } from "@/features/ideas/actions/ideaActions";
+import { saveToIdeasAction, getChatById } from "@/features/ideas/actions/ideaActions";
+import { cn } from "@/lib/utils";
 
 import {
     ReactFlow,
     Background,
-    Controls,
     useNodesState,
     useEdgesState,
     addEdge,
@@ -62,15 +67,286 @@ import {
     NodeChange,
     EdgeChange,
     applyNodeChanges,
-    applyEdgeChanges
+    applyEdgeChanges,
+    ReactFlowInstance,
+    CoordinateExtent,
+    getNodesBounds,
+    getViewportForBounds,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
 import CustomNode, { BlockData } from "@/features/canvas/components/canvas/CustomNode";
+import { CanvasZoomToolbar } from "@/features/canvas/components/canvas/CanvasZoomToolbar";
 
 const nodeTypes = {
     custom: CustomNode,
 };
+
+interface DecomposedBlock {
+    type: string;
+    content: string;
+    title?: string;
+    extractedTitle?: string;
+}
+
+function cleanSectionTitle(rawHeader: string): string {
+    return rawHeader
+        .replace(/^#{1,4}\s+/, '')
+        .replace(/^[*_~`]+|[*_~`]+$/g, '')
+        .trim();
+}
+
+function determineBlockType(headerText: string, bodyPreview: string = ''): string {
+    const combined = (headerText + ' ' + bodyPreview).toLowerCase();
+    
+    // 1. Call to Action / Outro / Next Steps
+    if (
+        combined.includes('call to action') || 
+        combined.includes('call-to-action') || 
+        combined.includes('cta') || 
+        combined.includes('outro') || 
+        combined.includes('drop a comment') || 
+        combined.includes('comment below') || 
+        combined.includes('follow for') || 
+        combined.includes('subscribe') || 
+        combined.includes('dm you') || 
+        combined.includes('link in bio') ||
+        combined.includes('try it now') ||
+        combined.includes('sign up')
+    ) {
+        return 'call-to-action';
+    }
+
+    // 2. Hook / Intro / Attention Grabber
+    if (
+        combined.includes('hook') || 
+        combined.includes('intro') || 
+        combined.includes('opener') || 
+        combined.includes('stop scrolling') || 
+        combined.includes('attention') ||
+        combined.includes('did you know')
+    ) {
+        return 'hook';
+    }
+
+    // 3. Problem / Pain Point
+    if (
+        combined.includes('problem') || 
+        combined.includes('pain') || 
+        combined.includes('challenge') || 
+        combined.includes('struggle') || 
+        combined.includes('frustrated') || 
+        combined.includes('waste') ||
+        combined.includes('mistake')
+    ) {
+        return 'problem';
+    }
+
+    // 4. Solution / Tool / Tip / Step / Framework
+    if (
+        combined.includes('tool') || 
+        combined.includes('solution') || 
+        combined.includes('tip') || 
+        combined.includes('step') || 
+        combined.includes('framework') || 
+        combined.includes('strategy') || 
+        combined.includes('technique') || 
+        combined.includes('how to') ||
+        combined.includes('secret')
+    ) {
+        return 'solution';
+    }
+
+    // 5. Quote / Testimonial
+    if (
+        combined.includes('quote') || 
+        combined.includes('testimonial') || 
+        combined.includes('dialogue') ||
+        combined.includes('interview')
+    ) {
+        return 'quote';
+    }
+
+    // 6. List
+    if (
+        bodyPreview.trim().startsWith('*') || 
+        bodyPreview.trim().startsWith('-') || 
+        bodyPreview.includes('\n* ') || 
+        bodyPreview.includes('\n- ')
+    ) {
+        return 'list';
+    }
+
+    // 7. Heading / Chapter / Act
+    if (headerText && !bodyPreview) {
+        return 'heading';
+    }
+
+    return 'paragraph';
+}
+
+function decomposeContentIntoBlocks(rawContent: string, defaultTopic?: string): DecomposedBlock[] {
+    const trimmed = (rawContent || '').trim();
+    if (!trimmed) return [];
+
+    const lines = trimmed.split('\n');
+    let extractedTitle = '';
+    const metadata: { key: string; val: string }[] = [];
+    let contentStartIdx = 0;
+
+    // Scan for top metadata lines: **Title:**, **Format:**, **Pacing:**, etc.
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) {
+            contentStartIdx = i + 1;
+            continue;
+        }
+        const metaMatch = line.match(/^(?:\*{1,2}|_{1,2})?(Title|Format|Pacing|Target Audience|Tone|Duration|Channel|Platform)(?:\*{1,2}|_{1,2})?:\s*(.+)$/i);
+        if (metaMatch) {
+            const key = metaMatch[1].toLowerCase();
+            const val = metaMatch[2].replace(/^[*_~`]+|[*_~`]+$/g, '').trim();
+            if (key === 'title' && !extractedTitle) {
+                extractedTitle = val;
+            }
+            metadata.push({ key, val });
+            contentStartIdx = i + 1;
+        } else {
+            break;
+        }
+    }
+
+    const bodyLines = lines.slice(contentStartIdx);
+    const bodyText = bodyLines.join('\n').trim();
+
+    if (!bodyText) {
+        return [{
+            type: 'paragraph',
+            content: trimmed,
+            title: extractedTitle || defaultTopic,
+            extractedTitle: extractedTitle || defaultTopic
+        }];
+    }
+
+    // Section header detection regex
+    const headerLineRegex = /^(?:#{1,4}\s+|(?:\*{1,2}|_{1,2})?(?:\[\s*\d+:\d+\s*[-–—]\s*\d+:\d+\s*\]|\(\s*\d+:\d+\s*[-–—]\s*\d+:\d+\s*\)|(?:Scene|Act|Segment|Part|Step|Tip|Tool|Point)\s*#?\d+|Hook|Problem|Solution|Action|CTA|Call[- ]to[- ]Action|Outro|Intro|Takeaway|Key Takeaway|Summary)(?::|(?:\*{1,2}|_{1,2}))?)/i;
+
+    const rawParagraphs = bodyText.split(/\n\s*\n+/);
+    const candidateBlocks: DecomposedBlock[] = [];
+
+    let currentSection = {
+        type: 'paragraph',
+        header: '',
+        lines: [] as string[]
+    };
+
+    const flushCurrent = () => {
+        if (currentSection.lines.length > 0 || currentSection.header) {
+            let content = '';
+            if (currentSection.header) {
+                content = currentSection.lines.length > 0
+                    ? `**${currentSection.header}**\n\n${currentSection.lines.join('\n\n')}`
+                    : `**${currentSection.header}**`;
+            } else {
+                content = currentSection.lines.join('\n\n');
+            }
+
+            candidateBlocks.push({
+                type: currentSection.type,
+                content: content.trim(),
+                extractedTitle: extractedTitle || defaultTopic
+            });
+        }
+        currentSection = { type: 'paragraph', header: '', lines: [] };
+    };
+
+    for (let pIdx = 0; pIdx < rawParagraphs.length; pIdx++) {
+        const p = rawParagraphs[pIdx].trim();
+        if (!p) continue;
+
+        const pLines = p.split('\n');
+        const firstLine = pLines[0].trim();
+
+        const isHeader = headerLineRegex.test(firstLine);
+
+        if (isHeader) {
+            flushCurrent();
+
+            const cleanHeader = cleanSectionTitle(firstLine);
+            const restOfP = pLines.slice(1).join('\n').trim();
+            const bType = determineBlockType(cleanHeader, restOfP);
+
+            currentSection.type = bType;
+            currentSection.header = cleanHeader;
+            if (restOfP) {
+                currentSection.lines.push(restOfP);
+            }
+        } else {
+            // Check if this paragraph is a bulleted list
+            const isBulletList = pLines.filter(l => /^\s*[-*•\d+.]\s+/.test(l)).length >= 2 || (pLines.length === 1 && /^\s*[-*•]\s+/.test(pLines[0]));
+
+            if (isBulletList) {
+                flushCurrent();
+                candidateBlocks.push({
+                    type: 'list',
+                    content: p,
+                    extractedTitle: extractedTitle || defaultTopic
+                });
+            } else if (currentSection.header) {
+                // Check if this paragraph is an outro / CTA
+                const ctaType = determineBlockType('', p);
+                if (ctaType === 'call-to-action' && currentSection.type !== 'call-to-action') {
+                    flushCurrent();
+                    candidateBlocks.push({
+                        type: 'call-to-action',
+                        content: p,
+                        extractedTitle: extractedTitle || defaultTopic
+                    });
+                } else {
+                    currentSection.lines.push(p);
+                }
+            } else {
+                // No header yet
+                const bType = determineBlockType('', p);
+                if (candidateBlocks.length === 0 && pIdx === 0 && p.length < 250) {
+                    currentSection.type = 'hook';
+                } else {
+                    currentSection.type = bType;
+                }
+                currentSection.lines.push(p);
+                flushCurrent();
+            }
+        }
+    }
+
+    flushCurrent();
+
+    // Fallback: If only 1 block was generated but content has multiple paragraphs, split them
+    if (candidateBlocks.length <= 1) {
+        const paragraphs = bodyText.split(/\n\s*\n+/).map(p => p.trim()).filter(Boolean);
+        if (paragraphs.length >= 2) {
+            return paragraphs.map((p, idx) => {
+                let blockType = determineBlockType('', p);
+                if (idx === 0 && blockType === 'paragraph' && p.length < 250) {
+                    blockType = 'hook';
+                } else if (idx === paragraphs.length - 1 && blockType === 'paragraph' && p.length < 250) {
+                    blockType = 'call-to-action';
+                }
+                return {
+                    type: blockType,
+                    content: p,
+                    extractedTitle: extractedTitle || defaultTopic
+                };
+            });
+        }
+    }
+
+    return candidateBlocks.length > 0 ? candidateBlocks : [{
+        type: 'paragraph',
+        content: trimmed,
+        title: extractedTitle || defaultTopic,
+        extractedTitle: extractedTitle || defaultTopic
+    }];
+}
 
 // Types are now managed by @ai-sdk/react
 
@@ -80,21 +356,93 @@ interface CanvasPageClientProps {
 }
 
 export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientProps) {
+    const router = useRouter();
     const searchParams = useSearchParams();
+    const sessionParam = searchParams.get("session") || searchParams.get("id") || searchParams.get("canvasId");
+    const isNewParam = searchParams.get("new") === "true";
+    const importParam = searchParams.get("import");
+    const topicParam = searchParams.get("topic");
+    const ideaIdParam = searchParams.get("ideaId");
+
     const [sessionId] = useState(() => typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(7));
 
     // React Flow State
     const [nodes, setNodes, onNodesChangeState] = useNodesState<Node<BlockData>>([]);
     const [edges, setEdges, onEdgesChangeState] = useEdgesState<Edge>([]);
 
+    // Finite Canvas Workspace Boundaries (Restricts infinite panning & sets full canvas minimum overview)
+    const canvasBounds = useMemo(() => {
+        if (!nodes || nodes.length === 0) {
+            return {
+                x: 0,
+                y: 0,
+                width: 2200,
+                height: 1400,
+            };
+        }
+        const bounds = getNodesBounds(nodes);
+        const padX = 240;
+        const padY = 180;
+        const x = Math.min(0, Math.floor((bounds.x || 0) - padX));
+        const y = Math.min(0, Math.floor((bounds.y || 0) - padY));
+        const right = Math.max(2200, Math.ceil((bounds.x || 0) + (bounds.width || 0) + padX));
+        const bottom = Math.max(1400, Math.ceil((bounds.y || 0) + (bounds.height || 0) + padY));
+        return {
+            x,
+            y,
+            width: right - x,
+            height: bottom - y,
+        };
+    }, [nodes]);
+
+    const translateExtent = useMemo<CoordinateExtent>(() => {
+        return [
+            [canvasBounds.x, canvasBounds.y],
+            [canvasBounds.x + canvasBounds.width, canvasBounds.y + canvasBounds.height],
+        ];
+    }, [canvasBounds]);
+
+    const nodeExtent = useMemo<CoordinateExtent>(() => {
+        return [
+            [canvasBounds.x + 30, canvasBounds.y + 30],
+            [canvasBounds.x + canvasBounds.width - 30, canvasBounds.y + canvasBounds.height - 30],
+        ];
+    }, [canvasBounds]);
+
+    // Minimum overview zoom factor so that the entire canvas workspace covers the screen
+    const minOverviewZoom = useMemo(() => {
+        let containerWidth = 1200;
+        let containerHeight = 800;
+        if (typeof window !== "undefined") {
+            const container = document.querySelector(".react-flow") as HTMLElement | null;
+            if (container && container.clientWidth > 0 && container.clientHeight > 0) {
+                containerWidth = container.clientWidth;
+                containerHeight = container.clientHeight;
+            } else {
+                containerWidth = window.innerWidth * 0.7;
+                containerHeight = window.innerHeight * 0.75;
+            }
+        }
+        const vp = getViewportForBounds(
+            { x: canvasBounds.x, y: canvasBounds.y, width: canvasBounds.width, height: canvasBounds.height },
+            containerWidth,
+            containerHeight,
+            0.05,
+            1.0,
+            0.04
+        );
+        return Math.max(0.08, Math.min(vp.zoom, 1.0));
+    }, [canvasBounds]);
+
     const [loading, setLoading] = useState(true);
     const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
     const [expandingBlockId, setExpandingBlockId] = useState<string | null>(null);
     const [regeneratingBlockId, setRegeneratingBlockId] = useState<string | null>(null);
-    const [pageTitle, setPageTitle] = useState(searchParams.get("title") || "My New Article");
+    const [pageTitle, setPageTitle] = useState(searchParams.get("title") || searchParams.get("topic") || "My New Article");
     const [selectedContentTypeId, setSelectedContentTypeId] = useState<string>(CONTENT_TYPES[0]?.id || 'linkedin_post');
     const [showPreview, setShowPreview] = useState(false);
-    const [activeCanvasId, setActiveCanvasId] = useState<string | undefined>(searchParams.get('id') || undefined);
+    const [activeCanvasId, setActiveCanvasId] = useState<string | undefined>(sessionParam || undefined);
+    const [canvasSessions, setCanvasSessions] = useState<{ id: string; name: string; created_at: string; updated_at: string }[]>([]);
 
     // Chat State
     const [isChatOpen, setIsChatOpen] = useState(false);
@@ -110,9 +458,67 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
     const [isFullscreen, setIsFullscreen] = useState(false);
     const canvasContainerRef = useRef<HTMLDivElement>(null);
 
+    const loadCanvasSessions = useCallback(async () => {
+        try {
+            const sessions = await getUserCanvasSessionsAction();
+            setCanvasSessions(sessions);
+        } catch (err) {
+            console.error("Error loading canvas sessions:", err);
+        }
+    }, []);
+
     useEffect(() => {
-        // Feature removed as agent-core was deleted
-        setModelProvider('local');
+        loadCanvasSessions();
+    }, [loadCanvasSessions]);
+
+    const titleDebounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+    const handleTitleChange = (newTitle: string) => {
+        setPageTitle(newTitle);
+        if (titleDebounceTimer.current) {
+            clearTimeout(titleDebounceTimer.current);
+        }
+        if (activeCanvasId) {
+            titleDebounceTimer.current = setTimeout(async () => {
+                try {
+                    await updateCanvasSessionNameAction(activeCanvasId, newTitle);
+                    setCanvasSessions(prev => prev.map(s => s.id === activeCanvasId ? { ...s, name: newTitle } : s));
+                } catch (err) {
+                    console.error("Failed to update canvas title in database:", err);
+                }
+            }, 800);
+        }
+    };
+
+    const handleCreateNewCanvas = async () => {
+        try {
+            setLoading(true);
+            const newSession = await createCanvasSessionAction("New Canvas");
+            if (newSession?.id) {
+                toast.success("Created new canvas", { icon: "✨" });
+                router.push(`/dashboard/canvas?session=${newSession.id}`);
+                loadCanvasSessions();
+            }
+        } catch (err) {
+            console.error("Failed to create new canvas:", err);
+            toast.error("Could not create new canvas");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSwitchCanvas = (targetSessionId: string) => {
+        if (targetSessionId === activeCanvasId) return;
+        setNodes([]);
+        setEdges([]);
+        setLoading(true);
+        router.push(`/dashboard/canvas?session=${targetSessionId}`);
+    };
+
+    useEffect(() => {
+        getCanvasModelProviderAction()
+            .then(provider => setModelProvider(provider))
+            .catch(() => setModelProvider('gemini'));
     }, []);
 
     const toggleFullscreen = () => {
@@ -138,10 +544,12 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
 
     const saveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
     const positionSaveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+    const reactFlowInstanceRef = useRef<ReactFlowInstance<Node<BlockData>, Edge> | null>(null);
+    const processedImportRef = useRef<string | null>(null);
 
     useEffect(() => {
         fetchBlocks();
-    }, []);
+    }, [sessionParam, isNewParam, importParam, topicParam, ideaIdParam]);
 
     useEffect(() => {
         if (isChatOpen) {
@@ -188,7 +596,7 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
         const filesToSend = [...selectedFiles];
         setSelectedFiles([]);
         setIsChatLoading(true);
-        setAgentStatus("AI is generating canvas content...");
+        setAgentStatus("Thinking...");
 
         // Persist user message to Supabase
         if (activeCanvasId) {
@@ -226,6 +634,11 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
             } else if (response) {
                 replyMessage = response.message || (response as any).content || "";
                 generatedBlocks = response.blocks || [];
+                if ((response as any).source === 'research_agent') {
+                    setModelProvider('research agent');
+                } else if ((response as any).source === 'gemini') {
+                    setModelProvider('gemini');
+                }
             }
 
             // Create newly generated blocks if any
@@ -238,7 +651,7 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                         content: blk.content || '',
                         order: nodes.length + i,
                         position: blk.position
-                    });
+                    }, activeCanvasId);
                 }
                 await fetchBlocks(true);
             }
@@ -277,14 +690,239 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
         }
     };
 
+    const applyImportPayload = useCallback(async (
+        parsed: any, 
+        existingNodesList?: Node<BlockData>[], 
+        targetCanvasId?: string
+    ) => {
+        if (!parsed || (!parsed.content && !parsed.topic)) return false;
+
+        const contentToInsert = parsed.content || parsed.topic || '';
+        const topicTitle = parsed.topic || parsed.title;
+
+        const decomposed = decomposeContentIntoBlocks(contentToInsert, topicTitle);
+        if (decomposed.length === 0) return false;
+
+        const effectiveTitle = decomposed[0]?.extractedTitle || topicTitle || "Imported Canvas";
+        setPageTitle(effectiveTitle);
+
+        const resolvedCanvasId = targetCanvasId || activeCanvasId || searchParams.get('session') || searchParams.get('id') || undefined;
+        if (resolvedCanvasId) {
+            updateCanvasSessionNameAction(resolvedCanvasId, effectiveTitle).catch(console.error);
+            setCanvasSessions(prev => prev.map(s => s.id === resolvedCanvasId ? { ...s, name: effectiveTitle } : s));
+        }
+
+        // Dedicated import layout: 3 columns, clean grid
+        const startX = 80;
+        const startY = 120;
+        const colWidth = 440;
+        const rowHeight = 360;
+
+        const newNodes: Node<BlockData>[] = [];
+        const newEdges: Edge[] = [];
+        const tempBlockMap: { tempId: string; block: DecomposedBlock; index: number; position: { x: number; y: number } }[] = [];
+
+        decomposed.forEach((block, idx) => {
+            const tempId = `imported_${Date.now()}_${idx}`;
+            const x = startX + (idx % 3) * colWidth;
+            const y = startY + Math.floor(idx / 3) * rowHeight;
+            const position = { x, y };
+
+            const node: Node<BlockData> = {
+                id: tempId,
+                type: 'custom',
+                position,
+                dragHandle: '.drag-handle',
+                data: {
+                    id: tempId,
+                    type: block.type,
+                    content: block.content,
+                    order: idx,
+                    onUpdate: handleUpdateBlock,
+                    onExpand: handleExpandWithAI,
+                    onRegenerate: handleRegenerateBlock,
+                    isEditing: false,
+                    isExpanding: false,
+                    isRegenerating: false,
+                    setEditingId: setEditingBlockId
+                }
+            };
+            newNodes.push(node);
+            tempBlockMap.push({ tempId, block, index: idx, position });
+
+            if (idx > 0) {
+                const prevTempId = tempBlockMap[idx - 1]?.tempId;
+                if (prevTempId) {
+                    newEdges.push({
+                        id: `edge_${prevTempId}_${tempId}`,
+                        source: prevTempId,
+                        target: tempId,
+                        animated: true,
+                        style: { stroke: 'hsl(var(--primary))', strokeWidth: 2 }
+                    });
+                }
+            }
+        });
+
+        // Set ONLY the imported nodes on the canvas
+        setNodes(newNodes);
+        setEdges(newEdges);
+
+        toast.success(
+            decomposed.length > 1 
+                ? `Imported ${decomposed.length} visual nodes into new Canvas!` 
+                : "Imported idea into Canvas!", 
+            { icon: "🎨" }
+        );
+
+        setTimeout(() => {
+            reactFlowInstanceRef.current?.fitView({ padding: 0.25, duration: 500 });
+        }, 150);
+
+        try {
+            const savedRealIds: string[] = [];
+            for (const item of tempBlockMap) {
+                try {
+                    const addedBlock = await addCanvasBlockAction({
+                        type: item.block.type,
+                        content: item.block.content,
+                        order: item.index,
+                        position: item.position
+                    }, resolvedCanvasId);
+
+                    if (addedBlock?.id) {
+                        savedRealIds[item.index] = addedBlock.id;
+                        setNodes(nds => nds.map(n => n.id === item.tempId ? {
+                            ...n,
+                            id: addedBlock.id,
+                            data: { ...n.data, id: addedBlock.id }
+                        } : n));
+                    }
+                } catch (err) {
+                    console.warn(`Could not save imported block ${item.index} to DB:`, err);
+                }
+            }
+
+            for (let i = 1; i < savedRealIds.length; i++) {
+                const srcId = savedRealIds[i - 1];
+                const tgtId = savedRealIds[i];
+                if (srcId && tgtId) {
+                    const prevTempId = tempBlockMap[i - 1]?.tempId;
+                    const currTempId = tempBlockMap[i]?.tempId;
+                    try {
+                        const savedEdge = await addEdgeAction({
+                            source: srcId,
+                            target: tgtId
+                        });
+                        if (savedEdge?.id) {
+                            setEdges(eds => eds.map(e => (e.source === prevTempId && e.target === currTempId) ? {
+                                ...e,
+                                id: savedEdge.id,
+                                source: srcId,
+                                target: tgtId
+                            } : e));
+                        }
+                    } catch (edgeErr) {
+                        console.warn("Could not save connecting edge to DB:", edgeErr);
+                    }
+                }
+            }
+        } catch (dbErr) {
+            console.error("Error saving imported canvas nodes to DB:", dbErr);
+        }
+
+        return true;
+    }, [activeCanvasId, searchParams, nodes]);
+
+    const handleLoadLatestDashboardChat = async () => {
+        try {
+            const raw = localStorage.getItem('museflow_canvas_import') || localStorage.getItem('museflow_latest_ai_chat');
+            if (!raw) {
+                toast.error("No recent AI chat draft found in storage.");
+                return;
+            }
+            const parsed = JSON.parse(raw);
+            let targetSessionId = activeCanvasId;
+            // If current canvas already has nodes, create a brand-new canvas for the import
+            if (nodes.length > 0) {
+                const topicTitle = parsed.topic || parsed.title || "Imported Canvas";
+                const newSession = await createCanvasSessionAction(topicTitle);
+                if (newSession?.id) {
+                    targetSessionId = newSession.id;
+                    setActiveCanvasId(newSession.id);
+                    loadCanvasSessions();
+                    window.history.replaceState(null, '', `/dashboard/canvas?session=${newSession.id}`);
+                }
+            }
+            const success = await applyImportPayload(parsed, [], targetSessionId);
+            if (success) {
+                toast.success("Loaded latest draft from AI Chat into dedicated canvas!", { icon: "🎨" });
+            }
+        } catch (err) {
+            console.error("Failed to load latest chat:", err);
+            toast.error("Could not load dashboard chat");
+        }
+    };
+
     const fetchBlocks = async (isSilent = false) => {
         try {
             if (!isSilent) setLoading(true);
-            const canvasId = searchParams.get('id') || undefined;
-            const { blocks: fetchedBlocks, edges: fetchedEdges, chatHistory: fetchedChatHistory, id: actualCanvasId } = await getCanvasDataAction(canvasId);
+
+            // Check for staged import from Home Chat
+            let pendingImport: any = null;
+            try {
+                const canvasImport = typeof window !== 'undefined' ? localStorage.getItem("museflow_canvas_import") : null;
+                if (canvasImport) {
+                    const parsed = JSON.parse(canvasImport);
+                    const importToken = parsed.id || `${parsed.importedAt || ''}_${(parsed.content || '').slice(0, 30)}`;
+                    if (processedImportRef.current !== importToken) {
+                        processedImportRef.current = importToken;
+                        pendingImport = parsed;
+                    }
+                    localStorage.removeItem("museflow_canvas_import");
+                }
+            } catch (e) {
+                console.error("Error reading canvas import:", e);
+            }
+
+            let targetCanvasId = searchParams.get('session') || searchParams.get('id') || searchParams.get('canvasId') || pendingImport?.targetSessionId || undefined;
+            const isForcedNew = searchParams.get('new') === 'true' || (Boolean(importParam) && !targetCanvasId) || (Boolean(ideaIdParam) && !targetCanvasId);
+            const initialTitle = topicParam || pendingImport?.topic || "New Canvas";
+
+            let { 
+                blocks: fetchedBlocks, 
+                edges: fetchedEdges, 
+                chatHistory: fetchedChatHistory, 
+                id: actualCanvasId,
+                name: canvasSessionName
+            } = await getCanvasDataAction(targetCanvasId, isForcedNew, initialTitle);
+
+            // CRITICAL SAFETY ISOLATION GUARD:
+            // If there is an active import (pendingImport or importParam) and the loaded session has existing blocks (e.g. Chelsea),
+            // NEVER pollute or append onto that session! Create a fresh dedicated session for the import.
+            if ((pendingImport || Boolean(importParam)) && fetchedBlocks.length > 0) {
+                const importTitle = pendingImport?.topic || topicParam || "Imported Canvas";
+                try {
+                    const newSession = await createCanvasSessionAction(importTitle);
+                    if (newSession?.id) {
+                        actualCanvasId = newSession.id;
+                        canvasSessionName = importTitle;
+                        fetchedBlocks = [];
+                        fetchedEdges = [];
+                        fetchedChatHistory = [];
+                        window.history.replaceState(null, '', `/dashboard/canvas?session=${newSession.id}`);
+                    }
+                } catch (createErr) {
+                    console.error("Failed to create isolated session for import:", createErr);
+                }
+            }
             
             // Store the resolved canvas ID so the agent can write to the correct session
             setActiveCanvasId(actualCanvasId);
+            
+            // Set canvas page title
+            const resolvedTitle = topicParam || canvasSessionName || "Untitled Canvas";
+            setPageTitle(resolvedTitle);
             
             // Load chat history from the canvas data
             if (!isSilent && fetchedChatHistory && fetchedChatHistory.length > 0) {
@@ -294,14 +932,16 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                     parts: [{ type: 'text', text: msg.content || '' }],
                     createdAt: new Date(msg.createdAt)
                 })));
+            } else if (!isSilent && (!fetchedChatHistory || fetchedChatHistory.length === 0)) {
+                setChatMessages([]);
             }
             
             const needsLayout = fetchedBlocks.length > 1 && fetchedBlocks.every(b => b.position.x === 0 && b.position.y === 0);
 
-            const initialNodes = fetchedBlocks.map((block: any, index: number) => ({
+            const initialNodes: Node<BlockData>[] = fetchedBlocks.map((block: any, index: number) => ({
                 id: block.id,
                 type: 'custom',
-                position: needsLayout ? { x: 250, y: index * 300 } : block.position,
+                position: needsLayout ? { x: 80 + (index % 3) * 440, y: 120 + Math.floor(index / 3) * 360 } : block.position,
                 dragHandle: '.drag-handle',
                 data: {
                     id: block.id,
@@ -321,51 +961,33 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
             setNodes(initialNodes);
             setEdges(fetchedEdges || []);
 
-            // Check for imported topic/draft from Home Chat
-            try {
-                const canvasImport = localStorage.getItem("museflow_canvas_import");
-                if (canvasImport) {
-                    const parsed = JSON.parse(canvasImport);
-                    localStorage.removeItem("museflow_canvas_import");
-                    if (parsed.content || parsed.topic) {
-                        const contentToInsert = parsed.content || parsed.topic;
-                        const position = initialNodes.length > 0
-                            ? { x: 250, y: initialNodes.length * 350 }
-                            : { x: 250, y: 100 };
-
-                        addCanvasBlockAction({
-                            type: "paragraph",
-                            content: contentToInsert,
-                            order: initialNodes.length,
-                            position
-                        }).then((addedBlock) => {
-                            const importedNode: Node<BlockData> = {
-                                id: addedBlock.id,
-                                type: 'custom',
-                                position: addedBlock.position,
-                                dragHandle: '.drag-handle',
-                                data: {
-                                    id: addedBlock.id,
-                                    type: addedBlock.type || "paragraph",
-                                    content: addedBlock.content || "",
-                                    order: addedBlock.order_index,
-                                    onUpdate: handleUpdateBlock,
-                                    onExpand: handleExpandWithAI,
-                                    onRegenerate: handleRegenerateBlock,
-                                    isEditing: false,
-                                    isExpanding: false,
-                                    isRegenerating: false,
-                                    setEditingId: setEditingBlockId
-                                }
-                            };
-                            setNodes((nds) => [...nds, importedNode]);
-                            toast.success("Imported idea into Canvas!", { icon: "🎨" });
-                        }).catch(e => console.error("Error adding canvas import block:", e));
-                    }
-                }
-            } catch (e) {
-                console.error("Error parsing canvas import:", e);
+            if (pendingImport) {
+                await applyImportPayload(pendingImport, [], actualCanvasId);
+            } else {
+                setTimeout(() => {
+                    reactFlowInstanceRef.current?.fitView({ padding: 0.25, duration: 400 });
+                }, 100);
             }
+
+            // Check for ideaId parameter in URL
+            if (ideaIdParam) {
+                try {
+                    const loadedChat = await getChatById(ideaIdParam);
+                    if (loadedChat && Array.isArray(loadedChat) && loadedChat.length > 0) {
+                        const ideaContent = loadedChat.map((m: any) => m.content).filter(Boolean).join('\n\n');
+                        if (ideaContent) {
+                            await applyImportPayload({
+                                content: ideaContent,
+                                topic: topicParam || "Saved Idea"
+                            }, [], actualCanvasId);
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error processing ideaIdParam:", e);
+                }
+            }
+
+            loadCanvasSessions();
         } catch (error) {
             console.error("Error fetching canvas blocks:", error);
             if (!isSilent) toast.error("Failed to load canvas");
@@ -440,7 +1062,7 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                 order: nodes.length,
                 position
             };
-            const addedBlock = await addCanvasBlockAction(newBlock);
+            const addedBlock = await addCanvasBlockAction(newBlock, activeCanvasId);
             const newNode: Node<BlockData> = {
                 id: addedBlock.id,
                 type: 'custom',
@@ -517,7 +1139,7 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
     const handleClearCanvas = async () => {
         try {
             setLoading(true);
-            await clearCanvasAction();
+            await clearCanvasAction(activeCanvasId);
             setNodes([]);
             setEdges([]);
             toast.success("Canvas cleared");
@@ -809,17 +1431,75 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
             {/* Top Toolbar */}
             <div className="flex flex-col gap-2 mb-3 px-2 sm:px-4 sticky top-0 z-10 bg-background/90 backdrop-blur-md pb-2.5 border-b w-full max-w-full overflow-hidden">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 w-full">
-                    {/* Left: Page Title & Active Profile */}
-                    <div className="flex flex-col min-w-0 flex-1">
-                        <Input
-                            className="text-base sm:text-xl md:text-2xl font-bold bg-transparent border-none focus-visible:ring-0 w-full min-w-0 font-space-grotesk h-auto py-0 px-0 text-foreground placeholder:text-muted-foreground truncate"
-                            type="text"
-                            value={pageTitle}
-                            onChange={(e) => setPageTitle(e.target.value)}
-                            placeholder="Untitled Canvas"
-                        />
+                    {/* Left: Page Title, Session Selector & Active Profile */}
+                    <div className="flex flex-col min-w-0 flex-1 mt-2">
+                        <div className="flex items-center gap-2 max-w-full">
+                            {/* Canvas Switcher Dropdown */}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="h-8 px-2.5 gap-1.5 text-xs font-semibold shrink-0 bg-muted/40 hover:bg-muted border-border/80 text-foreground"
+                                        title="Switch between saved canvases"
+                                    >
+                                        <Layers className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400" />
+                                        <span className="hidden sm:inline">Canvases</span>
+                                        <ChevronDown className="h-3 w-3 opacity-60" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="w-72 p-1.5 shadow-xl">
+                                    <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-border/50 mb-1">
+                                        <span className="text-xs font-semibold text-muted-foreground">My Canvases</span>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-6 px-1.5 text-[11px] text-sky-600 dark:text-sky-400 font-semibold gap-1 hover:bg-sky-500/10"
+                                            onClick={handleCreateNewCanvas}
+                                        >
+                                            <Plus className="h-3 w-3" /> New
+                                        </Button>
+                                    </div>
+                                    <div className="max-h-64 overflow-y-auto space-y-0.5">
+                                        {canvasSessions.length === 0 ? (
+                                            <div className="p-3 text-center text-xs text-muted-foreground">
+                                                No other canvases found
+                                            </div>
+                                        ) : (
+                                            canvasSessions.map((session) => (
+                                                <DropdownMenuItem
+                                                    key={session.id}
+                                                    onClick={() => handleSwitchCanvas(session.id)}
+                                                    className={cn(
+                                                        "text-xs flex items-center justify-between p-2 rounded-md cursor-pointer group transition-colors",
+                                                        session.id === activeCanvasId 
+                                                            ? "bg-sky-500/10 font-semibold text-sky-700 dark:text-sky-300" 
+                                                            : "hover:bg-muted text-foreground"
+                                                    )}
+                                                >
+                                                    <div className="flex flex-col min-w-0 pr-2">
+                                                        <span className="truncate">{session.name || "Untitled Canvas"}</span>
+                                                    </div>
+                                                    {session.id === activeCanvasId && (
+                                                        <Check className="h-3.5 w-3.5 text-sky-600 dark:text-sky-400 shrink-0" />
+                                                    )}
+                                                </DropdownMenuItem>
+                                            ))
+                                        )}
+                                    </div>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+
+                            <Input
+                                className="text-base sm:text-xl md:text-2xl font-bold bg-transparent border-none focus-visible:ring-0 w-full min-w-0 font-space-grotesk h-auto py-0 px-0 text-foreground placeholder:text-muted-foreground truncate"
+                                type="text"
+                                value={pageTitle}
+                                onChange={(e) => handleTitleChange(e.target.value)}
+                                placeholder="Untitled Canvas"
+                            />
+                        </div>
                         {activeProfile && (
-                            <span className="text-[11px] md:text-xs text-muted-foreground truncate mt-0.5">
+                            <span className="text-[11px] md:text-xs text-muted-foreground truncate mt-0.5 ml-0.5">
                                 Active Profile: <span className="font-medium text-foreground/80">{activeProfile.profile_name}</span>
                             </span>
                         )}
@@ -828,6 +1508,18 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                     {/* Right / Second row on mobile: Action Buttons */}
                     <div className="flex items-center gap-1.5 sm:gap-2 justify-between sm:justify-end shrink-0 w-full sm:w-auto">
                         <div className="flex items-center gap-1.5 shrink-0">
+                            {/* New Canvas Button */}
+                            <Button
+                                onClick={handleCreateNewCanvas}
+                                variant="outline"
+                                size="sm"
+                                className="h-8 sm:h-9 px-2 sm:px-2.5 text-xs font-medium gap-1 text-foreground hover:bg-muted"
+                                title="Create a new blank canvas"
+                            >
+                                <Plus className="h-3.5 w-3.5 text-primary" />
+                                <span className="hidden sm:inline">New Canvas</span>
+                            </Button>
+
                             {/* Primary Action: Add Block */}
                             <Button
                                 onClick={handleAddBlock}
@@ -835,6 +1527,18 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                                 className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm bg-orange-600 hover:bg-orange-700 text-white shadow-sm font-medium"
                             >
                                 <PlusCircle className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" /> Add Block
+                            </Button>
+
+                            {/* Import Latest AI Chat */}
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-medium gap-1.5 text-sky-600 dark:text-sky-400 border-sky-200 dark:border-sky-800 hover:bg-sky-50 dark:hover:bg-sky-950/40"
+                                onClick={handleLoadLatestDashboardChat}
+                                title="Import latest draft or brainstorm from Dashboard AI Chat"
+                            >
+                                <SquarePen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                                <span className="hidden md:inline">Import Chat</span>
                             </Button>
 
                             {/* Save Button */}
@@ -933,11 +1637,23 @@ export function CanvasPageClient({ activeProfile, clerkId }: CanvasPageClientPro
                         onNodesDelete={onNodesDelete}
                         nodeTypes={nodeTypes as any}
                         fitView
+                        fitViewOptions={{ maxZoom: 0.70, padding: 0.1 }}
+                        translateExtent={translateExtent}
+                        nodeExtent={nodeExtent}
+                        minZoom={minOverviewZoom * 0.9}
+                        maxZoom={3.0}
+                        onInit={(instance) => {
+                            reactFlowInstanceRef.current = instance;
+                        }}
                         preventScrolling={false}
-                        className="bg-slate-50 dark:bg-slate-900"
+                        className="bg-slate-100 dark:bg-slate-950"
                     >
                         <Background />
-                        <Controls />
+                        <CanvasZoomToolbar
+                            nodes={nodes}
+                            canvasBounds={canvasBounds}
+                            minOverviewZoom={minOverviewZoom}
+                        />
                     </ReactFlow>
                 </div>
 

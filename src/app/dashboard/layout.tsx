@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useUser, useAuth } from "@clerk/nextjs";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { UserNav } from "@/components/dashboard/UserNav";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { HistorySidebar } from "@/components/dashboard/HistorySidebar";
@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, History as HistoryIcon } from "lucide-react";
 import { ReminderProvider } from "@/components/providers/ReminderProvider";
 import { WaveLoader } from "@/components/ui/wave-loader";
+import { cn } from "@/lib/utils";
 
 export default function DashboardLayout({
   children,
@@ -20,6 +21,9 @@ export default function DashboardLayout({
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const { isSignedIn, isLoaded } = useAuth();
+  const pathname = usePathname();
+
+  const isImmersiveRoute = pathname?.startsWith("/dashboard/canvas") || pathname?.startsWith("/dashboard/editor");
 
   if (!isLoaded) {
     return (
@@ -77,13 +81,22 @@ export default function DashboardLayout({
             <UserNav />
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 md:p-4 w-full max-w-full">{children}</main>
+        <main
+          className={cn(
+            "flex-1 w-full max-w-full",
+            isImmersiveRoute ? "overflow-hidden relative" : "overflow-y-auto overflow-x-hidden p-3 md:p-4"
+          )}
+        >
+          {children}
+        </main>
       </div>
 
-      {/* Desktop Right Sidebar */}
-      <div className="hidden xl:block h-full">
-        <HistorySidebar className="h-full" />
-      </div>
+      {/* Desktop Right Sidebar (Only rendered on non-immersive routes) */}
+      {!isImmersiveRoute && (
+        <div className="hidden xl:block h-full">
+          <HistorySidebar className="h-full" />
+        </div>
+      )}
     </div>
   );
 }

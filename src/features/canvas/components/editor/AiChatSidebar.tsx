@@ -149,6 +149,34 @@ export function AiChatSidebar({
     }
   };
 
+  const handleSyncDashboardChat = () => {
+    try {
+      const raw = localStorage.getItem("museflow_home_chat_v1");
+      if (!raw) {
+        toast.error("No dashboard chat history found.");
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const mapped: ChatMessage[] = parsed.map((m: any, idx: number) => ({
+          id: m.id || `home_${idx}_${Date.now()}`,
+          role: m.role === "assistant" ? "assistant" : "user",
+          content: m.content || "",
+          timestamp: m.timestamp
+            ? new Date(m.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+            : new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }));
+        setMessages(mapped);
+        toast.success(`Synced ${mapped.length} messages from Dashboard Chat!`, { icon: "💬" });
+      } else {
+        toast.error("Dashboard chat is currently empty.");
+      }
+    } catch (e) {
+      console.error("Error syncing dashboard chat:", e);
+      toast.error("Failed to sync dashboard chat");
+    }
+  };
+
   const handleClearHistory = () => {
     setMessages([
       {
@@ -179,6 +207,15 @@ export function AiChatSidebar({
         </div>
 
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleSyncDashboardChat}
+            className="h-7 w-7 text-muted-foreground hover:text-amber-500 rounded-lg"
+            title="Sync Conversation from Dashboard Chat"
+          >
+            <RefreshCw size={13} />
+          </Button>
           <Button
             variant="ghost"
             size="icon"

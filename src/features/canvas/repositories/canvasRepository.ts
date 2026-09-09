@@ -33,7 +33,13 @@ function sanitizeBlockType(type?: string): string {
 }
 
 export const canvasRepository = {
-  async getCanvasData(supabase: SupabaseClient<Database>, userId: string, canvasId?: string) {
+  async getCanvasData(
+    supabase: SupabaseClient<Database>, 
+    userId: string, 
+    canvasId?: string, 
+    forceNewSession?: boolean, 
+    newSessionTitle?: string
+  ) {
     let canvasSession;
 
     if (canvasId) {
@@ -47,6 +53,23 @@ export const canvasRepository = {
       if (!error && data) {
         canvasSession = data;
       }
+    }
+
+    if (!canvasSession && forceNewSession) {
+      const { data: newSession, error: createError } = await supabase
+        .from("canvas_sessions")
+        .insert([{
+          user_id: userId,
+          name: newSessionTitle || "New Canvas",
+        }])
+        .select()
+        .single();
+
+      if (createError || !newSession) {
+        console.error("Error creating new canvas session:", createError);
+        throw new Error('Failed to create canvas session');
+      }
+      canvasSession = newSession;
     }
 
     if (!canvasSession) {
@@ -69,12 +92,12 @@ export const canvasRepository = {
           .from("canvas_sessions")
           .insert([{
             user_id: userId,
-            name: "New Canvas",
+            name: newSessionTitle || "New Canvas",
           }])
           .select()
           .single();
 
-        if (createError) {
+        if (createError || !newSession) {
           console.error("Error creating canvas session:", createError);
           throw new Error('Failed to create canvas session');
         }
@@ -99,8 +122,7 @@ export const canvasRepository = {
       .eq("canvas_id", canvasSession.id);
 
     if (edgesError) {
-      console.error("Error fetching canvas edges:", edgesError);
-      throw new Error('Failed to fetch canvas edges');
+      console.warn("Warning fetching canvas edges (falling back to empty edges):", edgesError);
     }
 
     const { data: chatMessagesData, error: chatError } = await supabase
@@ -125,6 +147,7 @@ export const canvasRepository = {
 
     return {
       id: canvasSession.id,
+      name: canvasSession.name || "Untitled Canvas",
       blocks: blocksData.map((block) => ({
         id: block.id,
         type: block.type || "paragraph",
@@ -132,7 +155,7 @@ export const canvasRepository = {
         order: block.order_index,
         position: { x: block.position_x || 0, y: block.position_y || 0 },
       })),
-      edges: edgesData.map((edge) => ({
+      edges: (edgesData || []).map((edge) => ({
         id: edge.id,
         source: edge.source_block_id,
         target: edge.target_block_id,
@@ -228,16 +251,31 @@ export const canvasRepository = {
     }
   },
 
-  async addCanvasBlock(supabase: SupabaseClient<Database>, userId: string, block: { type: string; content: string; order: number; position?: { x: number; y: number } }) {
-    const { data: sessions } = await supabase
-      .from("canvas_sessions")
-      .select("id")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1);
+  async addCanvasBlock(supabase: SupabaseClient<Database>, userId: string, block: { type: string; content: string; order: number; position?: { x: number; y: number } }, targetCanvasId?: string) {
+    let canvasId = targetCanvasId;
+    if (!canvasId) {
+      const { data: sessions } = await supabase
+        .from("canvas_sessions")
+        .select("id")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-    if (!sessions || sessions.length === 0) throw new Error('No canvas session found');
-    const canvasId = sessions[0].id;
+      if (sessions && sessions.length > 0) {
+        canvasId = sessions[0].id;
+      } else {
+        const { data: newSession, error: createError } = await supabase
+          .from("canvas_sessions")
+          .insert([{ user_id: userId, name: "My Visual Canvas" }])
+          .select()
+          .single();
+        if (createError || !newSession) {
+          console.error("Error creating initial canvas session:", createError);
+          throw new Error('Failed to create canvas session');
+        }
+        canvasId = newSession.id;
+      }
+    }
 
     const sanitizedType = sanitizeBlockType(block.type);
 
@@ -379,17 +417,28 @@ export const canvasRepository = {
     }
   },
 
-  async clearCanvas(supabase: SupabaseClient<Database>, userId: string) {
-    const { data: sessions } = await supabase
-      .from("canvas_sessions")
-      .select("id")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(1);
+  async clearCanvas(supabase: SupabaseClient<Database>, userId: string, targetCanvasId?: string) {
+    let canvasId = targetCanvasId;
+    if (!canvasId) {
+      const { data: sessions } = await supabase
+        .from("canvas_sessions")
+        .select("id")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false })
+        .limit(1);
 
-    if (!sessions || sessions.length === 0) throw new Error('No canvas session found');
-    const canvasId = sessions[0].id;
+      if (!sessions || sessions.length === 0) throw new Error('No canvas session found');
+      canvasId = sessions[0].id;
+    }
 
+    // Delete edges first
+    await supabase
+      .from("canvas_edges")
+      .delete()
+      .eq("canvas_id", canvasId)
+      .eq("user_id", userId);
+
+    // Delete blocks
     const { error } = await supabase
       .from("canvas_blocks")
       .delete()
@@ -400,5 +449,51 @@ export const canvasRepository = {
       console.error('Error clearing canvas:', error);
       throw new Error('Failed to clear canvas');
     }
+  },
+
+  async createCanvasSession(supabase: SupabaseClient<Database>, userId: string, name: string = 'Untitled Canvas') {
+    const { data: newSession, error } = await supabase
+      .from("canvas_sessions")
+      .insert([{
+        user_id: userId,
+        name: name,
+      }])
+      .select()
+      .single();
+
+    if (error || !newSession) {
+      console.error("Error creating canvas session:", error);
+      throw new Error('Failed to create canvas session');
+    }
+    return newSession;
+  },
+
+  async getUserCanvasSessions(supabase: SupabaseClient<Database>, userId: string) {
+    const { data, error } = await supabase
+      .from("canvas_sessions")
+      .select("id, name, created_at, updated_at")
+      .eq("user_id", userId)
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching canvas sessions:", error);
+      return [];
+    }
+    return data || [];
+  },
+
+  async updateCanvasSessionName(supabase: SupabaseClient<Database>, userId: string, id: string, name: string) {
+    const { data, error } = await supabase
+      .from("canvas_sessions")
+      .update({ name, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("user_id", userId)
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error updating canvas session name:", error);
+    }
+    return data;
   }
 };

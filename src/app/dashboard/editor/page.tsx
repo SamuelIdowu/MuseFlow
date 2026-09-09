@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function EditorPage() {
   return (
-    <div className="h-full w-full flex-grow flex flex-col -m-3 md:-m-4">
+    <div className="h-full w-full flex-grow flex flex-col">
       <EditorClient />
     </div>
   );

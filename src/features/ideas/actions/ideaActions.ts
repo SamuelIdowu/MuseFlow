@@ -45,3 +45,20 @@ export async function deleteAllChatsAction() {
   const supabase = await createClerkSupabaseClient();
   return ideaRepository.deleteAllChats(supabase, userId);
 }
+
+export async function generateChatIdeaAction(params: {
+  inputText: string;
+  contentType?: string;
+  activeProfile?: any;
+  history?: any[];
+}) {
+  await getAuthenticatedSupabaseUserId(); // verify auth
+  const { generateChatResponse } = await import('@/lib/geminiClient');
+  const generatedContent = await generateChatResponse(
+    params.inputText,
+    params.activeProfile,
+    params.history || [],
+    params.contentType
+  );
+  return { generatedContent };
+}

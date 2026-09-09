@@ -1,18 +1,6 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
-import Link from 'next/link';
-import {
-  Sparkles,
-  SquarePen,
-  Megaphone,
-  FileEdit,
-  Calendar,
-  Layers,
-  ArrowRight,
-  TrendingUp,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DashboardOverviewData } from '@/lib/dashboardServerActions';
 import { HomeChatHub } from './HomeChatHub';
@@ -57,50 +45,6 @@ export function DashboardOverview({ initialData }: DashboardOverviewProps) {
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Your conversational content engine. Brainstorm ideas, draft posts, and plan your schedule.
           </p>
-        </div>
-
-        {/* Quick Route Shortcuts */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <Link href="/dashboard/canvas">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs font-medium gap-1.5 border-border/80 hover:bg-accent"
-            >
-              <SquarePen className="w-3.5 h-3.5 text-sky-500" />
-              <span>Canvas</span>
-            </Button>
-          </Link>
-          <Link href="/dashboard/editor">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs font-medium gap-1.5 border-border/80 hover:bg-accent"
-            >
-              <FileEdit className="w-3.5 h-3.5 text-purple-500" />
-              <span>Editor</span>
-            </Button>
-          </Link>
-          <Link href="/dashboard/schedule">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs font-medium gap-1.5 border-border/80 hover:bg-accent"
-            >
-              <Calendar className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Calendar</span>
-            </Button>
-          </Link>
-          <Link href="/dashboard/ideas">
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs font-medium gap-1.5 border-border/80 hover:bg-accent hidden md:flex"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              <span>All Ideas</span>
-            </Button>
-          </Link>
         </div>
       </div>
 

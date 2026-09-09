@@ -1,23 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { getGeminiApiKey } from "@/lib/geminiClient";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-const model = genAI.getGenerativeModel({
-  model: "gemini-2.0-flash",
-  generationConfig: {
-    maxOutputTokens: 30,
-    temperature: 0.2,
-  },
-});
+// Circuit breaker for Research Agent to avoid adding 300ms lag per keystroke when offline
+let lastResearchAgentFailure = 0;
+const AGENT_COOLDOWN_MS = 30000; // 30s cooldown before retrying an offline agent
 
-function cleanContinuation(text: string): string {
+function cleanContinuation(text: string, precedingSnippet: string = ""): string {
   let cleaned = text
     .replace(/^```[a-z]*\n?/gi, "")
     .replace(/\n?```$/gi, "")
+    .replace(/^(Continuation|Completion|Suggestion|Here is[^:]*):\s*/i, "")
     .replace(/<[^>]+>/g, " ")
     .replace(/[\r\n]+/g, " ")
     .trim();
 
+  // Strip wrapping quotes
   if (
     (cleaned.startsWith('"') && cleaned.endsWith('"')) ||
     (cleaned.startsWith("'") && cleaned.endsWith("'"))
@@ -25,16 +23,21 @@ function cleanContinuation(text: string): string {
     cleaned = cleaned.slice(1, -1).trim();
   }
 
+  // Remove any trailing quote or double quote left by the model
+  cleaned = cleaned.replace(/["']+$/g, "").trim();
+
+  // Limit to 1-2 sentences max
   const sentences = cleaned.split(/(?<=[.?!])\s+/);
   if (sentences.length > 2) {
     cleaned = sentences.slice(0, 2).join(" ");
   }
 
-  if (cleaned.length > 120) {
-    cleaned = cleaned.slice(0, 120).replace(/\s+\S*$/, "...");
+  if (cleaned.length > 100) {
+    cleaned = cleaned.slice(0, 100).replace(/\s+\S*$/, "...");
   }
 
-  if (cleaned && !/^[,.;:!?\s]/.test(cleaned)) {
+  // Add leading space if preceding snippet doesn't end with whitespace and continuation starts with word/number
+  if (cleaned && !precedingSnippet.endsWith(" ") && !/^[,.;:!?\s]/.test(cleaned)) {
     cleaned = ` ${cleaned}`;
   }
 
@@ -42,22 +45,29 @@ function cleanContinuation(text: string): string {
 }
 
 export async function POST(req: NextRequest) {
+  let snippet = "";
   try {
     const body = await req.json();
-    const { text, documentTitle } = body;
+    const { text, prefix, suffix, documentTitle } = body;
 
-    if (!text || typeof text !== "string" || text.trim().length < 3) {
-      return NextResponse.json({ success: false, error: "Insufficient context" });
+    const rawPrefix = (typeof prefix === "string" ? prefix : text) || "";
+    const rawSuffix = typeof suffix === "string" ? suffix : "";
+
+    if (!rawPrefix || rawPrefix.trim().length < 3) {
+      return NextResponse.json({ success: true, result: "" });
     }
 
-    const snippet = text.slice(-300);
+    snippet = rawPrefix.slice(-300);
+    const suffixSnippet = rawSuffix.slice(0, 150).trim();
 
-    // 1. If Research Agent is configured and active, attempt fast query with 300ms timeout
+    // 1. If Research Agent is configured and alive, attempt fast query with 300ms timeout
     const agentUrl = process.env.RESEARCH_AGENT_URL;
     const apiKey = process.env.RESEARCH_AGENT_API_KEY;
     const clientId = process.env.RESEARCH_AGENT_CLIENT_ID;
 
-    if (agentUrl && apiKey && clientId) {
+    const isAgentCoolingDown = Date.now() - lastResearchAgentFailure < AGENT_COOLDOWN_MS;
+
+    if (agentUrl && apiKey && clientId && !isAgentCoolingDown) {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 300);
@@ -79,7 +89,7 @@ export async function POST(req: NextRequest) {
         if (raRes.ok) {
           const data = await raRes.json();
           if (data?.draft) {
-            const cleaned = cleanContinuation(data.draft);
+            const cleaned = cleanContinuation(data.draft, snippet);
             if (cleaned.trim().length > 0) {
               return NextResponse.json({
                 success: true,
@@ -88,38 +98,53 @@ export async function POST(req: NextRequest) {
               });
             }
           }
+        } else {
+          lastResearchAgentFailure = Date.now();
         }
       } catch {
-        // Fallback immediately without blocking
+        lastResearchAgentFailure = Date.now();
+        // Fallback immediately to Gemini without blocking
       }
     }
 
-    // 2. High-speed Fallback / Primary: Gemini 2.0 Flash (~250ms latency)
-    if (!process.env.GEMINI_API_KEY) {
+    // 2. High-speed Primary Autocomplete: Gemini 3.5 Flash Lite (<180ms latency)
+    const activeKey = getGeminiApiKey();
+    if (!activeKey) {
       return NextResponse.json({
         success: true,
-        result: " and create impactful experiences for your audience.",
-        source: "gemini_fallback",
+        result: "",
+        source: "none",
       });
     }
 
-    const prompt = `You are a real-time inline ghostwriter and autocomplete engine for a writing editor.
-${documentTitle ? `Document: "${documentTitle}"` : ""}
-
-Task: Complete the thought naturally with ONLY the immediate next 1-2 phrases or short sentence (8 to 15 words max).
+    const prompt = `You are a real-time inline ghostwriter and autocomplete engine in a professional document editor.
+Your task is to write the immediate next 3 to 10 words that seamlessly continue the user's unfinished thought at the cursor.
 
 Strict Rules:
-- Return ONLY the continuation text.
-- Do NOT repeat the input text.
-- Do NOT output HTML, markdown, quotes, or conversational intros/outros.
-- Must connect smoothly to the preceding text.
+1. Output ONLY the raw continuation words.
+2. Never repeat any words from before the cursor.
+3. Do NOT output quotes, markdown, explanations, or conversational intros/outros.
+4. If the text before cursor ends in a space, start directly with the next word.
+5. If text after cursor is provided, smoothly bridge toward it without repeating words.
+6. Make sure the continuation is grammatically seamless, fluent, and contextually grounded.
 
-Preceding text:
-"...${snippet}"`;
+${documentTitle ? `Document Context: "${documentTitle}"\n` : ""}${suffixSnippet ? `Text after cursor:\n"${suffixSnippet}"\n` : ""}Text before cursor:
+"${snippet}"
 
+Continuation:`;
+
+    const genAI = new GoogleGenerativeAI(activeKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-3.5-flash-lite",
+      generationConfig: {
+        maxOutputTokens: 60,
+        temperature: 0.2,
+      },
+    });
     const response = await model.generateContent(prompt);
+
     const rawOutput = response.response.text();
-    const result = cleanContinuation(rawOutput);
+    const result = cleanContinuation(rawOutput, snippet);
 
     return NextResponse.json({
       success: true,
@@ -127,9 +152,14 @@ Preceding text:
       source: "gemini_fallback",
     });
   } catch (error: any) {
-    return NextResponse.json(
-      { success: false, error: error.message || "Failed to generate autocomplete" },
-      { status: 500 }
-    );
+    console.error("[Autocomplete] Error generating continuation:", error);
+
+    // Silent fallback: Never return canned random sentences which produce grammatically broken text.
+    // Professional autocomplete engines (Copilot, Cursor) fail silently to preserve editor trust.
+    return NextResponse.json({
+      success: true,
+      result: "",
+      source: "none",
+    });
   }
 }

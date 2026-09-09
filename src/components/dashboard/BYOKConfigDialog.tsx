@@ -43,7 +43,7 @@ export function BYOKConfigDialog({
 }: BYOKConfigDialogProps) {
   const [isBYOKEnabled, setIsBYOKEnabled] = useState(false);
   const [provider, setProvider] = useState<"google" | "openai" | "anthropic">("google");
-  const [model, setModel] = useState("gemini-2.0-flash");
+  const [model, setModel] = useState("gemini-2.5-flash");
   const [apiKey, setApiKey] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
@@ -60,7 +60,7 @@ export function BYOKConfigDialog({
         if (status.byok_configured) {
           setIsBYOKEnabled(true);
           setProvider((status.llm_provider as any) || "google");
-          setModel(status.llm_model || "gemini-2.0-flash");
+          setModel(status.llm_model || "gemini-2.5-flash");
         } else {
           setIsBYOKEnabled(false);
         }
@@ -76,7 +76,7 @@ export function BYOKConfigDialog({
 
   const handleProviderChange = (val: "google" | "openai" | "anthropic") => {
     setProvider(val);
-    if (val === "google") setModel("gemini-2.0-flash");
+    if (val === "google") setModel("gemini-2.5-flash");
     else if (val === "openai") setModel("gpt-4o");
     else if (val === "anthropic") setModel("claude-3-5-sonnet-20241022");
   };

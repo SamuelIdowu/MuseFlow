@@ -42,6 +42,7 @@ interface DocumentLeftSidebarProps {
   activeNiche?: string;
   wordCount: number;
   charCount: number;
+  onLoadRecentChat?: () => void;
 }
 
 const TEMPLATES = [
@@ -76,6 +77,7 @@ export function DocumentLeftSidebar({
   activeNiche = "Technology & SaaS",
   wordCount,
   charCount,
+  onLoadRecentChat,
 }: DocumentLeftSidebarProps) {
   const [activeTab, setActiveTab] = useState<"companion" | "outline">("companion");
   const [selectedChannel, setSelectedChannel] = useState("linkedin");
@@ -257,6 +259,28 @@ export function DocumentLeftSidebar({
               </div>
             </div>
           </div>
+
+          {/* AI Chat Draft Sync */}
+          {onLoadRecentChat && (
+            <div className="mb-4">
+              <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center justify-between">
+                <span>Dashboard Draft</span>
+                <Sparkles size={12} className="text-amber-500" />
+              </div>
+              <button
+                onClick={onLoadRecentChat}
+                className="w-full text-left p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 transition-all group"
+              >
+                <div className="flex items-center justify-between text-xs font-semibold text-foreground group-hover:text-amber-600 dark:group-hover:text-amber-400 mb-0.5">
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-amber-500" />
+                    Load Latest AI Chat
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">Import the response you just created in Home Chat</p>
+              </button>
+            </div>
+          )}
 
           {/* 3. Quick Content Frameworks */}
           <div className="mb-2">

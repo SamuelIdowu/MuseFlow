@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { DocumentTopBar } from "@/features/canvas/components/editor/DocumentTopBar";
 import { DocumentLeftSidebar } from "@/features/canvas/components/editor/DocumentLeftSidebar";
 import { DocumentSheet } from "@/features/canvas/components/editor/DocumentSheet";
@@ -9,6 +10,8 @@ import { AiChatSidebar } from "@/features/canvas/components/editor/AiChatSidebar
 import { getActiveProfile } from "@/lib/dashboardServerActions";
 import { toast } from "react-hot-toast";
 import { type Editor } from "@tiptap/react";
+import { marked } from "marked";
+import { Loader2 } from "lucide-react";
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -45,7 +48,51 @@ export function EditorClient() {
   const [isGeneratingAutocomplete, setIsGeneratingAutocomplete] = useState(false);
   const [completionSource, setCompletionSource] = useState<"research_agent" | "gemini_fallback" | null>(null);
 
-  // Load active profile info and restore saved document draft
+  const searchParams = useSearchParams();
+  const importParam = searchParams.get("import");
+
+  const applyImportPayload = async (payload: { title?: string; content?: string; channel?: string }) => {
+    if (payload.title) setDocumentTitle(payload.title);
+    if (payload.channel && payload.channel !== 'all') {
+      setDocumentSubtitle(`${payload.channel.toUpperCase()} Draft • MuseFlow AI Studio`);
+    } else {
+      setDocumentSubtitle("AI Content Draft • MuseFlow Studio");
+    }
+
+    if (payload.content) {
+      const plainText = payload.content.replace(/<[^>]+>/g, '').replace(/[#*_`]/g, '').trim();
+      setDocumentExcerpt(plainText.slice(0, 160) + (plainText.length > 160 ? '...' : ''));
+
+      const htmlContent = await marked.parse(payload.content);
+      setDocumentContent(htmlContent);
+
+      if (editorInstanceRef.current && !editorInstanceRef.current.isDestroyed) {
+        editorInstanceRef.current.commands.setContent(htmlContent, { emitUpdate: true });
+      }
+      return true;
+    }
+    return false;
+  };
+
+  const handleLoadLatestDashboardChat = async () => {
+    try {
+      const raw = localStorage.getItem('museflow_latest_ai_chat');
+      if (!raw) {
+        toast.error("No recent AI chat draft found in storage.");
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      const success = await applyImportPayload(parsed);
+      if (success) {
+        toast.success("Loaded latest draft from AI Chat!", { icon: "📝" });
+      }
+    } catch (err) {
+      console.error("Failed to load latest chat:", err);
+      toast.error("Could not load dashboard chat");
+    }
+  };
+
+  // Load active profile info
   useEffect(() => {
     getActiveProfile()
       .then((profile) => {
@@ -59,46 +106,60 @@ export function EditorClient() {
       .catch((err) => {
         console.error("Error loading active profile for editor:", err);
       });
-
-    // 1. Check if there is an imported draft from Home Chat
-    try {
-      const imported = localStorage.getItem("museflow_editor_import");
-      if (imported) {
-        const parsed = JSON.parse(imported);
-        if (parsed.title) setDocumentTitle(parsed.title);
-        if (parsed.content) {
-          const htmlContent = parsed.content
-            .split("\n\n")
-            .map((p: string) => `<p>${p.replace(/\n/g, "<br/>")}</p>`)
-            .join("");
-          setDocumentContent(htmlContent);
-          toast.success("Loaded draft from AI Chat Hub!", { icon: "📝" });
-        }
-        localStorage.removeItem("museflow_editor_import");
-        setIsLoaded(true);
-        return;
-      }
-    } catch (e) {
-      console.error("Error reading editor import:", e);
-    }
-
-    // 2. Otherwise restore previously saved document state from localStorage
-    try {
-      const savedDoc = localStorage.getItem("museflow_editor_doc");
-      if (savedDoc) {
-        const parsed = JSON.parse(savedDoc);
-        if (parsed.title !== undefined) setDocumentTitle(parsed.title);
-        if (parsed.subtitle !== undefined) setDocumentSubtitle(parsed.subtitle);
-        if (parsed.excerpt !== undefined) setDocumentExcerpt(parsed.excerpt);
-        if (parsed.content !== undefined && parsed.content.trim()) setDocumentContent(parsed.content);
-        if (parsed.updatedAt) setLastSavedAt(new Date(parsed.updatedAt));
-      }
-    } catch (e) {
-      console.error("Error restoring editor document draft:", e);
-    } finally {
-      setIsLoaded(true);
-    }
   }, []);
+
+  // Restore saved document draft or process new staged import from Home Chat
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function loadDocument() {
+      // 1. Check if there is an imported draft from Home Chat
+      try {
+        const imported = localStorage.getItem("museflow_editor_import");
+        if (imported) {
+          const parsed = JSON.parse(imported);
+          const success = await applyImportPayload(parsed);
+          localStorage.removeItem("museflow_editor_import");
+          if (!isCancelled) {
+            if (success) {
+              toast.success("Loaded draft from AI Chat Hub!", { icon: "📝" });
+            }
+            setIsLoaded(true);
+          }
+          return;
+        }
+      } catch (e) {
+        console.error("Error reading editor import:", e);
+      }
+
+      // 2. Otherwise restore previously saved document state from localStorage
+      try {
+        const savedDoc = localStorage.getItem("museflow_editor_doc");
+        if (savedDoc) {
+          const parsed = JSON.parse(savedDoc);
+          if (parsed.title !== undefined) setDocumentTitle(parsed.title);
+          if (parsed.subtitle !== undefined) setDocumentSubtitle(parsed.subtitle);
+          if (parsed.excerpt !== undefined) setDocumentExcerpt(parsed.excerpt);
+          if (parsed.content !== undefined && parsed.content.trim()) {
+            setDocumentContent(parsed.content);
+          }
+          if (parsed.updatedAt) setLastSavedAt(new Date(parsed.updatedAt));
+        }
+      } catch (e) {
+        console.error("Error restoring editor document draft:", e);
+      } finally {
+        if (!isCancelled) {
+          setIsLoaded(true);
+        }
+      }
+    }
+
+    loadDocument();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [importParam]);
 
   // Autosave when any document property changes (after initial load)
   useEffect(() => {
@@ -197,6 +258,7 @@ export function EditorClient() {
         onToggleRightSidebar={() => setIsRightSidebarOpen((prev) => !prev)}
         onExport={handleExport}
         onCopyContent={handleCopyContent}
+        onLoadRecentChat={handleLoadLatestDashboardChat}
       />
 
       {/* Main 3-Column Studio Layout with Resizable Panels */}
@@ -219,6 +281,7 @@ export function EditorClient() {
                   activeNiche={activeProfile.niche}
                   wordCount={wordCount}
                   charCount={charCount}
+                  onLoadRecentChat={handleLoadLatestDashboardChat}
                 />
               </ResizablePanel>
               <ResizableHandle withHandle />
@@ -232,6 +295,7 @@ export function EditorClient() {
               activeNiche={activeProfile.niche}
               wordCount={wordCount}
               charCount={charCount}
+              onLoadRecentChat={handleLoadLatestDashboardChat}
             />
           )}
 
@@ -255,30 +319,37 @@ export function EditorClient() {
             </div>
 
             <main className="w-full flex-1 overflow-y-auto py-1.5 sm:py-2.5 px-2 sm:px-4 bg-zinc-100/70 dark:bg-zinc-950/60 transition-all">
-              <DocumentSheet
-                content={documentContent}
-                fontFamily={documentFont.value}
-                onChange={(html, words, chars) => {
-                  setDocumentContent(html);
-                  setWordCount(words);
-                  setCharCount(chars);
-                }}
-                documentTitle={documentTitle}
-                onDocumentTitleChange={setDocumentTitle}
-                subtitle={documentSubtitle}
-                onSubtitleChange={setDocumentSubtitle}
-                excerpt={documentExcerpt}
-                onExcerptChange={setDocumentExcerpt}
-                isAutocompleteEnabled={isAutocompleteEnabled}
-                onAutocompleteStatusChange={({ isGenerating, source }) => {
-                  setIsGeneratingAutocomplete(isGenerating);
-                  if (source !== undefined) setCompletionSource(source);
-                }}
-                onEditorReady={(editor) => {
-                  editorInstanceRef.current = editor;
-                  setEditorInstance(editor);
-                }}
-              />
+              {isLoaded ? (
+                <DocumentSheet
+                  content={documentContent}
+                  fontFamily={documentFont.value}
+                  onChange={(html, words, chars) => {
+                    setDocumentContent(html);
+                    setWordCount(words);
+                    setCharCount(chars);
+                  }}
+                  documentTitle={documentTitle}
+                  onDocumentTitleChange={setDocumentTitle}
+                  subtitle={documentSubtitle}
+                  onSubtitleChange={setDocumentSubtitle}
+                  excerpt={documentExcerpt}
+                  onExcerptChange={setDocumentExcerpt}
+                  isAutocompleteEnabled={isAutocompleteEnabled}
+                  onAutocompleteStatusChange={({ isGenerating, source }) => {
+                    setIsGeneratingAutocomplete(isGenerating);
+                    if (source !== undefined) setCompletionSource(source);
+                  }}
+                  onEditorReady={(editor) => {
+                    editorInstanceRef.current = editor;
+                    setEditorInstance(editor);
+                  }}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center min-h-[400px] w-full gap-2 text-muted-foreground">
+                  <Loader2 className="w-7 h-7 animate-spin text-primary" />
+                  <span className="text-xs font-medium">Preparing editor canvas...</span>
+                </div>
+              )}
             </main>
           </ResizablePanel>
 

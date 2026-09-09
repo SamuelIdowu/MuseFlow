@@ -115,6 +115,9 @@ export function DocumentSheet({
           const docText = editor.state.doc.textBetween(0, pos, "\n");
           if (docText.trim().length < 3) return;
 
+          const docTotalSize = editor.state.doc.content.size;
+          const textAfter = editor.state.doc.textBetween(pos, Math.min(pos + 150, docTotalSize), "\n");
+
           const currentSeq = ++autocompleteSeqRef.current;
           onAutocompleteStatusChange?.({ isGenerating: true });
 
@@ -127,6 +130,8 @@ export function DocumentSheet({
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
                 text: docText,
+                prefix: docText,
+                suffix: textAfter,
                 documentTitle: documentTitleRef.current,
               }),
               signal: abortCtrl.signal,
@@ -192,16 +197,11 @@ export function DocumentSheet({
 
   // Sync external content update only when genuinely changed from outside (e.g. initial load / template / chat import)
   useEffect(() => {
-    if (
-      editor &&
-      content &&
-      content !== lastLocalContentRef.current &&
-      content !== editor.getHTML()
-    ) {
-      if (Math.abs(content.length - editor.getHTML().length) > 15) {
-        editor.commands.setContent(content, { emitUpdate: false });
-        lastLocalContentRef.current = content;
-      }
+    if (!editor || !content) return;
+    const currentHtml = editor.getHTML();
+    if (content !== lastLocalContentRef.current && content !== currentHtml) {
+      lastLocalContentRef.current = content;
+      editor.commands.setContent(content, { emitUpdate: true });
     }
   }, [content, editor]);
 

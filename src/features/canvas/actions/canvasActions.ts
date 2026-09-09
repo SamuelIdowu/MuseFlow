@@ -4,12 +4,17 @@ import { createClerkSupabaseClient } from '@/lib/supabaseServerClient';
 import { getAuthenticatedSupabaseUserId } from '@/lib/authUtils';
 import { canvasRepository } from '../repositories/canvasRepository';
 import { getActiveProfile } from '@/lib/dashboardServerActions';
-import { generateCanvasBlocksFromChat } from '@/lib/geminiClient';
+import { generateCanvasBlocksFromChat, checkResearchAgentHealth } from '@/lib/geminiClient';
 
-export async function getCanvasDataAction(canvasId?: string) {
+export async function getCanvasModelProviderAction(): Promise<string> {
+  const isAgentUp = await checkResearchAgentHealth();
+  return isAgentUp ? 'research agent' : 'gemini';
+}
+
+export async function getCanvasDataAction(canvasId?: string, forceNewSession?: boolean, newSessionTitle?: string) {
   const userId = await getAuthenticatedSupabaseUserId();
   const supabase = await createClerkSupabaseClient();
-  return canvasRepository.getCanvasData(supabase, userId, canvasId);
+  return canvasRepository.getCanvasData(supabase, userId, canvasId, forceNewSession, newSessionTitle);
 }
 
 export async function addChatMessageAction(message: any, canvasId?: string) {
@@ -30,10 +35,10 @@ export async function updateCanvasChatHistoryAction(chatHistory: any[], canvasId
   return canvasRepository.updateCanvasChatHistory(supabase, userId, chatHistory, canvasId);
 }
 
-export async function addCanvasBlockAction(block: { type: string; content: string; order: number; position?: { x: number; y: number } }) {
+export async function addCanvasBlockAction(block: { type: string; content: string; order: number; position?: { x: number; y: number } }, canvasId?: string) {
   const userId = await getAuthenticatedSupabaseUserId();
   const supabase = await createClerkSupabaseClient();
-  return canvasRepository.addCanvasBlock(supabase, userId, block);
+  return canvasRepository.addCanvasBlock(supabase, userId, block, canvasId);
 }
 
 export async function updateCanvasBlockAction(id: string, updates: { content?: string; type?: string; position?: { x: number; y: number } }) {
@@ -66,10 +71,28 @@ export async function reorderCanvasBlocksAction(blocks: { id: string; order: num
   return canvasRepository.reorderCanvasBlocks(supabase, userId, blocks);
 }
 
-export async function clearCanvasAction() {
+export async function clearCanvasAction(canvasId?: string) {
   const userId = await getAuthenticatedSupabaseUserId();
   const supabase = await createClerkSupabaseClient();
-  return canvasRepository.clearCanvas(supabase, userId);
+  return canvasRepository.clearCanvas(supabase, userId, canvasId);
+}
+
+export async function createCanvasSessionAction(name?: string) {
+  const userId = await getAuthenticatedSupabaseUserId();
+  const supabase = await createClerkSupabaseClient();
+  return canvasRepository.createCanvasSession(supabase, userId, name || 'Untitled Canvas');
+}
+
+export async function getUserCanvasSessionsAction() {
+  const userId = await getAuthenticatedSupabaseUserId();
+  const supabase = await createClerkSupabaseClient();
+  return canvasRepository.getUserCanvasSessions(supabase, userId);
+}
+
+export async function updateCanvasSessionNameAction(id: string, name: string) {
+  const userId = await getAuthenticatedSupabaseUserId();
+  const supabase = await createClerkSupabaseClient();
+  return canvasRepository.updateCanvasSessionName(supabase, userId, id, name);
 }
 
 export async function generateCanvasChatResponseAction(

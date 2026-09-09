@@ -408,19 +408,21 @@ export const InlineCompletion = Extension.create({
 
       acceptGhostSuggestion:
         () =>
-        ({ state, dispatch }: any) => {
+        ({ tr, state, dispatch, view }: any) => {
           const pluginState = inlineCompletionPluginKey.getState(state);
           if (pluginState?.suggestion && pluginState.pos !== null) {
             const { suggestion, pos } = pluginState;
             if (dispatch) {
               const insertPos = pos;
-              const tr = state.tr.insertText(suggestion, insertPos);
+              tr.insertText(suggestion, insertPos);
               const nextPos = insertPos + suggestion.length;
               try {
                 tr.setSelection(TextSelection.create(tr.doc, nextPos));
               } catch {}
               tr.setMeta(inlineCompletionPluginKey, { suggestion: null, pos: null });
-              dispatch(tr);
+              if (view && typeof view.dispatch === "function") {
+                view.dispatch(tr);
+              }
             }
             return true;
           }
@@ -441,6 +443,8 @@ export const InlineCompletion = Extension.create({
   },
 
   addProseMirrorPlugins() {
+    const editor = this.editor;
+
     return [
       new Plugin({
         key: inlineCompletionPluginKey,
@@ -496,14 +500,20 @@ export const InlineCompletion = Extension.create({
 
                 const badge = document.createElement("span");
                 badge.className =
-                  "inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 text-[11px] not-italic font-mono font-semibold rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 align-middle select-none shadow-xs";
+                  "inline-flex items-center gap-1 ml-2 px-1.5 py-0.5 text-[11px] not-italic font-mono font-semibold rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 align-middle select-none shadow-xs hover:bg-amber-500/25 transition-colors";
                 badge.style.display = "inline-flex";
                 badge.style.verticalAlign = "middle";
                 badge.style.marginLeft = "8px";
                 badge.style.cursor = "pointer";
+                badge.style.pointerEvents = "auto";
 
                 const agentIcon = source === "research_agent" ? "⚡ " : "✨ ";
                 badge.textContent = `${agentIcon}Tab ⇥`;
+                badge.onmousedown = (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  (editor.commands as any).acceptGhostSuggestion();
+                };
                 span.appendChild(badge);
 
                 return span;

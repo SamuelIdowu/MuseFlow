@@ -6,6 +6,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import {
   Sparkles,
   SquarePen,
+  FileEdit,
   Megaphone,
   Calendar,
   Copy,
@@ -50,6 +51,23 @@ export function RecentWorkTabs({
     setCopiedId(id);
     toast.success('Copied to clipboard');
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleOpenInEditor = (topic: string, content: string) => {
+    try {
+      localStorage.setItem(
+        'museflow_editor_import',
+        JSON.stringify({
+          title: topic || 'AI Idea Draft',
+          content,
+          channel: 'all',
+          importedAt: new Date().toISOString(),
+        })
+      );
+      window.location.href = `/dashboard/editor?import=${Date.now()}`;
+    } catch {
+      window.location.href = '/dashboard/editor';
+    }
   };
 
   const formatDateSafely = (dateStr: string) => {
@@ -206,6 +224,15 @@ export function RecentWorkTabs({
                         </Button>
 
                         <div className="flex items-center gap-1.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenInEditor(idea.topic, firstKernel)}
+                            className="h-7 px-2 text-[11px] gap-1 text-purple-600 dark:text-purple-400 hover:text-purple-700 hover:bg-purple-500/10 font-medium"
+                          >
+                            <FileEdit className="w-3 h-3" />
+                            <span>Editor</span>
+                          </Button>
                           <Link href={`/dashboard/canvas?topic=${encodeURIComponent(idea.topic)}`}>
                             <Button
                               variant="ghost"

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Sparkles,
   Send,
@@ -21,6 +21,7 @@ import {
   Zap,
   Share2,
   SlidersHorizontal,
+  MoreHorizontal,
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -28,9 +29,17 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from 'react-hot-toast';
 import { Profile } from '@/types/profile';
-import { saveToIdeasAction } from '@/features/ideas/actions/ideaActions';
+import { saveToIdeasAction, getChatById, generateChatIdeaAction } from '@/features/ideas/actions/ideaActions';
+import { createCanvasSessionAction } from '@/features/canvas/actions/canvasActions';
 import { ScheduleDialog } from '@/components/modals/ScheduleDialog';
 import { cn } from '@/lib/utils';
 
@@ -92,8 +101,37 @@ const REFINEMENT_ACTIONS = [
 
 const STORAGE_KEY = 'museflow_home_chat_v1';
 
+const extractCleanTitle = (content: string, fallback: string = 'AI Draft'): string => {
+  const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return fallback;
+
+  // 1. Check for explicit Title or Topic markers in top lines
+  for (const line of lines.slice(0, 5)) {
+    const titleMatch = line.match(/^(?:\*{1,2}|_{1,2})?(?:Title|Topic):(?:\*{1,2}|_{1,2})?\s*(.+)$/i);
+    if (titleMatch) {
+      const clean = titleMatch[1].replace(/^[*_~`]+|[*_~`]+$/g, '').trim();
+      if (clean) return clean.slice(0, 70);
+    }
+  }
+
+  // 2. Fallback to cleaning first line
+  const clean = lines[0]
+    .replace(/^#+\s*/, '')
+    .replace(/^(?:\*{1,2}|_{1,2})/g, '')
+    .replace(/(?:\*{1,2}|_{1,2})$/g, '')
+    .replace(/^(?:Title|Topic):\s*/i, '')
+    .replace(/^[*_~`]+|[*_~`]+$/g, '')
+    .replace(/^[-*•\d.]+\s*/, '')
+    .trim();
+
+  return clean.slice(0, 70) || fallback;
+};
+
 export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const chatId = searchParams.get('chatId');
+
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [selectedChannel, setSelectedChannel] = useState('all');
@@ -108,8 +146,31 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
   const chatEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // ── Load Chat History from LocalStorage ─────────────────────────────────────
+  // ── Load Chat History from LocalStorage or URL chatId ───────────────────────
   useEffect(() => {
+    if (chatId) {
+      getChatById(chatId)
+        .then((loadedChat) => {
+          if (!loadedChat) return;
+          if (Array.isArray(loadedChat) && loadedChat.length > 0) {
+            const mapped: ChatMessage[] = loadedChat.map((m: any, idx: number) => ({
+              id: m.id || `msg_${idx}_${Date.now()}`,
+              role: m.role === 'assistant' ? 'assistant' : 'user',
+              content: m.content || '',
+              timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : (m.timestamp || new Date().toISOString()),
+              channel: m.channel || 'all',
+            }));
+            setMessages(mapped);
+            toast.success('Loaded saved conversation', { icon: '💬' });
+            return;
+          }
+        })
+        .catch((err) => {
+          console.error('Error loading chat by id:', err);
+        });
+      return;
+    }
+
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
@@ -118,7 +179,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
     } catch {
       // Ignore parse errors
     }
-  }, []);
+  }, [chatId]);
 
   // ── Save Chat History ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -170,32 +231,36 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
         content: m.content,
       }));
 
-      const res = await fetch('/api/ideas', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          input_text: query,
-          content_type: channel === 'all' ? undefined : channel,
-          active_profile: activeProfile,
-          history: historyPayload,
-        }),
+      const data = await generateChatIdeaAction({
+        inputText: query,
+        contentType: channel === 'all' ? undefined : channel,
+        activeProfile: activeProfile,
+        history: historyPayload,
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || 'Failed to generate response');
-      }
-
-      const data = await res.json();
       const assistantMessage: ChatMessage = {
         id: `asst_${Date.now()}`,
         role: 'assistant',
-        content: data.generated_content || 'No output generated. Please try again.',
+        content: data.generatedContent || 'No output generated. Please try again.',
         timestamp: new Date().toISOString(),
         channel,
       };
 
       setMessages([...newHistory, assistantMessage]);
+
+      // Cache latest generation for workspace transfers
+      try {
+        const autoTitle = extractCleanTitle(assistantMessage.content, 'Recent AI Draft');
+        localStorage.setItem(
+          'museflow_latest_ai_chat',
+          JSON.stringify({
+            title: autoTitle,
+            content: assistantMessage.content,
+            channel: assistantMessage.channel || channel,
+            timestamp: assistantMessage.timestamp,
+          })
+        );
+      } catch {}
     } catch (err) {
       console.error('Home chat generation error:', err);
       toast.error(err instanceof Error ? err.message : 'Error generating content');
@@ -222,38 +287,59 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
 
   const handleOpenInEditor = (msg: ChatMessage) => {
     try {
-      const firstLine = msg.content.split('\n')[0].replace(/^[#*\- ]+/, '').slice(0, 60);
-      localStorage.setItem(
-        'museflow_editor_import',
-        JSON.stringify({
-          title: firstLine || 'AI Draft',
-          content: msg.content,
-          importedAt: new Date().toISOString(),
-        })
-      );
+      const title = extractCleanTitle(msg.content, 'AI Content Draft');
+      const payload = {
+        title,
+        content: msg.content,
+        channel: msg.channel || selectedChannel || 'all',
+        timestamp: msg.timestamp,
+        importedAt: new Date().toISOString(),
+      };
+      localStorage.setItem('museflow_editor_import', JSON.stringify(payload));
+      localStorage.setItem('museflow_latest_ai_chat', JSON.stringify(payload));
       toast.success('Transferring to Editor...');
-      router.push('/dashboard/editor');
+      router.push(`/dashboard/editor?import=${Date.now()}`);
     } catch (e) {
       console.error('Failed to stage editor import:', e);
-      router.push('/dashboard/editor');
+      router.push(`/dashboard/editor?import=${Date.now()}`);
     }
   };
 
-  const handleSendToCanvas = (msg: ChatMessage) => {
+  const handleSendToCanvas = async (msg: ChatMessage) => {
     try {
-      const firstLine = msg.content.split('\n')[0].replace(/^[#*\- ]+/, '').slice(0, 60);
-      localStorage.setItem(
-        'museflow_canvas_import',
-        JSON.stringify({
-          topic: firstLine || 'AI Brainstorm',
-          content: msg.content,
-          channel: msg.channel || 'all',
-        })
-      );
-      toast.success('Opening in Visual Canvas...');
-      router.push('/dashboard/canvas');
-    } catch {
-      router.push('/dashboard/canvas');
+      const topic = extractCleanTitle(msg.content, 'AI Brainstorm');
+      toast.success('Opening in Visual Canvas...', { icon: '🎨' });
+
+      // Create a brand-new dedicated canvas session so previous work is safely preserved
+      let newSession: { id: string; name: string } | null = null;
+      try {
+        newSession = await createCanvasSessionAction(topic);
+      } catch (sessErr) {
+        console.warn('Could not pre-create session, using fallback query params:', sessErr);
+      }
+
+      const payload = {
+        id: `import_${Date.now()}`,
+        topic,
+        title: topic,
+        content: msg.content,
+        channel: msg.channel || selectedChannel || 'all',
+        timestamp: msg.timestamp,
+        importedAt: new Date().toISOString(),
+        targetSessionId: newSession?.id || undefined,
+      };
+      localStorage.setItem('museflow_canvas_import', JSON.stringify(payload));
+      localStorage.setItem('museflow_latest_ai_chat', JSON.stringify(payload));
+
+      if (newSession?.id) {
+        router.push(`/dashboard/canvas?session=${newSession.id}&import=${Date.now()}&topic=${encodeURIComponent(topic)}`);
+        return;
+      }
+
+      router.push(`/dashboard/canvas?new=true&import=${Date.now()}&topic=${encodeURIComponent(topic)}`);
+    } catch (e) {
+      console.error('Failed to stage canvas import:', e);
+      router.push(`/dashboard/canvas?new=true&import=${Date.now()}`);
     }
   };
 
@@ -444,7 +530,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                     {/* ── Assistant Action Bar ───────────────────────────────── */}
                     {msg.role === 'assistant' && (
                       <div className="mt-3.5 pt-2.5 border-t border-border flex items-center justify-between flex-wrap gap-2">
-                        {/* Quick Transfer Actions */}
+                        {/* Quick Transfer Actions: 1 Primary + Dropdown */}
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <Button
                             size="sm"
@@ -454,41 +540,46 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                             title="Continue drafting in the full rich text editor"
                           >
                             <FileEdit className="w-3 h-3 text-purple-600 dark:text-purple-400" />
-                            <span>Editor</span>
+                            <span>Continue in Editor</span>
                           </Button>
 
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => handleSendToCanvas(msg)}
-                            className="h-7 text-[11px] px-2.5 gap-1.5 bg-muted/70 hover:bg-muted text-foreground border border-border font-medium shadow-2xs"
-                            title="Open inside the visual node canvas planner"
-                          >
-                            <SquarePen className="w-3 h-3 text-sky-600 dark:text-sky-400" />
-                            <span>Canvas</span>
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => handleOpenScheduleModal(msg)}
-                            className="h-7 text-[11px] px-2.5 gap-1.5 bg-muted/70 hover:bg-muted text-foreground border border-border font-medium shadow-2xs"
-                            title="Schedule this post with browser reminders"
-                          >
-                            <Calendar className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                            <span>Schedule</span>
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => handleSaveToIdeas(msg)}
-                            disabled={msg.savedToIdeas}
-                            className="h-7 text-[11px] px-2 text-muted-foreground hover:text-amber-600 dark:hover:text-amber-400 hover:bg-amber-500/10"
-                            title="Bookmark in Ideas collection"
-                          >
-                            <BookmarkPlus className={cn('w-3.5 h-3.5', msg.savedToIdeas && 'text-amber-500 fill-amber-500')} />
-                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent hover:border-border"
+                                title="More transfer options"
+                              >
+                                <MoreHorizontal className="w-3.5 h-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-48">
+                              <DropdownMenuItem
+                                onClick={() => handleSendToCanvas(msg)}
+                                className="cursor-pointer text-xs gap-2"
+                              >
+                                <SquarePen className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                                <span>Open in Visual Canvas</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleOpenScheduleModal(msg)}
+                                className="cursor-pointer text-xs gap-2"
+                              >
+                                <Calendar className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <span>Schedule Post</span>
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleSaveToIdeas(msg)}
+                                disabled={msg.savedToIdeas}
+                                className="cursor-pointer text-xs gap-2"
+                              >
+                                <BookmarkPlus className={cn('w-3.5 h-3.5', msg.savedToIdeas ? 'text-amber-500 fill-amber-500' : 'text-muted-foreground')} />
+                                <span>{msg.savedToIdeas ? 'Saved to Ideas' : 'Save to Ideas'}</span>
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
 
                         {/* Copy Utility */}
