@@ -455,7 +455,7 @@ export default function SchedulePage() {
 
         <div className="flex items-center gap-2">
           {/* View toggle */}
-          <div className="flex items-center rounded-xl border border-border bg-muted p-0.5 shadow-2xs">
+          <div className="flex items-center rounded-xl border border-border bg-muted p-1 shadow-2xs">
             <Button
               variant={viewMode === 'list' ? 'default' : 'ghost'}
               size="sm"
@@ -471,12 +471,12 @@ export default function SchedulePage() {
               className="h-7 px-3 text-xs font-semibold gap-1.5 data-[state=active]:shadow-2xs"
               onClick={() => setViewMode('calendar')}
             >
-              <LayoutGrid className="h-3.5 w-3.5" />
+              <LayoutGrid className="h-4 w-4" />
               Calendar
             </Button>
           </div>
 
-          <Button size="sm" onClick={() => { setSelectedDate(new Date()); setShowScheduler(true); }} className="font-semibold shadow-2xs">
+          <Button size="lg" onClick={() => { setSelectedDate(new Date()); setShowScheduler(true); }} className="font-semibold shadow-2xs">
             <Plus className="mr-1.5 h-4 w-4" />
             Schedule Post
           </Button>
