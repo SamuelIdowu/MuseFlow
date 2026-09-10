@@ -10,6 +10,9 @@ import { FEATURES } from '@/lib/featureFlags';
 import { PLANS } from '@/lib/payments/config';
 import Link from 'next/link';
 
+// Force dynamic rendering because this route uses auth() which requires headers
+export const dynamic = 'force-dynamic';
+
 export default async function BillingPage() {
   let supabaseUserId: string;
   try {

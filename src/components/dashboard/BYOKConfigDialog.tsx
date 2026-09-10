@@ -22,11 +22,6 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { KeyRound, Sparkles, ShieldCheck, Cpu } from "lucide-react";
-import {
-  configureProfileBYOK,
-  removeProfileBYOK,
-  getProfileBYOKStatus,
-} from "@/lib/researchAgentClient";
 
 interface BYOKConfigDialogProps {
   open: boolean;
@@ -54,16 +49,23 @@ export function BYOKConfigDialog({
     let isMounted = true;
     setFetching(true);
 
-    getProfileBYOKStatus(profileId)
+    fetch(`/api/profiles/${profileId}/byok`)
+      .then(async (res) => {
+        if (!res.ok) return { byok_configured: false };
+        return res.json();
+      })
       .then((status) => {
         if (!isMounted) return;
-        if (status.byok_configured) {
+        if (status?.byok_configured) {
           setIsBYOKEnabled(true);
           setProvider((status.llm_provider as any) || "google");
           setModel(status.llm_model || "gemini-2.5-flash");
         } else {
           setIsBYOKEnabled(false);
         }
+      })
+      .catch((err) => {
+        console.warn("Failed to load BYOK status:", err);
       })
       .finally(() => {
         if (isMounted) setFetching(false);
@@ -86,7 +88,13 @@ export function BYOKConfigDialog({
     try {
       if (!isBYOKEnabled) {
         // Revert to Platform Default Model
-        await removeProfileBYOK(profileId);
+        const res = await fetch(`/api/profiles/${profileId}/byok`, {
+          method: "DELETE",
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || "Failed to reset BYOK configuration");
+        }
         toast.success("Restored Platform Default Model (Gemini 2.0 Flash)");
         onOpenChange(false);
         return;
@@ -98,11 +106,20 @@ export function BYOKConfigDialog({
         return;
       }
 
-      await configureProfileBYOK(profileId, {
-        llm_provider: provider,
-        llm_model: model,
-        llm_api_key: apiKey.trim(),
+      const res = await fetch(`/api/profiles/${profileId}/byok`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          llm_provider: provider,
+          llm_model: model,
+          llm_api_key: apiKey.trim(),
+        }),
       });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to configure BYOK");
+      }
 
       toast.success(`BYOK configured successfully using ${model}!`);
       onOpenChange(false);

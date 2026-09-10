@@ -65,10 +65,10 @@ export async function deleteCanvasBlockAction(id: string) {
   return canvasRepository.deleteCanvasBlock(supabase, userId, id);
 }
 
-export async function reorderCanvasBlocksAction(blocks: { id: string; order: number }[]) {
+export async function reorderCanvasBlocksAction(blocks: { id: string; order: number }[], canvasId?: string) {
   const userId = await getAuthenticatedSupabaseUserId();
   const supabase = await createClerkSupabaseClient();
-  return canvasRepository.reorderCanvasBlocks(supabase, userId, blocks);
+  return canvasRepository.reorderCanvasBlocks(supabase, userId, blocks, canvasId);
 }
 
 export async function clearCanvasAction(canvasId?: string) {

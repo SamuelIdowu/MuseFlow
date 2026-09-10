@@ -1,9 +1,9 @@
 'use server';
 
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { auth } from '@clerk/nextjs/server';
 import { getActiveProfile } from './dashboardServerActions';
 import { generateCampaignContent } from './geminiClient';
-import { createSupabaseServiceClient, ensureSupabaseUser } from './supabaseServerClient';
+import { createSupabaseServiceClient } from './supabaseServerClient';
 import { getAuthenticatedSupabaseUserId } from './authUtils';
 
 interface CampaignPost {

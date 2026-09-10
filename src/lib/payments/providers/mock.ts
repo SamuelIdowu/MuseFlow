@@ -29,13 +29,13 @@ export class MockPaymentProvider implements PaymentProvider {
     return returnUrl.toString();
   }
 
-  async cancelSubscription(params: CancelSubscriptionParams): Promise<boolean> {
+  async cancelSubscription(_params: CancelSubscriptionParams): Promise<boolean> {
     return true;
   }
 
   async parseWebhook(
     rawBody: string,
-    headers: Headers | Record<string, string | string[] | undefined>
+    _headers: Headers | Record<string, string | string[] | undefined>
   ): Promise<NormalizedWebhookEvent> {
     let payload: any = {};
     try {

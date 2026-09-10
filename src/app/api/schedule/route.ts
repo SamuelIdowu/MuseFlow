@@ -3,9 +3,43 @@ import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
 import { ensureSupabaseUser, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
+export async function GET() {
+  try {
+    const clerkUser = await currentUser();
+
+    if (!clerkUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const email = clerkUser.emailAddresses[0]?.emailAddress || '';
+    const supabaseUserId = await ensureSupabaseUser(clerkUser.id, email);
+
+    if (!supabaseUserId) {
+      return NextResponse.json({ error: 'Failed to sync user' }, { status: 500 });
+    }
+
+    const supabase = createSupabaseServiceClient();
+
+    const { data: scheduledPosts, error } = await supabase
+      .from('scheduled_posts')
+      .select('*')
+      .eq('user_id', supabaseUserId)
+      .order('scheduled_time', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching scheduled posts:', error);
+      throw error;
+    }
+
+    return NextResponse.json(scheduledPosts);
+  } catch (error) {
+    console.error('Error fetching scheduled posts:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 export async function POST(request: Request) {
   try {
-    // Get user from Clerk
     const clerkUser = await currentUser();
 
     if (!clerkUser) {
@@ -13,7 +47,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get or create Supabase user ID from Clerk ID
     const email = clerkUser.emailAddresses[0]?.emailAddress || '';
     const supabaseUserId = await ensureSupabaseUser(clerkUser.id, email);
 
@@ -24,12 +57,10 @@ export async function POST(request: Request) {
 
     const { content_blocks, channel, scheduled_time, optimize_time, active_profile } = await request.json();
 
-    // Validate input
     if (!content_blocks || !channel) {
       return NextResponse.json({ error: 'Content blocks and channel are required' }, { status: 400 });
     }
 
-    // If optimize_time is requested, get AI suggestion for best posting time
     let finalScheduledTime = scheduled_time;
     if (optimize_time) {
       const content = Array.isArray(content_blocks)
@@ -37,17 +68,14 @@ export async function POST(request: Request) {
         : content_blocks;
       const suggestedTime = await suggestBestTime(content, `Channel: ${channel}`, active_profile);
 
-      // Combine the scheduled date with the suggested time
       const date = new Date(scheduled_time);
       const [hours, minutes] = suggestedTime.split(':').map(Number);
       date.setHours(hours, minutes, 0, 0);
       finalScheduledTime = date.toISOString();
     }
 
-    // Use service client to bypass RLS
     const supabase = createSupabaseServiceClient();
 
-    // Save the scheduled post to the database
     const { data: scheduledPost, error: insertError } = await supabase
       .from('scheduled_posts')
       .insert([{

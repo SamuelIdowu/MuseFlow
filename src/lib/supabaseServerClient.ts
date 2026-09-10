@@ -31,10 +31,6 @@ export function createSupabaseServiceClient() {
     console.warn('[Supabase] SUPABASE_SERVICE_ROLE_KEY appears to contain a placeholder value');
   }
 
-  // Log masked URL for debugging
-  const maskedUrl = supabaseUrl.replace(/https?:\/\/([^.]+)\./, 'https://***.');
-  // console.log('[Supabase] Creating service client with URL:', maskedUrl);
-
   return createClient<Database>(
     supabaseUrl,
     supabaseServiceKey,
@@ -44,11 +40,10 @@ export function createSupabaseServiceClient() {
       },
       global: {
         fetch: (url, options) => {
-          const fetchOptions: RequestInit = { ...options };
+          const fetchOptions: RequestInit & { duplex?: string } = { ...options };
           // Only add duplex: 'half' for requests with a body (e.g. POST/PUT)
           // Node fetch throws an error if duplex is set on GET/HEAD requests
           if (options && options.body) {
-            // @ts-ignore - duplex is not in the RequestInit type for some versions but required for node fetch
             fetchOptions.duplex = 'half';
           }
           return fetch(url, fetchOptions);

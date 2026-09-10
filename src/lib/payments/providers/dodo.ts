@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import {
   PaymentProvider,
   CreateCheckoutParams,
@@ -117,7 +116,7 @@ export class DodoPaymentsProvider implements PaymentProvider {
 
   async parseWebhook(
     rawBody: string,
-    headers: Headers | Record<string, string | string[] | undefined>
+    _headers: Headers | Record<string, string | string[] | undefined>
   ): Promise<NormalizedWebhookEvent> {
     const payload = JSON.parse(rawBody);
     const eventTypeRaw = payload.type || payload.event_type;

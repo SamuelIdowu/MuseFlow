@@ -33,7 +33,6 @@ export async function getUsage(userId: string, metric: UsageMetric) {
     // But for simplicity in this MVP, we'll check the current calendar month
     // Ideally this should sync with the subscription period from the subscriptions table
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
 
     const { data, error } = await supabase
         .from('usage_tracking')
@@ -85,8 +84,7 @@ export async function checkUsageLimit(userId: string, metric: UsageMetric): Prom
             .single();
 
         if (user?.subscription_plan) {
-            // @ts-ignore
-            plan = user.subscription_plan;
+            plan = user.subscription_plan as 'free' | 'pro' | 'business';
         }
     }
 
@@ -105,32 +103,51 @@ export async function incrementUsage(userId: string, metric: UsageMetric): Promi
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
 
-    // Upsert usage record
-    // We use raw SQL or careful upsert handling
+    try {
+        // 1. Preferred: Call atomic Postgres function to eliminate race conditions
+        const { error: rpcError } = await (supabase as any).rpc('increment_user_usage', {
+            p_user_id: userId,
+            p_metric: metric,
+            p_period_start: startOfMonth,
+            p_period_end: endOfMonth,
+        });
 
-    // First try to select
-    const { data: existing } = await supabase
-        .from('usage_tracking')
-        .select('id, count')
-        .eq('user_id', userId)
-        .eq('metric', metric)
-        .eq('period_start', startOfMonth)
-        .single();
+        if (!rpcError) {
+            return;
+        }
 
-    if (existing) {
+        console.warn('[incrementUsage] RPC call failed, falling back to atomic upsert:', rpcError.message);
+    } catch (rpcErr) {
+        console.warn('[incrementUsage] RPC exception, falling back to atomic upsert:', rpcErr);
+    }
+
+    // 2. Fallback: Supabase native upsert with ON CONFLICT resolution
+    try {
+        const { data: current } = await supabase
+            .from('usage_tracking')
+            .select('count')
+            .eq('user_id', userId)
+            .eq('metric', metric)
+            .eq('period_start', startOfMonth)
+            .maybeSingle();
+
+        const newCount = (current?.count || 0) + 1;
+
         await supabase
             .from('usage_tracking')
-            .update({ count: existing.count + 1 })
-            .eq('id', existing.id);
-    } else {
-        await supabase
-            .from('usage_tracking')
-            .insert({
-                user_id: userId,
-                metric,
-                count: 1,
-                period_start: startOfMonth,
-                period_end: endOfMonth,
-            });
+            .upsert(
+                {
+                    user_id: userId,
+                    metric,
+                    count: newCount,
+                    period_start: startOfMonth,
+                    period_end: endOfMonth,
+                },
+                {
+                    onConflict: 'user_id,metric,period_start',
+                }
+            );
+    } catch (err) {
+        console.error('[incrementUsage] Failed to record usage:', err);
     }
 }

@@ -73,7 +73,7 @@ export class PaystackPaymentProvider implements PaymentProvider {
     };
   }
 
-  async getPortalUrl(params: PortalParams): Promise<string | null> {
+  async getPortalUrl(_params?: PortalParams): Promise<string | null> {
     // Paystack manages subscriptions via their email management links or API
     return null;
   }

@@ -9,6 +9,52 @@ export type Json =
 export interface Database {
   public: {
     Tables: {
+      documents: {
+        Row: {
+          id: string
+          user_id: string
+          title: string
+          subtitle: string | null
+          excerpt: string | null
+          content_json: Json | null
+          content_html: string
+          word_count: number | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          title?: string
+          subtitle?: string | null
+          excerpt?: string | null
+          content_json?: Json | null
+          content_html?: string
+          word_count?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          title?: string
+          subtitle?: string | null
+          excerpt?: string | null
+          content_json?: Json | null
+          content_html?: string
+          word_count?: number | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       canvas_blocks: {
         Row: {
           id: string

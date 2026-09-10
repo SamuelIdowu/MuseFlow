@@ -13,12 +13,19 @@ import { type Editor } from "@tiptap/react";
 import { marked } from "marked";
 import { Loader2 } from "lucide-react";
 import {
+  saveDocumentAction,
+  getDocumentAction,
+  getUserDocumentsAction,
+} from "@/features/editor/actions/documentActions";
+import {
   ResizablePanelGroup,
   ResizablePanel,
   ResizableHandle,
 } from "@/components/ui/resizable";
+import { htmlToMarkdown } from "@/lib/htmlToMarkdown";
 
 export function EditorClient() {
+  const [currentDocId, setCurrentDocId] = useState<string | null>(null);
   const [documentTitle, setDocumentTitle] = useState("Designing for High-Retention Growth");
   const [documentSubtitle, setDocumentSubtitle] = useState("UX Research & Creator Edition");
   const [documentExcerpt, setDocumentExcerpt] = useState(
@@ -108,7 +115,7 @@ export function EditorClient() {
       });
   }, []);
 
-  // Restore saved document draft or process new staged import from Home Chat
+  // Restore saved document draft from Cloud (Supabase) or staged import from Home Chat
   useEffect(() => {
     let isCancelled = false;
 
@@ -132,7 +139,33 @@ export function EditorClient() {
         console.error("Error reading editor import:", e);
       }
 
-      // 2. Otherwise restore previously saved document state from localStorage
+      // 2. Load from Supabase Cloud
+      try {
+        const userDocs = await getUserDocumentsAction();
+        if (userDocs && userDocs.length > 0) {
+          const latest = userDocs[0];
+          const fullDoc = await getDocumentAction(latest.id);
+          if (fullDoc && !isCancelled) {
+            setCurrentDocId(fullDoc.id);
+            if (fullDoc.title) setDocumentTitle(fullDoc.title);
+            if (fullDoc.subtitle) setDocumentSubtitle(fullDoc.subtitle);
+            if (fullDoc.excerpt) setDocumentExcerpt(fullDoc.excerpt);
+            if (fullDoc.content_html) {
+              setDocumentContent(fullDoc.content_html);
+              if (editorInstanceRef.current && !editorInstanceRef.current.isDestroyed) {
+                editorInstanceRef.current.commands.setContent(fullDoc.content_html, { emitUpdate: false });
+              }
+            }
+            if (fullDoc.updated_at) setLastSavedAt(new Date(fullDoc.updated_at));
+            setIsLoaded(true);
+            return;
+          }
+        }
+      } catch (cloudErr) {
+        console.warn("Could not load from cloud, checking local backup:", cloudErr);
+      }
+
+      // 3. Fallback to localStorage backup if no cloud docs exist yet
       try {
         const savedDoc = localStorage.getItem("museflow_editor_doc");
         if (savedDoc) {
@@ -142,11 +175,14 @@ export function EditorClient() {
           if (parsed.excerpt !== undefined) setDocumentExcerpt(parsed.excerpt);
           if (parsed.content !== undefined && parsed.content.trim()) {
             setDocumentContent(parsed.content);
+            if (editorInstanceRef.current && !editorInstanceRef.current.isDestroyed) {
+              editorInstanceRef.current.commands.setContent(parsed.content, { emitUpdate: false });
+            }
           }
           if (parsed.updatedAt) setLastSavedAt(new Date(parsed.updatedAt));
         }
       } catch (e) {
-        console.error("Error restoring editor document draft:", e);
+        console.error("Error restoring editor document backup:", e);
       } finally {
         if (!isCancelled) {
           setIsLoaded(true);
@@ -161,18 +197,42 @@ export function EditorClient() {
     };
   }, [importParam]);
 
-  // Autosave when any document property changes (after initial load)
+  // Autosave to Cloud (debounced 1000ms) with localStorage backup
   useEffect(() => {
     if (!isLoaded) return;
     setIsSaving(true);
-    const timer = setTimeout(() => {
-      setIsSaving(false);
+    const timer = setTimeout(async () => {
       const now = new Date();
-      setLastSavedAt(now);
+      try {
+        // Cloud Save via Server Action
+        const saved = await saveDocumentAction({
+          id: currentDocId || undefined,
+          title: documentTitle,
+          subtitle: documentSubtitle,
+          excerpt: documentExcerpt,
+          content_html: documentContent,
+          word_count: wordCount,
+        });
+
+        if (saved && saved.id) {
+          if (!currentDocId) {
+            setCurrentDocId(saved.id);
+          }
+        }
+
+        setLastSavedAt(now);
+      } catch (cloudSaveErr) {
+        console.warn("Cloud autosave warning (saved to local backup):", cloudSaveErr);
+      } finally {
+        setIsSaving(false);
+      }
+
+      // Always save local backup
       try {
         localStorage.setItem(
           "museflow_editor_doc",
           JSON.stringify({
+            id: currentDocId,
             title: documentTitle,
             subtitle: documentSubtitle,
             excerpt: documentExcerpt,
@@ -181,12 +241,12 @@ export function EditorClient() {
           })
         );
       } catch (err) {
-        console.error("Failed to autosave document to localStorage:", err);
+        console.error("Failed to backup document to localStorage:", err);
       }
-    }, 600);
+    }, 1000);
 
     return () => clearTimeout(timer);
-  }, [documentTitle, documentSubtitle, documentExcerpt, documentContent, isLoaded]);
+  }, [documentTitle, documentSubtitle, documentExcerpt, documentContent, wordCount, isLoaded, currentDocId]);
 
   // Handle export formats
   const handleExport = (format: "markdown" | "html" | "text") => {
@@ -195,17 +255,7 @@ export function EditorClient() {
     let fileExtension = "txt";
 
     if (format === "markdown") {
-      // Basic HTML to Markdown converter
-      contentToExport = `# ${documentTitle}\n\n` +
-        documentContent
-          .replace(/<h1>(.*?)<\/h1>/gi, "# $1\n\n")
-          .replace(/<h2>(.*?)<\/h2>/gi, "## $1\n\n")
-          .replace(/<h3>(.*?)<\/h3>/gi, "### $1\n\n")
-          .replace(/<p>(.*?)<\/p>/gi, "$1\n\n")
-          .replace(/<strong>(.*?)<\/strong>/gi, "**$1**")
-          .replace(/<em>(.*?)<\/em>/gi, "*$1*")
-          .replace(/<li>(.*?)<\/li>/gi, "- $1\n")
-          .replace(/<[^>]+>/g, "");
+      contentToExport = `# ${documentTitle}\n\n` + htmlToMarkdown(documentContent);
       mimeType = "text/markdown";
       fileExtension = "md";
     } else if (format === "html") {

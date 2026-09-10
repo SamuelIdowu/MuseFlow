@@ -1,31 +1,13 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { Profile } from "@/types/profile";
 import { CONTENT_TYPES } from "@/types/content";
-import { fetchUrlContent, extractUrls, isValidUrl } from "./urlUtils";
+import { fetchUrlContent, isValidUrl } from "./urlUtils";
 
 export function getGeminiApiKey(): string {
   const envKey = process.env.GEMINI_API_KEY?.trim();
-  if (envKey && !envKey.startsWith("AIzaSyCstRJ") && envKey.length > 20) {
+  if (envKey && envKey.length > 10) {
     return envKey;
   }
-
-  // Read directly from .env.local on disk in case dev server process cached an old/missing key
-  try {
-    const fs = require("fs");
-    const path = require("path");
-    const envPath = path.join(process.cwd(), ".env.local");
-    if (fs.existsSync(envPath)) {
-      const content = fs.readFileSync(envPath, "utf8");
-      const match = content.match(/^GEMINI_API_KEY=(.+)$/m);
-      if (match && match[1]) {
-        const parsedKey = match[1].trim();
-        if (!parsedKey.startsWith("AIzaSyCstRJ") && parsedKey.length > 20) {
-          return parsedKey;
-        }
-      }
-    }
-  } catch {}
-
   return "";
 }
 
@@ -91,35 +73,14 @@ async function buildProfileContext(profile?: Profile | null): Promise<string> {
 }
 
 function getResearchAgentConfig() {
-  let agentUrl = process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || process.env.RESEARCH_AGENT_URL || 'http://localhost:8000';
-  let apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
-  let clientId = process.env.RESEARCH_AGENT_CLIENT_ID || process.env.NEXT_PUBLIC_RESEARCH_AGENT_CLIENT_ID || '';
-
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    const envPath = path.join(process.cwd(), '.env.local');
-    if (fs.existsSync(envPath)) {
-      const content = fs.readFileSync(envPath, 'utf8');
-      if (!apiKey) {
-        const mKey = content.match(/^RESEARCH_AGENT_API_KEY=(.+)$/m);
-        if (mKey) apiKey = mKey[1].trim();
-      }
-      if (!clientId) {
-        const mClient = content.match(/^RESEARCH_AGENT_CLIENT_ID=(.+)$/m);
-        if (mClient) clientId = mClient[1].trim();
-      }
-      if (!agentUrl || agentUrl === 'http://localhost:8000') {
-        const mUrl = content.match(/^(?:NEXT_PUBLIC_)?RESEARCH_AGENT_URL=(.+)$/m);
-        if (mUrl) agentUrl = mUrl[1].trim();
-      }
-    }
-  } catch {}
+  const agentUrl = process.env.RESEARCH_AGENT_URL || process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || 'http://localhost:8000';
+  const apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
+  const clientId = process.env.RESEARCH_AGENT_CLIENT_ID || process.env.NEXT_PUBLIC_RESEARCH_AGENT_CLIENT_ID || '00000000-0000-0000-0000-000000000000';
 
   return {
     agentUrl: agentUrl.replace(/\/$/, ''),
     apiKey,
-    clientId: clientId || '00000000-0000-0000-0000-000000000000'
+    clientId
   };
 }
 
@@ -176,7 +137,7 @@ async function tryGenerateWithResearchAgent(input: string, profileId?: string, c
   }
 }
 
-export async function generateChatResponse(input: string, activeProfile?: Profile | null, history: any[] = [], contentTypeId?: string): Promise<string> {
+export async function generateChatResponse(input: string, activeProfile?: Profile | null, _history: any[] = [], contentTypeId?: string): Promise<string> {
   // Exclusively route to Research Agent (Fallback disabled)
   const agentResult = await tryGenerateWithResearchAgent(input, activeProfile?.id, contentTypeId);
   if (agentResult.success && agentResult.data) {

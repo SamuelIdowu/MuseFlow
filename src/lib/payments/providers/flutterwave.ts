@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import {
   PaymentProvider,
   CreateCheckoutParams,
@@ -86,7 +85,7 @@ export class FlutterwavePaymentProvider implements PaymentProvider {
     };
   }
 
-  async getPortalUrl(params: PortalParams): Promise<string | null> {
+  async getPortalUrl(_params?: PortalParams): Promise<string | null> {
     return null;
   }
 

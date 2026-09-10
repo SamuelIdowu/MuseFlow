@@ -229,21 +229,23 @@ export const canvasRepository = {
         }
       }
 
-      if (targetCanvasId) {
-        await supabase.from("chat_messages").delete().eq("canvas_id", targetCanvasId).eq("user_id", userId);
-        
-        if (chatHistory.length > 0) {
-          await supabase.from("chat_messages").insert(
-            chatHistory.map(message => ({
-              id: message.id || crypto.randomUUID(),
-              user_id: userId,
-              canvas_id: targetCanvasId,
-              role: message.role,
-              content: message.content || '',
-              tool_invocations: message.toolInvocations || null,
-              created_at: message.createdAt || new Date().toISOString()
-            }))
-          );
+      if (targetCanvasId && chatHistory.length > 0) {
+        const rows = chatHistory.map(message => ({
+          id: message.id || crypto.randomUUID(),
+          user_id: userId,
+          canvas_id: targetCanvasId,
+          role: message.role,
+          content: message.content || '',
+          tool_invocations: message.toolInvocations || null,
+          created_at: message.createdAt || new Date().toISOString()
+        }));
+
+        const { error } = await supabase
+          .from("chat_messages")
+          .upsert(rows, { onConflict: "id" });
+
+        if (error) {
+          console.warn("Could not upsert chat history (non-fatal):", error.message || error);
         }
       }
     } catch (err) {
@@ -389,7 +391,33 @@ export const canvasRepository = {
     }
   },
 
-  async reorderCanvasBlocks(supabase: SupabaseClient<Database>, userId: string, blocks: { id: string; order: number }[]) {
+  async reorderCanvasBlocks(supabase: SupabaseClient<Database>, userId: string, blocks: { id: string; order: number }[], canvasId?: string) {
+    if (!blocks || blocks.length === 0) return;
+
+    let targetCanvasId = canvasId;
+    if (!targetCanvasId) {
+      const { data: firstBlock } = await supabase
+        .from('canvas_blocks')
+        .select('canvas_id')
+        .eq('id', blocks[0].id)
+        .eq('user_id', userId)
+        .single();
+      targetCanvasId = firstBlock?.canvas_id;
+    }
+
+    if (targetCanvasId) {
+      const { error: rpcError } = await (supabase.rpc as any)('reorder_canvas_blocks', {
+        p_canvas_id: targetCanvasId,
+        p_user_id: userId,
+        p_blocks: blocks,
+      });
+
+      if (!rpcError) {
+        return;
+      }
+      console.warn('reorder_canvas_blocks RPC failed, falling back to batch update:', rpcError.message);
+    }
+
     for (const block of blocks) {
       const { error } = await supabase
         .from("canvas_blocks")

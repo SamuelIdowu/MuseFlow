@@ -5,7 +5,6 @@ import { getAuthenticatedSupabaseUserId } from '@/lib/authUtils';
 import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 import {
   getPaymentProvider,
-  PlanTier,
   BillingCycle,
   CheckoutResult,
 } from '@/lib/payments';

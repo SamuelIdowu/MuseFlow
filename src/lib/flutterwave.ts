@@ -32,5 +32,5 @@ export const cancelSubscription = async (subscriptionId: string) => {
   }
 };
 
-// Default export removed as we don't need the class instance
-export default {}; 
+const flutterwaveUtils = { verifyTransaction, cancelSubscription };
+export default flutterwaveUtils; 

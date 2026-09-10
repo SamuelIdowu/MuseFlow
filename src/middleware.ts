@@ -6,6 +6,9 @@ const isPublicRoute = createRouteMatcher([
   "/auth(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/api/webhooks(.*)",
+  "/api/flutterwave(.*)",
+  "/api/cron(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

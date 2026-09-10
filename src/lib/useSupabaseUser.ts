@@ -1,11 +1,10 @@
 import { useUser } from "@clerk/nextjs";
-import { supabase } from "./supabaseClient";
 
 /**
  * Hook to get the Supabase user ID for the current Clerk user
  * Ensures the user exists in Supabase by calling the API
  */
-export async function getSupabaseUserIdClient(clerkUserId: string): Promise<string | null> {
+export async function getSupabaseUserIdClient(_clerkUserId?: string): Promise<string | null> {
     try {
         // Call API to ensure user exists in Supabase
         // The API uses service role key and returns the Supabase user ID
