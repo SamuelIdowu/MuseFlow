@@ -7,21 +7,33 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-export async function POST(req: Request) {
-    // FEATURE FLAG: When payments are disabled, acknowledge webhook without processing
-    if (!FEATURES.PAYMENTS_ENABLED) {
-        return NextResponse.json({ 
-            status: 'success',
-            message: 'Payments disabled - webhook acknowledged but not processed'
-        });
-    }
+import crypto from 'crypto';
 
+export async function POST(req: Request) {
     try {
         const signature = req.headers.get('verif-hash');
-        const secretHash = process.env.FLUTTERWAVE_SECRET_HASH || 'default-secret-hash'; // IMPORTANT: Set this in env
+        const secretHash = process.env.FLUTTERWAVE_SECRET_HASH;
 
-        if (!signature || signature !== secretHash) {
+        if (!secretHash) {
+            console.error('[FLUTTERWAVE_SECURITY] FLUTTERWAVE_SECRET_HASH is not configured in environment');
+            return NextResponse.json({ error: 'Webhook verification unavailable' }, { status: 503 });
+        }
+
+        const isSignatureValid =
+            typeof signature === 'string' &&
+            signature.length === secretHash.length &&
+            crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(secretHash));
+
+        if (!isSignatureValid) {
             return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
+        }
+
+        // FEATURE FLAG: When payments are disabled, acknowledge verified webhook without processing
+        if (!FEATURES.PAYMENTS_ENABLED) {
+            return NextResponse.json({ 
+                status: 'success',
+                message: 'Payments disabled - webhook acknowledged but not processed'
+            });
         }
 
         const payload = await req.json();

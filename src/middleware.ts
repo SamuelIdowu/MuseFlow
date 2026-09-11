@@ -3,11 +3,11 @@ import { NextResponse } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/pricing(.*)",
   "/auth(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",
-  "/api/flutterwave(.*)",
   "/api/cron(.*)",
 ]);
 
@@ -33,7 +33,11 @@ export default clerkMiddleware(async (auth, req) => {
 
   // 3. Protect protected routes
   if (!userId) {
-    // Truly unauthenticated - use Clerk's internal protection which handles redirects
+    // Return 401 for unauthenticated API calls
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // Truly unauthenticated page visit - redirect to sign in
     await auth.protect();
   }
 

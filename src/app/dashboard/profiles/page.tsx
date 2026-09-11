@@ -8,7 +8,6 @@ import { Input } from "@/components/ui/input";
 import { ProfileCard } from "@/components/dashboard/ProfileCard";
 import { ProfileFormDialog } from "@/components/dashboard/ProfileFormDialog";
 import { BYOKConfigDialog } from "@/components/dashboard/BYOKConfigDialog";
-import { syncProfileToAgent } from "@/lib/researchAgentClient";
 import toast from "react-hot-toast";
 import { Search, PlusCircle, Archive, Trash2 } from "lucide-react";
 import { Profile } from "@/types/profile";
@@ -101,10 +100,6 @@ export default function ProfilesManagementPage() {
 
             const data = await response.json();
             const created = data.profile || data;
-            if (created && created.id) {
-                // Synchronize brand voice with the Research Agent backend
-                syncProfileToAgent(created.id, created.profile_name, profileData.niche).catch(console.warn);
-            }
 
             toast.success("Profile created successfully!");
             await fetchProfiles();
@@ -133,9 +128,6 @@ export default function ProfilesManagementPage() {
                 const errorData = await response.json();
                 throw new Error(errorData.error || "Failed to update profile");
             }
-
-            // Sync update with Research Agent
-            syncProfileToAgent(selectedProfile.id, profileData.profile_name || selectedProfile.profile_name, profileData.niche).catch(console.warn);
 
             toast.success("Profile updated successfully!");
             await fetchProfiles();

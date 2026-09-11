@@ -67,13 +67,23 @@ function generateMarkdown(blocks: any[]): string {
   return md;
 }
 
+function sanitizeCsvCell(value: string): string {
+  if (!value) return '';
+  const trimmed = value.trimStart();
+  // Neutralize CSV formula execution triggers: =, +, -, @, \t, \r
+  if (/^[=+\-@\t\r]/.test(trimmed)) {
+    return `'${value.replace(/"/g, '""')}`;
+  }
+  return value.replace(/"/g, '""');
+}
+
 function generateCSV(blocks: any[]): string {
   // Create CSV content with type and content columns
   let csv = 'Type,Content\n';
   blocks.forEach(block => {
-    // Escape content for CSV
-    const escapedContent = block.content.replace(/"/g, '""');
-    csv += `"${block.type}","${escapedContent}"\n`;
+    const sanitizedType = sanitizeCsvCell(block.type || '');
+    const sanitizedContent = sanitizeCsvCell(block.content || '');
+    csv += `"${sanitizedType}","${sanitizedContent}"\n`;
   });
   return csv;
 }

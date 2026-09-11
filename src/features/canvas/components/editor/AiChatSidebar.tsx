@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { generateCanvasChatResponseAction } from "../../actions/canvasActions";
 import { marked } from "marked";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { toast } from "react-hot-toast";
 
 interface ChatMessage {
@@ -283,8 +285,11 @@ export function AiChatSidebar({
                       ? "prose-invert text-white [&_p]:text-white [&_a]:text-white [&_strong]:text-white"
                       : "dark:prose-invert text-foreground"
                   }`}
-                  dangerouslySetInnerHTML={{ __html: marked.parse(m.content) as string }}
-                />
+                >
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {m.content}
+                  </ReactMarkdown>
+                </div>
 
                 {/* Assistant Action Buttons */}
                 {!isUser && m.id !== "welcome" && (

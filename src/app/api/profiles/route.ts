@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs/server';
 import { createSupabaseServiceClient, getSupabaseUserId } from '@/lib/supabaseServerClient';
+import { syncProfileToAgent } from '@/lib/researchAgentClient';
 
 // GET /api/profiles - Fetch all profiles for the authenticated user
 export async function GET() {
@@ -116,6 +117,9 @@ export async function POST(request: Request) {
         }
 
         console.log('Profiles POST - Successfully created profile:', { id: data?.id, userId: supabaseUserId });
+        if (data?.id) {
+            syncProfileToAgent(data.id, data.profile_name, data.niche || undefined).catch(console.warn);
+        }
         return NextResponse.json(data);
     } catch (error) {
         console.error('Error creating profile:', error);

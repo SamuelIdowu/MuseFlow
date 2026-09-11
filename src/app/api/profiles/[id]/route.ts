@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs/server';
 import { createSupabaseServiceClient, getSupabaseUserId } from '@/lib/supabaseServerClient';
+import { syncProfileToAgent } from '@/lib/researchAgentClient';
 
 // PUT /api/profiles/[id] - Update a specific profile
 export async function PUT(
@@ -70,6 +71,9 @@ export async function PUT(
         }
 
         console.log('Profile PUT - Successfully updated profile:', { id: data?.id, userId: supabaseUserId });
+        if (data?.id) {
+            syncProfileToAgent(data.id, data.profile_name, data.niche || undefined).catch(console.warn);
+        }
         return NextResponse.json(data);
     } catch (error) {
         console.error('Error updating profile:', error);

@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Send, Bot, User } from 'lucide-react';
 import { marked } from 'marked';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { getGlobalChatMessagesAction, addChatMessageAction, generateCanvasChatResponseAction } from '@/features/canvas/actions/canvasActions';
 import { toast } from 'react-hot-toast';
 
@@ -179,8 +181,11 @@ export function AiChatPanel({ editorContent, onApplyContent }: AiChatPanelProps)
                 }`}>
                   <div 
                     className={`prose prose-sm max-w-none ${m.role === 'user' ? 'prose-invert' : ''}`}
-                    dangerouslySetInnerHTML={{ __html: marked(textContent) }}
-                  />
+                  >
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {textContent}
+                    </ReactMarkdown>
+                  </div>
                 </div>
               </div>
             </div>
