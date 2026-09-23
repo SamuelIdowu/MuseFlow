@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { X, Share, PlusSquare } from 'lucide-react';
 
 const DISMISS_KEY = 'museflow_install_prompt_dismissed_at';
 const COUNT_KEY = 'museflow_install_prompt_show_count';
@@ -98,14 +99,14 @@ export default function InstallPrompt() {
                     className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 -mr-1 -mt-1 rounded-md"
                     aria-label="Close"
                 >
-                    ✕
+                    <X className="w-4 h-4" />
                 </button>
             </div>
 
             {isIOS ? (
                 <div>
                     <p className="text-sm text-zinc-600 dark:text-zinc-400 mb-3">
-                        To install this app on your iPhone: tap <span className="font-bold">Share</span> <span className="text-xl">⎋</span> then scroll down and tap <span className="font-bold">Add to Home Screen</span> <span className="text-xl">⊕</span>.
+                        To install this app on your iPhone: tap <span className="font-bold">Share</span> <Share className="w-3.5 h-3.5 inline mx-1 align-text-bottom text-primary" /> then scroll down and tap <span className="font-bold">Add to Home Screen</span> <PlusSquare className="w-3.5 h-3.5 inline mx-1 align-text-bottom text-primary" />.
                     </p>
                     <button
                         onClick={handleDismiss}

@@ -14,11 +14,18 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
-import { Sparkles, ArrowRight, Check, Compass, Sliders, Layers, Rocket, Loader2 } from "lucide-react";
+import { Sparkles, ArrowRight, Check, Compass, Sliders, Layers, Rocket, Loader2, Swords, Search, Share2, Wrench } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { createQuickProfileAction } from "@/lib/dashboardServerActions";
 import { instantiateCanvasTemplateAction } from "@/features/canvas/actions/canvasActions";
 import { CANVAS_TEMPLATES } from "@/features/canvas/constants/canvasTemplates";
+
+const TEMPLATE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  swords: Swords,
+  search: Search,
+  "share-2": Share2,
+  wrench: Wrench,
+};
 
 const NICHES = [
   "Tech & AI",
@@ -91,7 +98,7 @@ export function OnboardingWizard({ hasProfile = false }: OnboardingWizardProps) 
       if (newSession?.id) {
         localStorage.setItem("museflow_onboarding_completed", "true");
         setIsOpen(false);
-        toast.success("Welcome to MuseFlow! Your calibrated canvas is ready.", { icon: "🚀", duration: 4000 });
+        toast.success("Welcome to MuseFlow! Your calibrated canvas is ready.", { duration: 4000 });
         router.push(`/dashboard/canvas?session=${newSession.id}`);
       }
     } catch (err) {
@@ -230,7 +237,14 @@ export function OnboardingWizard({ hasProfile = false }: OnboardingWizardProps) 
                           : "border-border/70 hover:border-border hover:bg-muted/30"
                       }`}
                     >
-                      <span className="text-2xl pt-0.5">{tpl.icon}</span>
+                      {(() => {
+                        const IconComponent = TEMPLATE_ICONS[tpl.icon] || Sparkles;
+                        return (
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                            <IconComponent className="w-5 h-5" />
+                          </div>
+                        );
+                      })()}
                       <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center justify-between">
                           <h4 className="text-sm font-semibold text-foreground">{tpl.title}</h4>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Calendar, Copy, Download, Trash2, FileEdit, MoreHorizontal } from "lucide-react";
+import { Sparkles, Calendar, Copy, Download, Trash2, FileEdit, MoreHorizontal, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -104,9 +104,10 @@ export function ExpandableIdeaCard({ idea, onSchedule, onDelete }: ExpandableIde
                         {shouldShowReadMore && (
                             <button
                                 onClick={() => setIsModalOpen(true)}
-                                className="text-xs font-semibold text-primary hover:underline mt-1.5 block"
+                                className="text-xs font-semibold text-primary hover:underline mt-1.5 inline-flex items-center gap-1"
                             >
-                                Read more →
+                                <span>Read more</span>
+                                <ArrowRight className="h-3 w-3" />
                             </button>
                         )}
                     </div>

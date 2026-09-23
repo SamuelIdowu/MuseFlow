@@ -76,9 +76,10 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
   const topicParam = searchParams.get("topic");
   const ideaIdParam = searchParams.get("ideaId");
 
-  const isHubView = !sessionParam && !isNewParam && !importParam && !ideaIdParam;
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionParam || null);
+  const isHubView = !currentSessionId && !isNewParam && !importParam && !ideaIdParam;
 
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isCreatingCanvas, setIsCreatingCanvas] = useState(false);
   const [isExportingToEditor, setIsExportingToEditor] = useState(false);
   const [isChannelExportOpen, setIsChannelExportOpen] = useState(false);
@@ -93,7 +94,6 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     setPageTitle,
     handleTitleChange,
     loadCanvasSessions,
-    handleCreateNewCanvas,
     handleSwitchCanvas,
   } = useCanvasSessions();
 
@@ -110,7 +110,10 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
       if (!newSession?.id) throw new Error("Could not create canvas session");
 
       toast.success(`Created "${template.title}" canvas!`);
+      setCurrentSessionId(newSession.id);
+      setActiveCanvasId(newSession.id);
       router.push(`/dashboard/canvas?session=${newSession.id}`);
+      await fetchBlocks(newSession.id);
       loadCanvasSessions();
     } catch (err: any) {
       console.error("Failed to load template:", err);
@@ -120,11 +123,39 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     }
   };
 
+  const handleCreateNew = async () => {
+    try {
+      setIsCreatingCanvas(true);
+      const newSession = await createCanvasSessionAction("New Canvas");
+      if (newSession?.id) {
+        toast.success("Created new canvas");
+        setCurrentSessionId(newSession.id);
+        setActiveCanvasId(newSession.id);
+        router.push(`/dashboard/canvas?session=${newSession.id}`);
+        await fetchBlocks(newSession.id);
+        loadCanvasSessions();
+      }
+    } catch (err) {
+      console.error("Failed to create new canvas:", err);
+      toast.error("Could not create new canvas");
+    } finally {
+      setIsCreatingCanvas(false);
+    }
+  };
+
+  const handleSelectSession = async (id: string) => {
+    setCurrentSessionId(id);
+    setActiveCanvasId(id);
+    router.push(`/dashboard/canvas?session=${id}`);
+    await fetchBlocks(id);
+  };
+
   const handleDeleteCanvasSession = async (id: string) => {
     try {
       await deleteCanvasSessionAction(id);
       toast.success("Canvas deleted");
-      if (activeCanvasId === id) {
+      if (activeCanvasId === id || currentSessionId === id) {
+        setCurrentSessionId(null);
         setActiveCanvasId(undefined);
         router.push("/dashboard/canvas");
       }
@@ -136,6 +167,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
   };
 
   const handleBackToHub = () => {
+    setCurrentSessionId(null);
     setActiveCanvasId(undefined);
     router.push("/dashboard/canvas");
   };
@@ -414,7 +446,15 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     }
   };
 
-  const fetchBlocks = async (isSilent = false) => {
+  const fetchBlocks = async (
+    sessionOrSilent?: string | boolean,
+    silentOption: boolean = false
+  ) => {
+    const overrideSessionId =
+      typeof sessionOrSilent === "string" ? sessionOrSilent : undefined;
+    const isSilent =
+      typeof sessionOrSilent === "boolean" ? sessionOrSilent : silentOption;
+
     try {
       if (!isSilent) setLoading(true);
 
@@ -440,15 +480,18 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
       }
 
       let targetCanvasId =
+        overrideSessionId ||
+        currentSessionId ||
         searchParams.get("session") ||
         searchParams.get("id") ||
         searchParams.get("canvasId") ||
         pendingImport?.targetSessionId ||
         undefined;
       const isForcedNew =
-        searchParams.get("new") === "true" ||
+        !overrideSessionId &&
+        (searchParams.get("new") === "true" ||
         (Boolean(importParam) && !targetCanvasId) ||
-        (Boolean(ideaIdParam) && !targetCanvasId);
+        (Boolean(ideaIdParam) && !targetCanvasId));
       const initialTitle = topicParam || pendingImport?.topic || "New Canvas";
 
       let {
@@ -481,6 +524,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         }
       }
 
+      setCurrentSessionId(actualCanvasId);
       setActiveCanvasId(actualCanvasId);
       const resolvedTitle =
         topicParam || canvasSessionName || "Untitled Canvas";
@@ -585,8 +629,18 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
   };
 
   useEffect(() => {
-    fetchBlocks();
-  }, [sessionParam, isNewParam, importParam, topicParam, ideaIdParam]);
+    if (sessionParam) {
+      if (sessionParam !== activeCanvasId) {
+        setCurrentSessionId(sessionParam);
+        fetchBlocks(sessionParam);
+      }
+    } else if (isNewParam || importParam || topicParam || ideaIdParam) {
+      fetchBlocks();
+    } else {
+      setCurrentSessionId(null);
+      setLoading(false);
+    }
+  }, [sessionParam, isNewParam, importParam, topicParam, ideaIdParam, activeCanvasId]);
 
   // Chat handlers
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -847,8 +901,8 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     return (
       <CanvasHubView
         canvasSessions={canvasSessions}
-        onCreateNew={handleCreateNewCanvas}
-        onSelectSession={(id) => router.push(`/dashboard/canvas?session=${id}`)}
+        onCreateNew={handleCreateNew}
+        onSelectSession={handleSelectSession}
         onSelectTemplate={handleSelectTemplate}
         onDeleteSession={handleDeleteCanvasSession}
         isCreating={isCreatingCanvas}
@@ -875,8 +929,8 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
           activeProfile={activeProfile}
           canvasSessions={canvasSessions}
           activeCanvasId={activeCanvasId}
-          onSwitchCanvas={handleSwitchCanvas}
-          onCreateNewCanvas={handleCreateNewCanvas}
+          onSwitchCanvas={handleSelectSession}
+          onCreateNewCanvas={handleCreateNew}
           onBackToHub={handleBackToHub}
           onExportToEditor={handleSendToEditor}
           isExportingToEditor={isExportingToEditor}

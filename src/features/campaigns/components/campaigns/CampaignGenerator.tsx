@@ -69,7 +69,7 @@ export function CampaignGenerator({ onSaved }: CampaignGeneratorProps) {
                 scheduledCount++;
             }
 
-            toast.success(`Scheduled ${scheduledCount} posts across your Content Calendar!`, { icon: '📅' });
+            toast.success(`Scheduled ${scheduledCount} posts across your Content Calendar!`);
         } catch (error) {
             console.error('Error batch scheduling:', error);
             toast.error('Failed to schedule all posts');
