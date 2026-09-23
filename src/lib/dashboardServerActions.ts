@@ -314,3 +314,51 @@ export async function getDashboardOverviewData(): Promise<DashboardOverviewData>
     }
   };
 }
+
+export async function createQuickProfileAction(params: {
+  profile_name: string;
+  niche: string;
+  tone_config?: {
+    professionalism?: number;
+    creativity?: number;
+    casualness?: number;
+    directness?: number;
+  };
+  is_active?: boolean;
+}) {
+  const supabaseUserId = await getAuthenticatedSupabaseUserId();
+  const supabase = createClerkSupabaseClient();
+  const client = await supabase;
+
+  // If this profile should be active, deactivate others
+  if (params.is_active !== false) {
+    await client
+      .from('profiles')
+      .update({ is_active: false })
+      .eq('user_id', supabaseUserId);
+  }
+
+  const { data, error } = await client
+    .from('profiles')
+    .insert([{
+      user_id: supabaseUserId,
+      profile_name: params.profile_name.trim(),
+      niche: params.niche.trim(),
+      tone_config: params.tone_config || {
+        professionalism: 6,
+        creativity: 7,
+        casualness: 6,
+        directness: 7
+      },
+      is_active: params.is_active !== false
+    }])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Failed to create quick profile:', error);
+    throw new Error(error.message || 'Failed to create profile');
+  }
+
+  return data;
+}

@@ -297,7 +297,7 @@ export const canvasRepository = {
 
     if (error) {
       console.error('Error adding canvas block:', error, 'Sanitized type:', sanitizedType);
-      throw new Error('Failed to add block');
+      throw new Error(`Failed to add block: ${error.message || 'Database insert error'}`);
     }
     return {
       ...data,
@@ -523,5 +523,94 @@ export const canvasRepository = {
       console.error("Error updating canvas session name:", error);
     }
     return data;
+  },
+
+  async deleteCanvasSession(supabase: SupabaseClient<Database>, userId: string, id: string) {
+    // Delete edges, blocks, and session
+    await supabase.from("canvas_edges").delete().eq("user_id", userId).eq("canvas_id", id);
+    await supabase.from("canvas_blocks").delete().eq("user_id", userId).eq("canvas_id", id);
+    const { error } = await supabase.from("canvas_sessions").delete().eq("id", id).eq("user_id", userId);
+    if (error) {
+      console.error("Error deleting canvas session:", error);
+      throw error;
+    }
+    return true;
+  },
+
+  async instantiateCanvasTemplate(
+    supabase: SupabaseClient<Database>,
+    userId: string,
+    template: {
+      title: string;
+      blocks: Array<{ tempId: string; type: string; content: string; x: number; y: number }>;
+      edges: Array<{ source: string; target: string; label?: string }>;
+    }
+  ) {
+    // 1. Create canvas session
+    const { data: session, error: sessionErr } = await supabase
+      .from("canvas_sessions")
+      .insert([{ user_id: userId, name: template.title }])
+      .select()
+      .single();
+
+    if (sessionErr || !session) {
+      console.error("Error creating canvas session for template:", sessionErr);
+      throw new Error(`Failed to create canvas session: ${sessionErr?.message || "Unknown error"}`);
+    }
+
+    // 2. Batch insert all blocks in a single query
+    const blocksToInsert = template.blocks.map((blk, idx) => ({
+      canvas_id: session.id,
+      user_id: userId,
+      type: sanitizeBlockType(blk.type),
+      content: blk.content,
+      order_index: idx,
+      position_x: blk.x,
+      position_y: blk.y,
+    }));
+
+    const { data: insertedBlocks, error: blocksErr } = await supabase
+      .from("canvas_blocks")
+      .insert(blocksToInsert)
+      .select();
+
+    if (blocksErr || !insertedBlocks) {
+      console.error("Error batch inserting template blocks:", blocksErr);
+      await supabase.from("canvas_sessions").delete().eq("id", session.id).eq("user_id", userId);
+      throw new Error(`Failed to populate template blocks: ${blocksErr?.message || "Unknown error"}`);
+    }
+
+    // 3. Map temporary IDs to real database UUIDs
+    const idMap = new Map<string, string>();
+    template.blocks.forEach((blk, idx) => {
+      if (insertedBlocks[idx]) {
+        idMap.set(blk.tempId, insertedBlocks[idx].id);
+      }
+    });
+
+    // 4. Batch insert all edges in a single query
+    if (template.edges && template.edges.length > 0) {
+      const edgesToInsert = template.edges
+        .filter((e) => idMap.has(e.source) && idMap.has(e.target))
+        .map((e) => ({
+          canvas_id: session.id,
+          user_id: userId,
+          source_block_id: idMap.get(e.source)!,
+          target_block_id: idMap.get(e.target)!,
+          label: e.label || null,
+        }));
+
+      if (edgesToInsert.length > 0) {
+        const { error: edgesErr } = await supabase
+          .from("canvas_edges")
+          .insert(edgesToInsert);
+
+        if (edgesErr) {
+          console.warn("Non-fatal error creating template edges:", edgesErr);
+        }
+      }
+    }
+
+    return session;
   }
 };

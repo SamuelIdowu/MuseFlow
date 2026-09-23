@@ -89,7 +89,7 @@ export default function SchedulePage() {
     if (isOn) {
       removeReminder(post.id);
       setReminderStates((prev) => ({ ...prev, [post.id]: false }));
-      toast("Reminder removed", { icon: "🔕" });
+      toast("Reminder removed");
     } else {
       if ("Notification" in window && Notification.permission === "default") {
         Notification.requestPermission().then((perm) => {
@@ -104,7 +104,7 @@ export default function SchedulePage() {
             scheduled_time: post.scheduled_time,
           });
           setReminderStates((prev) => ({ ...prev, [post.id]: true }));
-          toast.success("Reminder set! We'll notify you when it's time to post.", { icon: "🔔" });
+          toast.success("Reminder set! We'll notify you when it's time to post.");
         });
       } else if ("Notification" in window && Notification.permission === "granted") {
         saveReminder({
@@ -114,7 +114,7 @@ export default function SchedulePage() {
           scheduled_time: post.scheduled_time,
         });
         setReminderStates((prev) => ({ ...prev, [post.id]: true }));
-        toast.success("Reminder set! We'll notify you when it's time to post.", { icon: "🔔" });
+        toast.success("Reminder set! We'll notify you when it's time to post.");
       } else {
         toast.error("Notifications are blocked. Please enable them in your browser settings.");
       }

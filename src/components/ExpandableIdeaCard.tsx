@@ -206,7 +206,7 @@ export function ExpandableIdeaCard({ idea, onSchedule, onDelete }: ExpandableIde
                                     className="cursor-pointer flex items-center gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
                                 >
                                     <Trash2 className="h-3.5 w-3.5" />
-                                    <span>Delete Idea</span>
+                                    <span>Delete</span>
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>

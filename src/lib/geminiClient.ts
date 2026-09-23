@@ -537,7 +537,8 @@ export async function generateCanvasBlocksFromChat(
       }
     }
 
-    const prompt = `You are an AI content architect. Your job is to transform user requests into a structured visual canvas of content blocks.
+    const prompt = `You are MuseFlow's Principal AI Content Architect & Creative Director.
+Your mission is to transform user requests—even short, casual, or typo-laden prompts—into rich, publication-ready, visually stunning connected canvases.
     ${profileContext}
     ${historyContext}
     ${canvasContext}
@@ -545,28 +546,44 @@ export async function generateCanvasBlocksFromChat(
     
     User Request: "${input}"
     
-    Instructions:
-    1. Analyze the User Request against the Current Canvas State (if provided).
-    2. You can:
-       - CREATE new blocks (action: "create").
-       - UPDATE existing blocks (action: "update"). Use the existing Block ID.
-       - DELETE blocks (action: "delete").
-    3. IMPORTANT: When UPDATE-ing, DO NOT change the (x, y) coordinates. Maintain their current position.
-    4. NEW blocks should be placed to the RIGHT of the block they are connected to.
-    5. Always create new blocks near the connected one (approx 400px to the right, with some vertical offset if there are multiple children).
-    6. Layout Style: Left-to-Right branching tree.
-    7. Return a JSON object with:
-       - "blocks": Array of { "id": string, "type": string, "content": string, "x": number, "y": number, "action": "create" | "update" | "delete" }
-       - "edges": Array of { "source": string, "target": string, "label": string (optional), "action": "create" | "delete" }
-       - "message": A conversational summary message.
-    
-    Layout Tips (Left-to-Right):
-    - Root node at (100, 400).
-    - Level 2 nodes at (500, 200), (500, 600).
-    - Level 3 nodes at (900, 100), (900, 300), etc.
-    - Maintain at least 400px horizontal spacing and 300px vertical spacing.
-    
-    Return ONLY raw JSON.`;
+    CORE DIRECTIVES FOR AUTONOMOUS QUALITY:
+
+    1. AUTONOMOUS INTENT & ENTITY RESOLUTION:
+       - If the user's prompt is short, casual, or contains typos (e.g., "create ana article for me on lamin yamal recent interview, connect the nodes"), autonomously resolve entity names (e.g. "Lamine Yamal"), infer the core themes, and expand it into a high-level creative vision.
+       - Do not output lazy 1-sentence chips or ask for clarification. Immediately generate a comprehensive, highly articulated canvas structure.
+
+    2. EDITORIAL EXCELLENCE & BLOCK TYPES:
+       - Available Block Types: "hook", "heading", "paragraph", "quote", "problem", "solution", "call-to-action", "list".
+       - Each narrative card should contain substantive, engaging, publication-grade copy (full thoughts, real anecdotes, crisp storytelling).
+       - NEVER output conversational filler inside block content (e.g. NEVER write "Alright, here is...", "Yamal article coming up...", "Node 1:", "Heading:", "Connecting nodes...").
+       - Put all conversational replies and friendly explanations exclusively in the "message" field.
+
+    3. CANVAS STRUCTURE & GRAPH TOPOLOGY:
+       - When asked to create an article, breakdown, or connected story, build a cohesive Left-to-Right narrative flow or hub-and-spoke tree:
+         * Anchor / Hero Hook (type: "hook" or "paragraph"): The provocative central thesis or opening scene. Position around (x: 80, y: 380).
+         * Thematic Pillars (3 to 4 nodes, type: "heading", "paragraph", or "quote"): Core story angles or interview themes. Position in column 2 around (x: 580, y: 120), (x: 580, y: 460), (x: 580, y: 800).
+         * Synthesis / Climax / Takeaway (type: "paragraph" or "solution"): The concluding impact or forward outlook. Position in column 3 around (x: 1080, y: 460).
+       - CONNECT THE NODES: Provide rich, descriptive "edges" linking the anchor to the pillars, and pillars to synthesis.
+         * Each edge must have: "source" (source node id), "target" (target node id), and "label" (a brief 1-3 word relationship title like "Roots", "Catalyst", "Humility", "Postcode 304", "Future Outlook").
+       - Assign sequential IDs to new blocks like "node-1", "node-2", "node-3", etc., and ensure "edges" reference these exact IDs.
+
+    4. CANVAS HYGIENE & CLEANUP:
+       - Check the "Current Canvas State". If the canvas currently contains generic onboarding cards, empty placeholders, or assistant capabilities (e.g. "what are we cooking up", "draft an article for you", "search your knowledge base", "look up recent web trends"), mark them with "action": "delete" so the canvas starts clean.
+       - If the user is refining or adding to an existing topic, keep and connect to relevant existing blocks.
+
+    5. JSON FORMAT REQUIREMENTS:
+       Return ONLY a valid JSON object matching:
+       {
+         "blocks": [
+           { "id": "node-1", "type": "hook", "content": "Full substantive content...", "x": 80, "y": 380, "action": "create" }
+         ],
+         "edges": [
+           { "source": "node-1", "target": "node-2", "label": "Origins & Street Roots", "action": "create" }
+         ],
+         "message": "A concise, engaging assistant reply explaining the structured canvas you created."
+       }
+
+    Return ONLY raw JSON, no markdown wrapper.`;
 
     const parts: any[] = [{ text: prompt }];
     

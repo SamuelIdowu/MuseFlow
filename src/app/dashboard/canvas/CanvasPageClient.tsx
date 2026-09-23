@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Profile } from "@/types/profile";
 import { CONTENT_TYPES } from "@/types/content";
 import { toast } from "react-hot-toast";
@@ -9,14 +9,19 @@ import { toast } from "react-hot-toast";
 import {
   getCanvasDataAction,
   addCanvasBlockAction,
+  updateCanvasBlockAction,
+  deleteCanvasBlockAction,
   clearCanvasAction,
   addEdgeAction,
+  deleteEdgeAction,
   addChatMessageAction,
   updateCanvasChatHistoryAction,
   generateCanvasChatResponseAction,
   createCanvasSessionAction,
   updateCanvasSessionNameAction,
+  deleteCanvasSessionAction,
   getCanvasModelProviderAction,
+  instantiateCanvasTemplateAction,
 } from "@/features/canvas/actions/canvasActions";
 import { saveToIdeasAction, getChatById } from "@/features/ideas/actions/ideaActions";
 
@@ -34,6 +39,10 @@ import { CanvasZoomToolbar } from "@/features/canvas/components/canvas/CanvasZoo
 import { CanvasHeader } from "@/features/canvas/components/canvas/CanvasHeader";
 import { CanvasChatSidebar } from "@/features/canvas/components/canvas/CanvasChatSidebar";
 import { CanvasSkeleton } from "@/features/canvas/components/canvas/CanvasSkeleton";
+import { CanvasHubView } from "@/features/canvas/components/canvas/CanvasHubView";
+import { CanvasTemplate } from "@/features/canvas/constants/canvasTemplates";
+import { exportCanvasToEditorAction } from "@/features/canvas/utils/canvasToEditor";
+import { ChannelExportModal } from "@/features/canvas/components/export/ChannelExportModal";
 
 import { useCanvasSessions } from "@/features/canvas/hooks/useCanvasSessions";
 import { useCanvasGraph } from "@/features/canvas/hooks/useCanvasGraph";
@@ -56,6 +65,7 @@ interface CanvasPageClientProps {
 }
 
 export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const sessionParam =
     searchParams.get("session") ||
@@ -66,7 +76,12 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
   const topicParam = searchParams.get("topic");
   const ideaIdParam = searchParams.get("ideaId");
 
+  const isHubView = !sessionParam && !isNewParam && !importParam && !ideaIdParam;
+
   const [loading, setLoading] = useState(true);
+  const [isCreatingCanvas, setIsCreatingCanvas] = useState(false);
+  const [isExportingToEditor, setIsExportingToEditor] = useState(false);
+  const [isChannelExportOpen, setIsChannelExportOpen] = useState(false);
   const selectedContentTypeId = CONTENT_TYPES[0]?.id || "linkedin_post";
 
   // Canvas Sessions hook
@@ -81,6 +96,49 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     handleCreateNewCanvas,
     handleSwitchCanvas,
   } = useCanvasSessions();
+
+  // Template instantiation handler
+  const handleSelectTemplate = async (template: CanvasTemplate) => {
+    try {
+      setIsCreatingCanvas(true);
+      const newSession = await instantiateCanvasTemplateAction({
+        title: template.title,
+        blocks: template.blocks,
+        edges: template.edges,
+      });
+
+      if (!newSession?.id) throw new Error("Could not create canvas session");
+
+      toast.success(`Created "${template.title}" canvas!`);
+      router.push(`/dashboard/canvas?session=${newSession.id}`);
+      loadCanvasSessions();
+    } catch (err: any) {
+      console.error("Failed to load template:", err);
+      toast.error(err?.message || "Could not load canvas template");
+    } finally {
+      setIsCreatingCanvas(false);
+    }
+  };
+
+  const handleDeleteCanvasSession = async (id: string) => {
+    try {
+      await deleteCanvasSessionAction(id);
+      toast.success("Canvas deleted");
+      if (activeCanvasId === id) {
+        setActiveCanvasId(undefined);
+        router.push("/dashboard/canvas");
+      }
+      loadCanvasSessions();
+    } catch (err) {
+      console.error("Failed to delete canvas:", err);
+      toast.error("Could not delete canvas");
+    }
+  };
+
+  const handleBackToHub = () => {
+    setActiveCanvasId(undefined);
+    router.push("/dashboard/canvas");
+  };
 
   // Canvas Graph hook
   const {
@@ -107,6 +165,24 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     activeProfile,
     selectedContentTypeId,
   });
+
+  const handleSendToEditor = async () => {
+    if (nodes.length === 0) {
+      toast.error("Add at least one block to export to the editor");
+      return;
+    }
+    try {
+      setIsExportingToEditor(true);
+      const { docId } = await exportCanvasToEditorAction(nodes, edges, pageTitle);
+      toast.success("Compiled canvas into document draft!");
+      router.push(`/dashboard/editor?docId=${docId}`);
+    } catch (err) {
+      console.error("Failed to send canvas to editor:", err);
+      toast.error("Could not export canvas to editor");
+    } finally {
+      setIsExportingToEditor(false);
+    }
+  };
 
   // Chat State
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -330,7 +406,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
       }
       const success = await applyImportPayload(parsed, [], targetSessionId);
       if (success) {
-        toast.success("Loaded draft from AI Chat into canvas!", { icon: "🎨" });
+        toast.success("Loaded draft from AI Chat into canvas!");
       }
     } catch (err) {
       console.error("Failed to load latest chat:", err);
@@ -586,12 +662,14 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
 
       let replyMessage = "";
       let generatedBlocks: any[] = [];
+      let generatedEdges: any[] = [];
 
       if (typeof response === "string") {
         replyMessage = response;
       } else if (response) {
         replyMessage = response.message || (response as any).content || "";
         generatedBlocks = response.blocks || [];
+        generatedEdges = response.edges || [];
         if ((response as any).source === "research_agent") {
           setModelProvider("research agent");
         } else if ((response as any).source === "gemini") {
@@ -601,18 +679,83 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
 
       if (generatedBlocks && generatedBlocks.length > 0) {
         setAgentStatus("Applying blocks to canvas...");
+        const idMap = new Map<string, string>();
+
         for (let i = 0; i < generatedBlocks.length; i++) {
           const blk = generatedBlocks[i];
-          await addCanvasBlockAction(
-            {
-              type: blk.type || "paragraph",
-              content: blk.content || "",
-              order: nodes.length + i,
-              position: blk.position,
-            },
-            activeCanvasId
-          );
+          const pos = blk.position || (blk.x !== undefined && blk.y !== undefined ? { x: blk.x, y: blk.y } : undefined);
+
+          if (blk.action === "delete" && blk.id) {
+            try {
+              await deleteCanvasBlockAction(blk.id);
+            } catch (delErr) {
+              console.warn("Failed to delete canvas block:", blk.id, delErr);
+            }
+          } else if (blk.action === "update" && blk.id) {
+            try {
+              await updateCanvasBlockAction(blk.id, {
+                type: blk.type,
+                content: blk.content,
+                position: pos,
+              });
+              idMap.set(blk.id, blk.id);
+            } catch (updErr) {
+              console.warn("Failed to update canvas block:", blk.id, updErr);
+            }
+          } else {
+            // Default: 'create'
+            try {
+              const added = await addCanvasBlockAction(
+                {
+                  type: blk.type || "paragraph",
+                  content: blk.content || "",
+                  order: nodes.length + i,
+                  position: pos,
+                },
+                activeCanvasId
+              );
+              if (added?.id) {
+                if (blk.id) {
+                  idMap.set(blk.id, added.id);
+                }
+                idMap.set(`node-${i + 1}`, added.id);
+                idMap.set(`node-${i}`, added.id);
+                idMap.set(String(i), added.id);
+              }
+            } catch (addErr) {
+              console.error("Failed to add canvas block:", addErr);
+            }
+          }
         }
+
+        // Apply generated edges
+        if (generatedEdges && generatedEdges.length > 0) {
+          setAgentStatus("Connecting canvas nodes...");
+          for (const edge of generatedEdges) {
+            if (edge.action === "delete" && edge.id) {
+              try {
+                await deleteEdgeAction(edge.id);
+              } catch (delEdgeErr) {
+                console.warn("Failed to delete edge:", edge.id, delEdgeErr);
+              }
+            } else {
+              const realSource = idMap.get(edge.source) || edge.source;
+              const realTarget = idMap.get(edge.target) || edge.target;
+              if (realSource && realTarget && realSource !== realTarget) {
+                try {
+                  await addEdgeAction({
+                    source: realSource,
+                    target: realTarget,
+                    label: edge.label || undefined,
+                  });
+                } catch (edgeErr) {
+                  console.warn("Failed to create edge:", edge, edgeErr);
+                }
+              }
+            }
+          }
+        }
+
         await fetchBlocks(true);
       }
 
@@ -700,6 +843,19 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     toast.success(`Exported as ${format.toUpperCase()}`);
   };
 
+  if (isHubView) {
+    return (
+      <CanvasHubView
+        canvasSessions={canvasSessions}
+        onCreateNew={handleCreateNewCanvas}
+        onSelectSession={(id) => router.push(`/dashboard/canvas?session=${id}`)}
+        onSelectTemplate={handleSelectTemplate}
+        onDeleteSession={handleDeleteCanvasSession}
+        isCreating={isCreatingCanvas}
+      />
+    );
+  }
+
   if (loading) {
     return <CanvasSkeleton />;
   }
@@ -721,6 +877,10 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
           activeCanvasId={activeCanvasId}
           onSwitchCanvas={handleSwitchCanvas}
           onCreateNewCanvas={handleCreateNewCanvas}
+          onBackToHub={handleBackToHub}
+          onExportToEditor={handleSendToEditor}
+          isExportingToEditor={isExportingToEditor}
+          onOpenChannelExport={() => setIsChannelExportOpen(true)}
           onAddBlock={handleAddBlock}
           onLoadLatestDashboardChat={handleLoadLatestDashboardChat}
           onSaveCanvasToIdeas={handleSaveCanvasToIdeas}
@@ -781,6 +941,13 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
           containerRef={canvasContainerRef}
         />
       </div>
+
+      <ChannelExportModal
+        isOpen={isChannelExportOpen}
+        onClose={() => setIsChannelExportOpen(false)}
+        title={pageTitle}
+        content={convertNodesToMarkdown(nodes, pageTitle)}
+      />
     </div>
   );
 }

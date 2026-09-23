@@ -95,6 +95,12 @@ export async function updateCanvasSessionNameAction(id: string, name: string) {
   return canvasRepository.updateCanvasSessionName(supabase, userId, id, name);
 }
 
+export async function deleteCanvasSessionAction(id: string) {
+  const userId = await getAuthenticatedSupabaseUserId();
+  const supabase = await createClerkSupabaseClient();
+  return canvasRepository.deleteCanvasSession(supabase, userId, id);
+}
+
 export async function generateCanvasChatResponseAction(
   input: string,
   history: any[] = [],
@@ -103,4 +109,14 @@ export async function generateCanvasChatResponseAction(
 ) {
   const profile = await getActiveProfile();
   return await generateCanvasBlocksFromChat(input, profile, history, files, currentCanvas);
+}
+
+export async function instantiateCanvasTemplateAction(template: {
+  title: string;
+  blocks: Array<{ tempId: string; type: string; content: string; x: number; y: number }>;
+  edges: Array<{ source: string; target: string; label?: string }>;
+}) {
+  const userId = await getAuthenticatedSupabaseUserId();
+  const supabase = await createClerkSupabaseClient();
+  return canvasRepository.instantiateCanvasTemplate(supabase, userId, template);
 }

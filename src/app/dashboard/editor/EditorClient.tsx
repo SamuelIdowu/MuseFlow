@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DocumentTopBar } from "@/features/canvas/components/editor/DocumentTopBar";
 import { DocumentLeftSidebar } from "@/features/canvas/components/editor/DocumentLeftSidebar";
 import { DocumentSheet } from "@/features/canvas/components/editor/DocumentSheet";
 import { EditorToolbar } from "@/features/canvas/components/editor/EditorToolbar";
 import { AiChatSidebar } from "@/features/canvas/components/editor/AiChatSidebar";
+import { EditorHubView, DocumentSummary } from "@/features/editor/components/EditorHubView";
+import { EDITOR_TEMPLATES, EditorTemplate } from "@/features/editor/constants/editorTemplates";
+import { ChannelExportModal } from "@/features/canvas/components/export/ChannelExportModal";
 import { getActiveProfile } from "@/lib/dashboardServerActions";
 import { toast } from "react-hot-toast";
 import { type Editor } from "@tiptap/react";
@@ -16,6 +19,7 @@ import {
   saveDocumentAction,
   getDocumentAction,
   getUserDocumentsAction,
+  deleteDocumentAction,
 } from "@/features/editor/actions/documentActions";
 import {
   ResizablePanelGroup,
@@ -25,12 +29,22 @@ import {
 import { htmlToMarkdown } from "@/lib/htmlToMarkdown";
 
 export function EditorClient() {
-  const [currentDocId, setCurrentDocId] = useState<string | null>(null);
-  const [documentTitle, setDocumentTitle] = useState("Designing for High-Retention Growth");
-  const [documentSubtitle, setDocumentSubtitle] = useState("UX Research & Creator Edition");
-  const [documentExcerpt, setDocumentExcerpt] = useState(
-    "Explores how intentional design decisions and clear copywriting create high-retention experiences."
-  );
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const docIdParam = searchParams.get("docId") || searchParams.get("id");
+  const isNewParam = searchParams.get("new") === "true";
+  const importParam = searchParams.get("import");
+
+  const isHubView = !docIdParam && !isNewParam && !importParam;
+
+  const [userDocuments, setUserDocuments] = useState<DocumentSummary[]>([]);
+  const [isCreatingDoc, setIsCreatingDoc] = useState(false);
+  const [isChannelExportOpen, setIsChannelExportOpen] = useState(false);
+
+  const [currentDocId, setCurrentDocId] = useState<string | null>(docIdParam);
+  const [documentTitle, setDocumentTitle] = useState("Untitled Document");
+  const [documentSubtitle, setDocumentSubtitle] = useState("Draft");
+  const [documentExcerpt, setDocumentExcerpt] = useState("");
   const [documentContent, setDocumentContent] = useState("");
   const [isLoaded, setIsLoaded] = useState(false);
   const [wordCount, setWordCount] = useState(0);
@@ -54,9 +68,6 @@ export function EditorClient() {
   const [isAutocompleteEnabled, setIsAutocompleteEnabled] = useState(true);
   const [isGeneratingAutocomplete, setIsGeneratingAutocomplete] = useState(false);
   const [completionSource, setCompletionSource] = useState<"research_agent" | "gemini_fallback" | null>(null);
-
-  const searchParams = useSearchParams();
-  const importParam = searchParams.get("import");
 
   const applyImportPayload = async (payload: { title?: string; content?: string; channel?: string }) => {
     if (payload.title) setDocumentTitle(payload.title);
@@ -91,7 +102,7 @@ export function EditorClient() {
       const parsed = JSON.parse(raw);
       const success = await applyImportPayload(parsed);
       if (success) {
-        toast.success("Loaded latest draft from AI Chat!", { icon: "📝" });
+        toast.success("Loaded latest draft from AI Chat!");
       }
     } catch (err) {
       console.error("Failed to load latest chat:", err);
@@ -115,6 +126,85 @@ export function EditorClient() {
       });
   }, []);
 
+  const loadUserDocuments = useCallback(async () => {
+    try {
+      const docs = await getUserDocumentsAction();
+      setUserDocuments(docs);
+    } catch (err) {
+      console.error("Failed to load user documents:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadUserDocuments();
+  }, [loadUserDocuments]);
+
+  const handleSelectTemplate = async (template: EditorTemplate) => {
+    try {
+      setIsCreatingDoc(true);
+      const plainText = template.content.replace(/<[^>]+>/g, "").trim();
+      const saved = await saveDocumentAction({
+        title: template.title,
+        subtitle: template.subtitle,
+        excerpt: plainText.slice(0, 160) + (plainText.length > 160 ? "..." : ""),
+        content_html: template.content,
+      });
+
+      if (saved?.id) {
+        toast.success(`Created "${template.title}" draft!`);
+        router.push(`/dashboard/editor?docId=${saved.id}`);
+        loadUserDocuments();
+      }
+    } catch (err) {
+      console.error("Failed to create document from template:", err);
+      toast.error("Could not load document blueprint");
+    } finally {
+      setIsCreatingDoc(false);
+    }
+  };
+
+  const handleCreateNewDocument = async () => {
+    try {
+      setIsCreatingDoc(true);
+      const saved = await saveDocumentAction({
+        title: "Untitled Document",
+        subtitle: "Draft",
+        excerpt: "",
+        content_html: "<p></p>",
+      });
+      if (saved?.id) {
+        router.push(`/dashboard/editor?docId=${saved.id}`);
+        loadUserDocuments();
+      }
+    } catch (err) {
+      console.error("Failed to create blank document:", err);
+      toast.error("Could not create blank document");
+    } finally {
+      setIsCreatingDoc(false);
+    }
+  };
+
+  const handleDeleteDocument = async (id: string) => {
+    try {
+      await deleteDocumentAction(id);
+      toast.success("Document deleted");
+      setUserDocuments((prev) => prev.filter((d) => d.id !== id));
+      if (currentDocId === id) {
+        setCurrentDocId(null);
+        router.push("/dashboard/editor");
+      }
+      loadUserDocuments();
+    } catch (err) {
+      console.error("Failed to delete document:", err);
+      toast.error("Could not delete document");
+    }
+  };
+
+  const handleBackToHub = () => {
+    setCurrentDocId(null);
+    router.push("/dashboard/editor");
+  };
+
   // Restore saved document draft from Cloud (Supabase) or staged import from Home Chat
   useEffect(() => {
     let isCancelled = false;
@@ -129,7 +219,7 @@ export function EditorClient() {
           localStorage.removeItem("museflow_editor_import");
           if (!isCancelled) {
             if (success) {
-              toast.success("Loaded draft from AI Chat Hub!", { icon: "📝" });
+              toast.success("Loaded draft from AI Chat Hub!");
             }
             setIsLoaded(true);
           }
@@ -139,12 +229,10 @@ export function EditorClient() {
         console.error("Error reading editor import:", e);
       }
 
-      // 2. Load from Supabase Cloud
-      try {
-        const userDocs = await getUserDocumentsAction();
-        if (userDocs && userDocs.length > 0) {
-          const latest = userDocs[0];
-          const fullDoc = await getDocumentAction(latest.id);
+      // 2. Load specified docId from Supabase Cloud
+      if (docIdParam) {
+        try {
+          const fullDoc = await getDocumentAction(docIdParam);
           if (fullDoc && !isCancelled) {
             setCurrentDocId(fullDoc.id);
             if (fullDoc.title) setDocumentTitle(fullDoc.title);
@@ -160,12 +248,25 @@ export function EditorClient() {
             setIsLoaded(true);
             return;
           }
+        } catch (cloudErr) {
+          console.warn("Could not load document from cloud:", cloudErr);
         }
-      } catch (cloudErr) {
-        console.warn("Could not load from cloud, checking local backup:", cloudErr);
       }
 
-      // 3. Fallback to localStorage backup if no cloud docs exist yet
+      // 3. Fallback for ?new=true
+      if (isNewParam && !isCancelled) {
+        setDocumentTitle("Untitled Document");
+        setDocumentSubtitle("Draft");
+        setDocumentExcerpt("");
+        setDocumentContent("<p></p>");
+        if (editorInstanceRef.current && !editorInstanceRef.current.isDestroyed) {
+          editorInstanceRef.current.commands.setContent("<p></p>", { emitUpdate: false });
+        }
+        setIsLoaded(true);
+        return;
+      }
+
+      // 4. Fallback to localStorage backup
       try {
         const savedDoc = localStorage.getItem("museflow_editor_doc");
         if (savedDoc) {
@@ -195,7 +296,7 @@ export function EditorClient() {
     return () => {
       isCancelled = true;
     };
-  }, [importParam]);
+  }, [docIdParam, isNewParam, importParam]);
 
   // Autosave to Cloud (debounced 1000ms) with localStorage backup
   useEffect(() => {
@@ -292,6 +393,19 @@ export function EditorClient() {
     }
   };
 
+  if (isHubView) {
+    return (
+      <EditorHubView
+        documents={userDocuments}
+        onCreateNew={handleCreateNewDocument}
+        onSelectDocument={(id) => router.push(`/dashboard/editor?docId=${id}`)}
+        onSelectTemplate={handleSelectTemplate}
+        onDeleteDocument={handleDeleteDocument}
+        isCreating={isCreatingDoc}
+      />
+    );
+  }
+
   return (
     <div className="h-[calc(100vh-65px)] h-full w-full flex flex-col overflow-hidden bg-muted/20">
       {/* Top Header Bar */}
@@ -309,6 +423,8 @@ export function EditorClient() {
         onExport={handleExport}
         onCopyContent={handleCopyContent}
         onLoadRecentChat={handleLoadLatestDashboardChat}
+        onBackToHub={handleBackToHub}
+        onOpenChannelExport={() => setIsChannelExportOpen(true)}
       />
 
       {/* Main 3-Column Studio Layout with Resizable Panels */}
@@ -424,6 +540,13 @@ export function EditorClient() {
           )}
         </ResizablePanelGroup>
       </div>
+
+      <ChannelExportModal
+        isOpen={isChannelExportOpen}
+        onClose={() => setIsChannelExportOpen(false)}
+        title={documentTitle}
+        content={htmlToMarkdown(documentContent)}
+      />
     </div>
   );
 }

@@ -42,6 +42,8 @@ interface DocumentTopBarProps {
   onExport: (format: "markdown" | "html" | "text") => void;
   onCopyContent: () => void;
   onLoadRecentChat?: () => void;
+  onBackToHub?: () => void;
+  onOpenChannelExport?: () => void;
 }
 
 export function DocumentTopBar({
@@ -58,6 +60,8 @@ export function DocumentTopBar({
   onExport,
   onCopyContent,
   onLoadRecentChat,
+  onBackToHub,
+  onOpenChannelExport,
 }: DocumentTopBarProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [tempTitle, setTempTitle] = useState(title);
@@ -84,13 +88,24 @@ export function DocumentTopBar({
     <header className="h-14 border-b border-border/80 bg-card/90 backdrop-blur-md px-3 sm:px-4 flex items-center justify-between gap-3 shrink-0 z-30 select-none">
       {/* Left section: Back + Sidebar Toggle + Breadcrumb Title */}
       <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-        <Link
-          href="/dashboard"
-          className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
-          title="Back to Dashboard"
-        >
-          <ArrowLeft size={16} />
-        </Link>
+        {onBackToHub ? (
+          <button
+            onClick={onBackToHub}
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors flex items-center gap-1 text-xs"
+            title="Return to Document Studio Hub"
+          >
+            <ArrowLeft size={16} />
+            <span className="hidden sm:inline font-medium">Hub</span>
+          </button>
+        ) : (
+          <Link
+            href="/dashboard"
+            className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
+            title="Back to Dashboard"
+          >
+            <ArrowLeft size={16} />
+          </Link>
+        )}
 
         <Button
           variant="ghost"
@@ -195,7 +210,14 @@ export function DocumentTopBar({
               <span>Actions</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52 text-xs">
+          <DropdownMenuContent align="end" className="w-56 text-xs">
+            {onOpenChannelExport && (
+              <DropdownMenuItem onClick={onOpenChannelExport} className="cursor-pointer gap-2 font-medium text-primary">
+                <Share2 size={14} className="text-primary" />
+                <span>Multi-Channel Clipboard</span>
+              </DropdownMenuItem>
+            )}
+
             <DropdownMenuItem onClick={handleCopy} className="cursor-pointer gap-2">
               {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
               <span>{copied ? "Copied to Clipboard" : "Copy Content"}</span>

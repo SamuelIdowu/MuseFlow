@@ -1,6 +1,7 @@
 'use client';
 
 import { useUser } from '@clerk/nextjs';
+import { Sparkles } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DashboardOverviewData } from '@/lib/dashboardServerActions';
 import { HomeChatHub } from './HomeChatHub';
@@ -30,8 +31,9 @@ export function DashboardOverview({ initialData }: DashboardOverviewProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-4">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-              {getGreeting()}, {displayName} 👋
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+              <span>{getGreeting()}, {displayName}</span>
+              <Sparkles className="w-5 h-5 text-amber-500" />
             </h1>
             {initialData.activeProfile && (
               <Badge

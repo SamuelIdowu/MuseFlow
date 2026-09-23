@@ -507,8 +507,15 @@ export const InlineCompletion = Extension.create({
                 badge.style.cursor = "pointer";
                 badge.style.pointerEvents = "auto";
 
-                const agentIcon = source === "research_agent" ? "⚡ " : "✨ ";
-                badge.textContent = `${agentIcon}Tab ⇥`;
+                const isResearch = source === "research_agent";
+                badge.innerHTML = `
+                  <svg class="w-3 h-3 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    ${isResearch 
+                      ? '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>' 
+                      : '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/>'}
+                  </svg>
+                  <span>Tab ⇥</span>
+                `;
                 badge.onmousedown = (e) => {
                   e.preventDefault();
                   e.stopPropagation();

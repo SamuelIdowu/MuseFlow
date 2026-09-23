@@ -80,7 +80,7 @@ export function useCanvasSessions(initialTitle?: string) {
     try {
       const newSession = await createCanvasSessionAction("New Canvas");
       if (newSession?.id) {
-        toast.success("Created new canvas", { icon: "✨" });
+        toast.success("Created new canvas");
         router.push(`/dashboard/canvas?session=${newSession.id}`);
         loadCanvasSessions();
       }

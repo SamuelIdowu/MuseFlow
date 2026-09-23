@@ -34,6 +34,7 @@ import { CONTENT_TYPES } from "@/types/content";
 import { saveToIdeasAction } from '@/features/ideas/actions/ideaActions';
 import { FileContextUploader } from "@/components/ui/file-context-uploader";
 import { Skeleton } from "@/components/ui/skeleton";
+import { OnboardingWizard } from "@/components/onboarding/OnboardingWizard";
 
 import {
   Accordion,
@@ -317,7 +318,7 @@ export function DashboardClient({
             } : m));
             break;
           case 'tool_call':
-            setAgentStatus(`🔧 Calling ${event.tool?.replace(/_/g, ' ')}...`);
+            setAgentStatus(`Calling ${event.tool?.replace(/_/g, ' ')}...`);
             setMessages(prev => prev.map(m => m.id === assistantMessage.id ? {
               ...m,
               toolCalls: [...(m.toolCalls || []), {
@@ -329,7 +330,7 @@ export function DashboardClient({
             } : m));
             break;
           case 'tool_result':
-            setAgentStatus(`✓ ${event.tool?.replace(/_/g, ' ')} completed`);
+            setAgentStatus(`${event.tool?.replace(/_/g, ' ')} completed`);
             setMessages(prev => prev.map(m => m.id === assistantMessage.id ? {
               ...m,
               toolCalls: (m.toolCalls || []).map(tc => (tc.id === event.id || tc.tool === event.tool) ? {
@@ -357,7 +358,7 @@ export function DashboardClient({
             toast.error(event.content || "An error occurred");
             setMessages(prev => prev.map(m => m.id === assistantMessage.id ? {
               ...m,
-              content: (m.content || "") + `\n\n❌ **Error**: ${event.content || "Unknown agent error"}`
+              content: (m.content || "") + `\n\n**Error**: ${event.content || "Unknown agent error"}`
             } : m));
             break;
         }
@@ -814,6 +815,8 @@ export function DashboardClient({
           </div>
         </div>
       )}
+      {/* Interactive Onboarding Wizard */}
+      <OnboardingWizard hasProfile={Boolean(activeProfile)} />
     </div>
   );
 }

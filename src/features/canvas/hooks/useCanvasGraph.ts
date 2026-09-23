@@ -257,7 +257,7 @@ export function useCanvasGraph({
         await handleUpdateBlock(id, { content: data.expanded_content });
         toast.success("Content expanded!");
       } else {
-        toast("AI provided no additional detail for this block.", { icon: "ℹ️" });
+        toast("AI provided no additional detail for this block.");
       }
     } catch (error: any) {
       console.error("[AI] Error expanding content:", error);
@@ -306,7 +306,7 @@ export function useCanvasGraph({
         await handleUpdateBlock(id, { content: data.expanded_content });
         toast.success("Content regenerated!");
       } else {
-        toast("AI returned identical content.", { icon: "ℹ️" });
+        toast("AI returned identical content.");
       }
     } catch (error: any) {
       console.error("[AI] Error regenerating content:", error);

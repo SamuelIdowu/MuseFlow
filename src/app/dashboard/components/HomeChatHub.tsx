@@ -161,7 +161,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
               channel: m.channel || 'all',
             }));
             setMessages(mapped);
-            toast.success('Loaded saved conversation', { icon: '💬' });
+            toast.success('Loaded saved conversation');
             return;
           }
         })
@@ -201,7 +201,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
   const handleClearChat = () => {
     setMessages([]);
     localStorage.removeItem(STORAGE_KEY);
-    toast('Chat reset', { icon: '🧹' });
+    toast('Chat reset');
   };
 
   // ── Submit Prompt to Gemini ────────────────────────────────────────────────
@@ -267,7 +267,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
       const errorMessage: ChatMessage = {
         id: `err_${Date.now()}`,
         role: 'assistant',
-        content: '⚠️ Sorry, there was an issue generating your content. Please check your connection or try again.',
+        content: 'Sorry, there was an issue generating your content. Please check your connection or try again.',
         timestamp: new Date().toISOString(),
       };
       setMessages([...newHistory, errorMessage]);
@@ -308,7 +308,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
   const handleSendToCanvas = async (msg: ChatMessage) => {
     try {
       const topic = extractCleanTitle(msg.content, 'AI Brainstorm');
-      toast.success('Opening in Visual Canvas...', { icon: '🎨' });
+      toast.success('Opening in Visual Canvas...');
 
       // Create a brand-new dedicated canvas session so previous work is safely preserved
       let newSession: { id: string; name: string } | null = null;
@@ -357,7 +357,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
       setMessages((prev) =>
         prev.map((m) => (m.id === msg.id ? { ...m, savedToIdeas: true } : m))
       );
-      toast.success('Saved to your Ideas collection!', { icon: '💡' });
+      toast.success('Saved to your Ideas collection!');
     } catch (e) {
       console.error('Failed to save idea:', e);
       toast.error('Failed to save to ideas');
@@ -384,7 +384,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
       });
 
       if (!res.ok) throw new Error('Failed to schedule post');
-      toast.success('Post added to Content Calendar!', { icon: '📅' });
+      toast.success('Post added to Content Calendar!');
       setIsScheduleOpen(false);
       if (onPostScheduled) onPostScheduled();
     } catch (err) {

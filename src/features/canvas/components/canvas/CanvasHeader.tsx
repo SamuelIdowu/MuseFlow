@@ -18,6 +18,10 @@ import {
   Maximize,
   Minimize,
   Trash2,
+  ArrowLeft,
+  FileEdit,
+  Share2,
+  Loader2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -46,6 +50,10 @@ interface CanvasHeaderProps {
   activeCanvasId?: string;
   onSwitchCanvas: (id: string) => void;
   onCreateNewCanvas: () => void;
+  onBackToHub?: () => void;
+  onExportToEditor?: () => void;
+  isExportingToEditor?: boolean;
+  onOpenChannelExport?: () => void;
   onAddBlock: () => void;
   onLoadLatestDashboardChat: () => void;
   onSaveCanvasToIdeas: () => void;
@@ -64,6 +72,10 @@ export function CanvasHeader({
   activeCanvasId,
   onSwitchCanvas,
   onCreateNewCanvas,
+  onBackToHub,
+  onExportToEditor,
+  isExportingToEditor = false,
+  onOpenChannelExport,
   onAddBlock,
   onLoadLatestDashboardChat,
   onSaveCanvasToIdeas,
@@ -79,6 +91,19 @@ export function CanvasHeader({
         {/* Left: Canvas Sessions Selector & Title */}
         <div className="flex flex-col min-w-0 w-full sm:w-auto flex-1 mr-0 sm:mr-4">
           <div className="flex items-center gap-2">
+            {onBackToHub && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBackToHub}
+                className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground gap-1 shrink-0"
+                title="Return to Canvas Studio Hub"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Hub</span>
+              </Button>
+            )}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -156,26 +181,33 @@ export function CanvasHeader({
 
         {/* Right: Action Buttons */}
         <div className="flex items-center gap-1.5 sm:gap-2 justify-between sm:justify-end shrink-0 w-full sm:w-auto">
-          <div className="flex items-center gap-1.5 shrink-0">
-            {/* New Canvas Button */}
-            <Button
-              onClick={onCreateNewCanvas}
-              variant="outline"
-              size="sm"
-              className="h-8 sm:h-9 px-2 sm:px-2.5 text-xs font-medium gap-1 text-foreground hover:bg-muted"
-              title="Create a new blank canvas"
-            >
-              <Plus className="h-3.5 w-3.5 text-primary" />
-              <span className="hidden sm:inline">New Canvas</span>
-            </Button>
+          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+            {/* Send to Editor CTA */}
+            {onExportToEditor && (
+              <Button
+                onClick={onExportToEditor}
+                disabled={isExportingToEditor}
+                size="sm"
+                className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm font-medium gap-1.5"
+                title="Compile canvas nodes and open directly in the rich text document editor"
+              >
+                {isExportingToEditor ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <FileEdit className="h-3.5 w-3.5 text-primary-foreground" />
+                )}
+                <span>Send to Editor</span>
+              </Button>
+            )}
 
             {/* Primary Action: Add Block */}
             <Button
               onClick={onAddBlock}
               size="sm"
-              className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm bg-orange-600 hover:bg-orange-700 text-white shadow-xs font-medium"
+              variant="outline"
+              className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-medium"
             >
-              <PlusCircle className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" /> Add Block
+              <PlusCircle className="mr-1.5 h-3.5 w-3.5 text-primary" /> Add Block
             </Button>
 
             {/* Import Latest AI Chat */}
@@ -186,7 +218,7 @@ export function CanvasHeader({
               onClick={onLoadLatestDashboardChat}
               title="Import latest draft or brainstorm from Dashboard AI Chat"
             >
-              <SquarePen className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <SquarePen className="h-3.5 w-3.5" />
               <span className="hidden md:inline">Import Chat</span>
             </Button>
 
@@ -208,12 +240,21 @@ export function CanvasHeader({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-medium"
+                  className="h-8 sm:h-9 px-2.5 sm:px-3 text-xs sm:text-sm font-medium gap-1"
                 >
-                  <Download className="mr-1.5 h-3.5 w-3.5 sm:h-4 sm:w-4" /> Export
+                  <Download className="h-3.5 w-3.5" /> Export
+                  <ChevronDown className="h-3 w-3 opacity-60 ml-0.5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40 z-50">
+              <DropdownMenuContent align="end" className="w-52 z-50">
+                {onOpenChannelExport && (
+                  <DropdownMenuItem
+                    onClick={onOpenChannelExport}
+                    className="text-xs sm:text-sm cursor-pointer font-medium text-primary"
+                  >
+                    <Share2 className="mr-2 h-4 w-4 text-primary" /> Multi-Channel Clipboard
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={() => onExport("markdown")}
                   className="text-xs sm:text-sm cursor-pointer"
