@@ -62,7 +62,7 @@ export const ideaRepository = {
       return null;
     }
 
-    let messages: any[] = [];
+    const messages: any[] = [];
     messages.push({
       id: 'msg-0',
       role: 'user',

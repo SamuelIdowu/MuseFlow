@@ -5,6 +5,7 @@ import { getAuthenticatedSupabaseUserId } from '@/lib/authUtils';
 import { canvasRepository } from '../repositories/canvasRepository';
 import { getActiveProfile } from '@/lib/dashboardServerActions';
 import { generateCanvasBlocksFromChat, checkResearchAgentHealth } from '@/lib/geminiClient';
+import { assertFeatureAllowed } from '@/lib/plans/featureGates';
 
 export async function getCanvasModelProviderAction(): Promise<string> {
   const isAgentUp = await checkResearchAgentHealth();
@@ -79,6 +80,7 @@ export async function clearCanvasAction(canvasId?: string) {
 
 export async function createCanvasSessionAction(name?: string) {
   const userId = await getAuthenticatedSupabaseUserId();
+  await assertFeatureAllowed(userId, 'canvas_sessions');
   const supabase = await createClerkSupabaseClient();
   return canvasRepository.createCanvasSession(supabase, userId, name || 'Untitled Canvas');
 }
@@ -107,8 +109,16 @@ export async function generateCanvasChatResponseAction(
   files: { data: string; mimeType: string }[] = [],
   currentCanvas?: { blocks: any[], edges: any[] }
 ) {
+  const userId = await getAuthenticatedSupabaseUserId();
+  await assertFeatureAllowed(userId, 'ai_generations');
+
   const profile = await getActiveProfile();
-  return await generateCanvasBlocksFromChat(input, profile, history, files, currentCanvas);
+  const response = await generateCanvasBlocksFromChat(input, profile, history, files, currentCanvas);
+
+  const { incrementUsage } = await import('@/lib/usage');
+  incrementUsage(userId, 'ai_generations').catch(console.warn);
+
+  return response;
 }
 
 export async function instantiateCanvasTemplateAction(template: {
@@ -117,6 +127,7 @@ export async function instantiateCanvasTemplateAction(template: {
   edges: Array<{ source: string; target: string; label?: string }>;
 }) {
   const userId = await getAuthenticatedSupabaseUserId();
+  await assertFeatureAllowed(userId, 'canvas_sessions');
   const supabase = await createClerkSupabaseClient();
   return canvasRepository.instantiateCanvasTemplate(supabase, userId, template);
 }

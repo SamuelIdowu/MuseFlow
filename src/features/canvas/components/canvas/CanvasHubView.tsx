@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Sparkles, Search, Trash2, ArrowRight, Clock, LayoutGrid, Layers, FileText, Swords, Share2, Wrench } from "lucide-react";
+import { Plus, Sparkles, Search, Trash2, ArrowRight, Clock, LayoutGrid, Layers, FileText, Swords, Share2, Wrench, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { CANVAS_TEMPLATES, CanvasTemplate } from "@/features/canvas/constants/canvasTemplates";
 import { CanvasSession } from "@/features/canvas/hooks/useCanvasSessions";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
 
 const TEMPLATE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   swords: Swords,
@@ -38,11 +39,34 @@ export function CanvasHubView({
   const [loadingTemplateId, setLoadingTemplateId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  const { isPaid, openGate } = useFeatureGate();
+  const isAtCanvasLimit = !isPaid && canvasSessions.length >= 3;
+
   const filteredSessions = canvasSessions.filter((session) =>
     (session.name || "Untitled Canvas").toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleCreateNewClick = () => {
+    if (isAtCanvasLimit) {
+      openGate(
+        'canvas_sessions',
+        'Canvas Limit Reached (3 / 3)',
+        'Free Starter includes up to 3 canvas workspaces. Upgrade to Freelancer Pro for unlimited canvases.'
+      );
+      return;
+    }
+    onCreateNew();
+  };
+
   const handleTemplateClick = async (template: CanvasTemplate) => {
+    if (isAtCanvasLimit) {
+      openGate(
+        'canvas_sessions',
+        'Canvas Limit Reached (3 / 3)',
+        'Free Starter includes up to 3 canvas workspaces. Upgrade to Freelancer Pro to create more canvases from templates.'
+      );
+      return;
+    }
     try {
       setLoadingTemplateId(template.id);
       await onSelectTemplate(template);
@@ -72,8 +96,17 @@ export function CanvasHubView({
             <span className="p-2 rounded-lg bg-primary/10 text-primary">
               <Layers className="w-5 h-5" />
             </span>
-            <Badge variant="outline" className="text-xs tracking-wider uppercase font-semibold">
-              Canvas Studio
+            <Badge
+              variant="outline"
+              className={
+                isAtCanvasLimit
+                  ? "border-amber-500/40 text-amber-600 bg-amber-500/10 text-xs tracking-wider font-semibold"
+                  : "text-xs tracking-wider uppercase font-semibold"
+              }
+            >
+              {!isPaid
+                ? `${canvasSessions.length} / 3 Canvases (Free Plan)`
+                : "Canvas Studio • Unlimited"}
             </Badge>
           </div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">
@@ -87,13 +120,22 @@ export function CanvasHubView({
 
         <div className="flex items-center gap-3">
           <Button
-            onClick={onCreateNew}
+            onClick={handleCreateNewClick}
             disabled={isCreating}
             className="gap-2 shadow-sm font-medium"
             size="lg"
           >
-            <Plus className="w-4 h-4" />
-            <span>New Blank Canvas</span>
+            {isAtCanvasLimit ? (
+              <>
+                <Lock className="w-4 h-4 text-amber-500" />
+                <span>New Blank Canvas</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-4 h-4" />
+                <span>New Blank Canvas</span>
+              </>
+            )}
           </Button>
         </div>
       </div>

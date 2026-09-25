@@ -2,13 +2,14 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { createSupabaseServiceClient, getSupabaseUserId } from "@/lib/supabaseServerClient";
+import type { Json } from "@/lib/database.types";
 
 export interface DocumentData {
   id?: string;
   title: string;
   subtitle?: string;
   excerpt?: string;
-  content_json?: any;
+  content_json?: Json;
   content_html: string;
   word_count?: number;
   updated_at?: string;

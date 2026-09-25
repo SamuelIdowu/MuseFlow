@@ -26,4 +26,13 @@ export const FEATURES = {
    * To re-enable payments: Change this to `true`
    */
   PAYMENTS_ENABLED: false,
+
+  /**
+   * ENFORCE_PLAN_LIMITS
+   * 
+   * Controls whether plan feature gates, blockers, and usage limits are active.
+   * When true, free-tier limits (3 canvases, no scheduling, 25 generations) are actively enforced
+   * and paywall modals are triggered.
+   */
+  ENFORCE_PLAN_LIMITS: true,
 } as const;

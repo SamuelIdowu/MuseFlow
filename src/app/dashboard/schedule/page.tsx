@@ -9,9 +9,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Plus, List, LayoutGrid } from "lucide-react";
+import { Plus, List, LayoutGrid, Lock } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "react-hot-toast";
+import { useFeatureGate } from "@/hooks/useFeatureGate";
+import { InlineFeatureGate } from "@/components/paywall/InlineFeatureGate";
 import {
   saveReminder,
   removeReminder,
@@ -261,6 +263,9 @@ export default function SchedulePage() {
     return <ScheduleSkeleton />;
   }
 
+  const { canAccess, openGate } = useFeatureGate();
+  const canSchedule = canAccess('scheduled_posts');
+
   const scheduledPosts = posts
     .filter((p) => p.status === "scheduled")
     .sort((a, b) => new Date(a.scheduled_time).getTime() - new Date(b.scheduled_time).getTime());
@@ -302,16 +307,47 @@ export default function SchedulePage() {
           <Button
             size="lg"
             onClick={() => {
+              if (!canSchedule) {
+                openGate(
+                  'scheduled_posts',
+                  'Unlock Automated Post Scheduling',
+                  'Schedule, queue, and synchronize multi-channel posts with AI Best-Time optimization on Freelancer Pro.'
+                );
+                return;
+              }
               setSelectedDate(new Date());
               setShowScheduler(true);
             }}
             className="font-semibold shadow-2xs"
           >
-            <Plus className="mr-1.5 h-4 w-4" />
-            Schedule Post
+            {!canSchedule ? (
+              <>
+                <Lock className="mr-1.5 h-4 w-4 text-amber-500" />
+                Schedule Post
+              </>
+            ) : (
+              <>
+                <Plus className="mr-1.5 h-4 w-4" />
+                Schedule Post
+              </>
+            )}
           </Button>
         </div>
       </div>
+
+      {/* Feature Gate Banner (if scheduled posts locked) */}
+      {!canSchedule && (
+        <InlineFeatureGate
+          feature="scheduled_posts"
+          onUpgradeClick={() =>
+            openGate(
+              'scheduled_posts',
+              'Unlock Automated Post Scheduling',
+              'Schedule, queue, and synchronize multi-channel posts with AI Best-Time optimization on Freelancer Pro.'
+            )
+          }
+        />
+      )}
 
       {/* ── Scheduler Modal ─────────────────────────────────────────────────── */}
       <ScheduleModal

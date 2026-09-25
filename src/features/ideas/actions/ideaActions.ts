@@ -52,7 +52,10 @@ export async function generateChatIdeaAction(params: {
   activeProfile?: any;
   history?: any[];
 }) {
-  await getAuthenticatedSupabaseUserId(); // verify auth
+  const userId = await getAuthenticatedSupabaseUserId();
+  const { assertFeatureAllowed } = await import('@/lib/plans/featureGates');
+  await assertFeatureAllowed(userId, 'ai_generations');
+
   const { generateChatResponse } = await import('@/lib/geminiClient');
   const generatedContent = await generateChatResponse(
     params.inputText,
@@ -60,5 +63,9 @@ export async function generateChatIdeaAction(params: {
     params.history || [],
     params.contentType
   );
+
+  const { incrementUsage } = await import('@/lib/usage');
+  incrementUsage(userId, 'ai_generations').catch(console.warn);
+
   return { generatedContent };
 }

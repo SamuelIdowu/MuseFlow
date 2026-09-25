@@ -24,9 +24,21 @@ export function useCanvasSessions(initialTitle?: string) {
     searchParams.get("id") ||
     searchParams.get("canvasId");
 
-  const [activeCanvasId, setActiveCanvasId] = useState<string | undefined>(
+  const [internalActiveId, setInternalActiveId] = useState<string | undefined>(
     sessionParam || undefined
   );
+  const [prevSessionParam, setPrevSessionParam] = useState(sessionParam);
+
+  if (sessionParam !== prevSessionParam) {
+    setPrevSessionParam(sessionParam);
+    if (sessionParam) {
+      setInternalActiveId(sessionParam);
+    }
+  }
+
+  const activeCanvasId = sessionParam || internalActiveId;
+  const setActiveCanvasId = setInternalActiveId;
+
   const [canvasSessions, setCanvasSessions] = useState<CanvasSession[]>([]);
   const [pageTitle, setPageTitle] = useState(
     initialTitle ||
@@ -46,14 +58,19 @@ export function useCanvasSessions(initialTitle?: string) {
   }, []);
 
   useEffect(() => {
-    loadCanvasSessions();
-  }, [loadCanvasSessions]);
+    let isMounted = true;
+    getUserCanvasSessionsAction()
+      .then((sessions) => {
+        if (isMounted) setCanvasSessions(sessions);
+      })
+      .catch((err) => {
+        console.error("Error loading canvas sessions:", err);
+      });
 
-  useEffect(() => {
-    if (sessionParam) {
-      setActiveCanvasId(sessionParam);
-    }
-  }, [sessionParam]);
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleTitleChange = (newTitle: string) => {
     setPageTitle(newTitle);

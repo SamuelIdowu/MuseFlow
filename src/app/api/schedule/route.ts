@@ -2,6 +2,7 @@ import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
 import { ensureSupabaseUser, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
+import { checkFeatureAccess } from '@/lib/plans/featureGates';
 
 export async function GET() {
   try {
@@ -53,6 +54,19 @@ export async function POST(request: Request) {
     if (!supabaseUserId) {
       console.error('Schedule POST - Failed to ensure Supabase user for Clerk user:', clerkUser.id);
       return NextResponse.json({ error: 'Failed to sync user' }, { status: 500 });
+    }
+
+    const gateCheck = await checkFeatureAccess(supabaseUserId, 'scheduled_posts');
+    if (!gateCheck.allowed) {
+      return NextResponse.json(
+        {
+          error: 'PLAN_UPGRADE_REQUIRED',
+          message: gateCheck.reason || 'Post scheduling requires a Freelancer Pro plan.',
+          feature: 'scheduled_posts',
+          requiredPlan: gateCheck.requiredPlan,
+        },
+        { status: 403 }
+      );
     }
 
     const { content_blocks, channel, scheduled_time, optimize_time, active_profile } = await request.json();

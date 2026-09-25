@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs/server';
 import { createSupabaseServiceClient, getSupabaseUserId } from '@/lib/supabaseServerClient';
 import { syncProfileToAgent } from '@/lib/researchAgentClient';
+import { checkFeatureAccess } from '@/lib/plans/featureGates';
 
 // GET /api/profiles - Fetch all profiles for the authenticated user
 export async function GET() {
@@ -82,6 +83,19 @@ export async function POST(request: Request) {
         // Validate required fields
         if (!profile_name || !profile_name.trim()) {
             return NextResponse.json({ error: 'Profile name is required' }, { status: 400 });
+        }
+
+        // Plan Gate: Check brand_profiles limit
+        const gateCheck = await checkFeatureAccess(supabaseUserId, 'brand_profiles');
+        if (!gateCheck.allowed) {
+            return NextResponse.json({
+                error: 'PLAN_LIMIT_REACHED',
+                message: gateCheck.reason || 'Brand profile limit reached. Upgrade to Pro for up to 10 profiles.',
+                feature: 'brand_profiles',
+                limit: gateCheck.limit,
+                current: gateCheck.current,
+                requiredPlan: gateCheck.requiredPlan,
+            }, { status: 403 });
         }
 
         // Create supabase client

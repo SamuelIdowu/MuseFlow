@@ -74,4 +74,22 @@ test.describe('Security Audit & Compliance Test Suite', () => {
     expect(pricingResponse.status()).toBe(200);
   });
 
+  test('Plan Gating: unauthenticated requests to schedule and profiles APIs are blocked', async ({ request }) => {
+    const schedulePostResponse = await request.post('/api/schedule', {
+      data: {
+        content_blocks: [{ content: 'Test post' }],
+        channel: 'linkedin',
+        scheduled_time: new Date().toISOString(),
+      },
+    });
+    expect([401, 403, 307, 308]).toContain(schedulePostResponse.status());
+
+    const profileCreateResponse = await request.post('/api/profiles', {
+      data: {
+        profile_name: 'Test Profile',
+      },
+    });
+    expect([401, 403, 307, 308]).toContain(profileCreateResponse.status());
+  });
+
 });

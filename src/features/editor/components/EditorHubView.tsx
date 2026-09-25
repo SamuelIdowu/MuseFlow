@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Plus, Sparkles, Search, Trash2, ArrowRight, Clock, FileText, BookOpen, Layers, PenTool, Mail, TrendingUp } from "lucide-react";
+import { Plus, Sparkles, Search, Trash2, ArrowRight, Clock, FileText, BookOpen, PenTool, Mail, TrendingUp } from "lucide-react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { EDITOR_TEMPLATES, EditorTemplate } from "@/features/editor/constants/editorTemplates";
