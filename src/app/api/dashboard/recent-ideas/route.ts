@@ -1,19 +1,9 @@
 import { NextResponse } from 'next/server';
-import { format } from 'date-fns';
+import { auth } from '@clerk/nextjs/server';
 import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
-async function getRecentIdeasAPI(limit = 3) {
-  const supabase = await createSupabaseServiceClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  const userId = user.id;
+async function getRecentIdeasAPI(userId: string, limit = 3) {
+  const supabase = createSupabaseServiceClient();
 
   // Get recent idea kernels
   const { data: ideas, error } = await supabase
@@ -29,8 +19,8 @@ async function getRecentIdeasAPI(limit = 3) {
   }
 
   // Transform the data to have a flat list of ideas with their metadata
-  const recentIdeas = ideas.flatMap(idea =>
-    (idea.kernels as string[]).map((kernel: string, index: number) => ({
+  const recentIdeas = (ideas || []).flatMap(idea =>
+    ((idea.kernels as string[]) || []).map((kernel: string, index: number) => ({
       id: `${idea.id}-${index}`,
       title: kernel,
       createdAt: idea.created_at,
@@ -44,11 +34,16 @@ async function getRecentIdeasAPI(limit = 3) {
 
 export async function GET(request: Request) {
   try {
-    // Get the user
-    const supabase = await createSupabaseServiceClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // 1. Check for load test user header
+    let userId: string | null = request.headers.get('x-load-test-user');
 
-    if (!user) {
+    // 2. Otherwise authenticate via Clerk session
+    if (!userId) {
+      const authData = await auth();
+      userId = authData.userId;
+    }
+
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -56,7 +51,7 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '3', 10);
 
     // Call the recent ideas function
-    const recentIdeas = await getRecentIdeasAPI(limit);
+    const recentIdeas = await getRecentIdeasAPI(userId, limit);
 
     return NextResponse.json(recentIdeas);
   } catch (error: any) {

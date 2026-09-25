@@ -7,7 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:load": "powershell -ExecutionPolicy Bypass -File ./load-tests/run-suite.ps1 -Scenario smoke",
+    "test:load:dashboard": "powershell -ExecutionPolicy Bypass -File ./load-tests/run-suite.ps1 -Scenario dashboard",
+    "test:load:stress": "powershell -ExecutionPolicy Bypass -File ./load-tests/run-suite.ps1 -Scenario stress",
+    "test:load:ai": "powershell -ExecutionPolicy Bypass -File ./load-tests/run-suite.ps1 -Scenario ai"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.18",

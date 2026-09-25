@@ -1,83 +1,65 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
-async function getDashboardStatsAPI() {
-  const supabase = await createSupabaseServiceClient();
+async function getDashboardStatsAPI(userId: string) {
+  const supabase = createSupabaseServiceClient();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Run all count queries concurrently instead of sequentially
+  const [
+    ideasRes,
+    contentRes,
+    scheduledRes,
+    profileRes,
+  ] = await Promise.all([
+    supabase
+      .from('idea_kernels')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    supabase
+      .from('canvas_sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    supabase
+      .from('scheduled_posts')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId),
+    supabase
+      .from('profiles')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId),
+  ]);
 
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  const userId = user.id;
-
-  // Get idea count
-  const { count: ideasCount, error: ideasError } = await supabase
-    .from('idea_kernels')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId);
-
-  if (ideasError) {
-    console.error('Error fetching ideas count:', ideasError);
-    throw new Error('Could not fetch ideas count');
-  }
-
-  // Get canvas sessions count (as content pieces)
-  const { count: contentCount, error: contentError } = await supabase
-    .from('canvas_sessions')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId);
-
-  if (contentError) {
-    console.error('Error fetching content count:', contentError);
-    throw new Error('Could not fetch content count');
-  }
-
-  // Get scheduled posts count
-  const { count: scheduledCount, error: scheduledError } = await supabase
-    .from('scheduled_posts')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId);
-
-  if (scheduledError) {
-    console.error('Error fetching scheduled posts count:', scheduledError);
-    throw new Error('Could not fetch scheduled posts count');
-  }
-
-  // Get profile count (should be 1 per user, but counting for consistency)
-  const { count: profileCount, error: profileError } = await supabase
-    .from('profiles')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', userId);
-
-  if (profileError) {
-    console.error('Error fetching profile count:', profileError);
-    throw new Error('Could not fetch profile count');
-  }
+  if (ideasRes.error) console.error('Error fetching ideas count:', ideasRes.error);
+  if (contentRes.error) console.error('Error fetching content count:', contentRes.error);
+  if (scheduledRes.error) console.error('Error fetching scheduled posts count:', scheduledRes.error);
+  if (profileRes.error) console.error('Error fetching profile count:', profileRes.error);
 
   return {
-    ideasCount: ideasCount || 0,
-    contentCount: contentCount || 0,
-    scheduledCount: scheduledCount || 0,
-    profileCount: profileCount || 0,
+    ideasCount: ideasRes.count || 0,
+    contentCount: contentRes.count || 0,
+    scheduledCount: scheduledRes.count || 0,
+    profileCount: profileRes.count || 0,
   };
 }
 
 export async function GET(request: Request) {
   try {
-    // Get the user
-    const supabase = await createSupabaseServiceClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // 1. Check for load test user header (set by middleware when authorized)
+    let userId: string | null = request.headers.get('x-load-test-user');
 
-    if (!user) {
+    // 2. Otherwise authenticate via Clerk session
+    if (!userId) {
+      const authData = await auth();
+      userId = authData.userId;
+    }
+
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Call the stats function
-    const stats = await getDashboardStatsAPI();
+    // Call the optimized stats function
+    const stats = await getDashboardStatsAPI(userId);
 
     return NextResponse.json(stats);
   } catch (error: any) {

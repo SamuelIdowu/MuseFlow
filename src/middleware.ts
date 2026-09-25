@@ -16,6 +16,22 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId } = authObject;
   const pathname = req.nextUrl.pathname;
 
+  // Check for authorized load testing bypass in dev/staging environments
+  const loadTestSecret = process.env.LOAD_TEST_BYPASS_SECRET;
+  if (
+    loadTestSecret &&
+    req.headers.get("x-load-test-secret") === loadTestSecret
+  ) {
+    const requestHeaders = new Headers(req.headers);
+    const testUserId = req.headers.get("x-load-test-user-id") || "test_user_load_test";
+    requestHeaders.set("x-load-test-user", testUserId);
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
+  }
+
   // 1. Redirect authenticated users away from /sign-in & /sign-up → /dashboard
   if (
     userId &&
