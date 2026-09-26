@@ -4,6 +4,13 @@ import { auth } from "@clerk/nextjs/server";
 import { createSupabaseServiceClient, getSupabaseUserId } from "@/lib/supabaseServerClient";
 import type { Json } from "@/lib/database.types";
 
+import {
+  saveDocumentInDb,
+  getDocumentFromDb,
+  getUserDocumentsFromDb,
+  deleteDocumentFromDb,
+} from "@/db/queries/documents";
+
 export interface DocumentData {
   id?: string;
   title: string;
@@ -24,6 +31,15 @@ export async function saveDocumentAction(doc: DocumentData) {
   const supabaseUserId = await getSupabaseUserId(clerkUserId);
   if (!supabaseUserId) {
     throw new Error("User account not synchronized");
+  }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const saved = await saveDocumentInDb(supabaseUserId, doc);
+      if (saved) return saved;
+    } catch (err) {
+      console.warn("[saveDocumentAction] Neon error, falling back to Supabase:", err);
+    }
   }
 
   const supabase = createSupabaseServiceClient();
@@ -88,6 +104,15 @@ export async function getDocumentAction(documentId: string) {
     return null;
   }
 
+  if (process.env.DATABASE_URL) {
+    try {
+      const doc = await getDocumentFromDb(supabaseUserId, documentId);
+      if (doc) return doc;
+    } catch (err) {
+      console.warn("[getDocumentAction] Neon error, falling back to Supabase:", err);
+    }
+  }
+
   const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase
     .from("documents")
@@ -114,6 +139,14 @@ export async function getUserDocumentsAction() {
     return [];
   }
 
+  if (process.env.DATABASE_URL) {
+    try {
+      return await getUserDocumentsFromDb(supabaseUserId);
+    } catch (err) {
+      console.warn("[getUserDocumentsAction] Neon error, falling back to Supabase:", err);
+    }
+  }
+
   const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase
     .from("documents")
@@ -138,6 +171,14 @@ export async function deleteDocumentAction(documentId: string) {
   const supabaseUserId = await getSupabaseUserId(clerkUserId);
   if (!supabaseUserId) {
     throw new Error("User account not synchronized");
+  }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      return await deleteDocumentFromDb(supabaseUserId, documentId);
+    } catch (err) {
+      console.warn("[deleteDocumentAction] Neon error, falling back to Supabase:", err);
+    }
   }
 
   const supabase = createSupabaseServiceClient();

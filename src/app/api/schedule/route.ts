@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
 import { ensureSupabaseUser, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 import { checkFeatureAccess } from '@/lib/plans/featureGates';
+import { getScheduledPostsFromDb, createScheduledPostInDb } from '@/db/queries/schedule';
 
 export async function GET() {
   try {
@@ -17,6 +18,15 @@ export async function GET() {
 
     if (!supabaseUserId) {
       return NextResponse.json({ error: 'Failed to sync user' }, { status: 500 });
+    }
+
+    if (process.env.DATABASE_URL) {
+      try {
+        const posts = await getScheduledPostsFromDb(supabaseUserId);
+        return NextResponse.json(posts);
+      } catch (err) {
+        console.warn('[GET /api/schedule] Neon error, falling back to Supabase:', err);
+      }
     }
 
     const supabase = createSupabaseServiceClient();
@@ -86,6 +96,19 @@ export async function POST(request: Request) {
       const [hours, minutes] = suggestedTime.split(':').map(Number);
       date.setHours(hours, minutes, 0, 0);
       finalScheduledTime = date.toISOString();
+    }
+
+    if (process.env.DATABASE_URL) {
+      try {
+        const post = await createScheduledPostInDb(supabaseUserId, {
+          contentBlocks: content_blocks,
+          channel,
+          scheduledTime: finalScheduledTime,
+        });
+        return NextResponse.json(post);
+      } catch (err) {
+        console.warn('[POST /api/schedule] Neon error, falling back to Supabase:', err);
+      }
     }
 
     const supabase = createSupabaseServiceClient();

@@ -25,14 +25,26 @@ export const PLAN_LIMITS = {
     },
 };
 
-export async function getUsage(userId: string, metric: UsageMetric) {
-    const supabase = createSupabaseServiceClient();
-    const now = new Date();
+import {
+    getUsageFromDb,
+    incrementUsageInDb,
+    getUserSubscriptionPlanFromDb,
+} from '@/db/queries/billing';
 
-    // For monthly limits, we usually want to check the current billing period
-    // But for simplicity in this MVP, we'll check the current calendar month
-    // Ideally this should sync with the subscription period from the subscriptions table
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+export async function getUsage(userId: string, metric: UsageMetric) {
+    const now = new Date();
+    const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    if (process.env.DATABASE_URL) {
+        try {
+            return await getUsageFromDb(userId, metric, startOfMonthDate);
+        } catch (err) {
+            console.warn('[getUsage] Neon error, falling back to Supabase:', err);
+        }
+    }
+
+    const supabase = createSupabaseServiceClient();
+    const startOfMonth = startOfMonthDate.toISOString();
 
     const { data, error } = await supabase
         .from('usage_tracking')
@@ -63,25 +75,33 @@ export async function checkUsageLimit(userId: string, metric: UsageMetric): Prom
     if (override) {
         plan = override === 'studio' ? 'business' : override;
     } else {
-        const supabase = createSupabaseServiceClient();
+        if (process.env.DATABASE_URL) {
+            try {
+                plan = await getUserSubscriptionPlanFromDb(userId);
+            } catch (err) {
+                console.warn('[checkUsageLimit] Neon error, falling back to Supabase:', err);
+            }
+        } else {
+            const supabase = createSupabaseServiceClient();
 
-        // 1. Get user's subscription plan
-        const { data: subscription } = await supabase
-            .from('subscriptions')
-            .select('price_id, status')
-            .eq('user_id', userId)
-            .in('status', ['active', 'trialing'])
-            .single();
-
-        if (subscription) {
-            const { data: user } = await supabase
-                .from('users')
-                .select('subscription_plan')
-                .eq('id', userId)
+            // 1. Get user's subscription plan
+            const { data: subscription } = await supabase
+                .from('subscriptions')
+                .select('price_id, status')
+                .eq('user_id', userId)
+                .in('status', ['active', 'trialing'])
                 .single();
 
-            if (user?.subscription_plan) {
-                plan = user.subscription_plan as 'free' | 'pro' | 'business';
+            if (subscription) {
+                const { data: user } = await supabase
+                    .from('users')
+                    .select('subscription_plan')
+                    .eq('id', userId)
+                    .single();
+
+                if (user?.subscription_plan) {
+                    plan = user.subscription_plan as 'free' | 'pro' | 'business';
+                }
             }
         }
     }
@@ -96,10 +116,22 @@ export async function checkUsageLimit(userId: string, metric: UsageMetric): Prom
 }
 
 export async function incrementUsage(userId: string, metric: UsageMetric): Promise<void> {
-    const supabase = createSupabaseServiceClient();
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+    const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    if (process.env.DATABASE_URL) {
+        try {
+            await incrementUsageInDb(userId, metric, startOfMonthDate, endOfMonthDate);
+            return;
+        } catch (err) {
+            console.warn('[incrementUsage] Neon error, falling back to Supabase:', err);
+        }
+    }
+
+    const supabase = createSupabaseServiceClient();
+    const startOfMonth = startOfMonthDate.toISOString();
+    const endOfMonth = endOfMonthDate.toISOString();
 
     try {
         // 1. Preferred: Call atomic Postgres function to eliminate race conditions

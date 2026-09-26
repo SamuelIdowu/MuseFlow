@@ -32,6 +32,12 @@ export async function generateCampaignAction(topic: string, count: number, platf
     return await generateCampaignContent(topic, activeProfile, count, platform, tone, userInstruction, context);
 }
 
+import {
+    saveCampaignInDb,
+    getSavedCampaignsFromDb,
+    deleteSavedCampaignFromDb,
+} from '@/db/queries/campaigns';
+
 export async function saveCampaignAction(
     topic: string,
     platform: string,
@@ -40,6 +46,13 @@ export async function saveCampaignAction(
 ): Promise<SavedCampaign> {
     const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
+    if (process.env.DATABASE_URL) {
+        try {
+            return await saveCampaignInDb(supabaseUserId, topic, platform, tone, posts);
+        } catch (err) {
+            console.warn('[saveCampaignAction] Neon error, falling back to Supabase:', err);
+        }
+    }
 
     const supabase = createSupabaseServiceClient();
 
@@ -69,6 +82,13 @@ export async function saveCampaignAction(
 export async function getSavedCampaignsAction(): Promise<SavedCampaign[]> {
     const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
+    if (process.env.DATABASE_URL) {
+        try {
+            return await getSavedCampaignsFromDb(supabaseUserId);
+        } catch (err) {
+            console.warn('[getSavedCampaignsAction] Neon error, falling back to Supabase:', err);
+        }
+    }
 
     const supabase = createSupabaseServiceClient();
 
@@ -92,6 +112,14 @@ export async function getSavedCampaignsAction(): Promise<SavedCampaign[]> {
 export async function deleteSavedCampaignAction(id: string): Promise<void> {
     const supabaseUserId = await getAuthenticatedSupabaseUserId();
 
+    if (process.env.DATABASE_URL) {
+        try {
+            await deleteSavedCampaignFromDb(supabaseUserId, id);
+            return;
+        } catch (err) {
+            console.warn('[deleteSavedCampaignAction] Neon error, falling back to Supabase:', err);
+        }
+    }
 
     const supabase = createSupabaseServiceClient();
 

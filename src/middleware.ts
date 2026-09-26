@@ -16,13 +16,16 @@ export default clerkMiddleware(async (auth, req) => {
   const { userId } = authObject;
   const pathname = req.nextUrl.pathname;
 
+  // Strip any spoofed x-load-test-user header from incoming requests
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.delete("x-load-test-user");
+
   // Check for authorized load testing bypass in dev/staging environments
   const loadTestSecret = process.env.LOAD_TEST_BYPASS_SECRET;
   if (
     loadTestSecret &&
     req.headers.get("x-load-test-secret") === loadTestSecret
   ) {
-    const requestHeaders = new Headers(req.headers);
     const testUserId = req.headers.get("x-load-test-user-id") || "00000000-0000-0000-0000-000000000001";
     requestHeaders.set("x-load-test-user", testUserId);
     return NextResponse.next({

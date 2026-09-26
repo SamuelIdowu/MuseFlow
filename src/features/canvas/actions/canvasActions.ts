@@ -12,8 +12,17 @@ export async function getCanvasModelProviderAction(): Promise<string> {
   return isAgentUp ? 'research agent' : 'gemini';
 }
 
+import { getCanvasDataFromDb, instantiateCanvasTemplateInDb } from '@/db/queries/canvas';
+
 export async function getCanvasDataAction(canvasId?: string, forceNewSession?: boolean, newSessionTitle?: string) {
   const userId = await getAuthenticatedSupabaseUserId();
+  if (process.env.DATABASE_URL) {
+    try {
+      return await getCanvasDataFromDb(userId, canvasId, forceNewSession, newSessionTitle);
+    } catch (dbErr) {
+      console.warn('[getCanvasDataAction] Neon query error, falling back to Supabase:', dbErr);
+    }
+  }
   const supabase = await createClerkSupabaseClient();
   return canvasRepository.getCanvasData(supabase, userId, canvasId, forceNewSession, newSessionTitle);
 }
@@ -128,6 +137,15 @@ export async function instantiateCanvasTemplateAction(template: {
 }) {
   const userId = await getAuthenticatedSupabaseUserId();
   await assertFeatureAllowed(userId, 'canvas_sessions');
+
+  if (process.env.DATABASE_URL) {
+    try {
+      return await instantiateCanvasTemplateInDb(userId, template);
+    } catch (neonErr) {
+      console.warn('[instantiateCanvasTemplateAction] Neon instantiation error, falling back to Supabase:', neonErr);
+    }
+  }
+
   const supabase = await createClerkSupabaseClient();
   return canvasRepository.instantiateCanvasTemplate(supabase, userId, template);
 }

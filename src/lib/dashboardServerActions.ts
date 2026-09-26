@@ -60,8 +60,20 @@ export interface DashboardOverviewData {
   usage: UsageData;
 }
 
+import { getDashboardStatsFromDb } from '@/db/queries/dashboard';
+import { getActiveProfileFromDb } from '@/db/queries/profiles';
+
 export async function getDashboardStats() {
   const supabaseUserId = await getAuthenticatedSupabaseUserId();
+
+  if (process.env.DATABASE_URL) {
+    try {
+      return await getDashboardStatsFromDb(supabaseUserId);
+    } catch (err) {
+      console.warn('[getDashboardStats] Neon error, falling back to Supabase:', err);
+    }
+  }
+
   const supabase = await createClerkSupabaseClient();
 
   let ideasCount = 0;
@@ -108,6 +120,16 @@ export async function getActiveProfile(): Promise<Profile | null> {
   try {
     const fetchProfilePromise = (async () => {
       const supabaseUserId = await getAuthenticatedSupabaseUserId();
+
+      if (process.env.DATABASE_URL) {
+        try {
+          const profile = await getActiveProfileFromDb(supabaseUserId);
+          if (profile) return profile as Profile;
+        } catch (dbErr) {
+          console.warn('[getActiveProfile] Neon error, falling back to Supabase:', dbErr);
+        }
+      }
+
       const supabase = await createClerkSupabaseClient();
 
       const { data, error } = await supabase

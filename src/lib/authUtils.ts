@@ -1,5 +1,5 @@
 import { auth, currentUser } from '@clerk/nextjs/server';
-import { ensureSupabaseUser } from './supabaseServerClient';
+import { ensureDbUser } from '@/db/queries/users';
 
 /**
  * A resilient way to get the Supabase user ID from the current Clerk session.
@@ -21,7 +21,7 @@ export async function getAuthenticatedSupabaseUserId(): Promise<string> {
   }
 
   // 1. Try quick lookup by Clerk ID
-  const existingId = await ensureSupabaseUser(userId);
+  const existingId = await ensureDbUser(userId);
   if (existingId) return existingId;
 
   // 2. Fallback to currentUser() for first-time sync
@@ -32,7 +32,7 @@ export async function getAuthenticatedSupabaseUserId(): Promise<string> {
     const email = user.emailAddresses[0]?.emailAddress;
     if (!email) throw new Error('User has no email address');
     
-    const syncedId = await ensureSupabaseUser(userId, email);
+    const syncedId = await ensureDbUser(userId, email);
     if (!syncedId) throw new Error('Failed to synchronize user');
     
     return syncedId;
