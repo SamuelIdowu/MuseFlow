@@ -1,13 +1,17 @@
 'use client';
 
-import { Sparkles, CheckCircle2 } from 'lucide-react';
+import { Sparkles, CheckCircle2, ShieldCheck } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { FEATURES } from '@/lib/featureFlags';
+import { useFeatureGate } from '@/hooks/useFeatureGate';
+import { FEATURES, getPlanTierOverride } from '@/lib/featureFlags';
 
 export function UpgradeCard() {
-    // FEATURE FLAG: When payments are disabled, show "All Features Unlocked" message
-    if (!FEATURES.PAYMENTS_ENABLED) {
+    const { plan } = useFeatureGate();
+    const activePlan = plan || getPlanTierOverride() || 'free';
+
+    // Studio / Business Tier or full access
+    if (activePlan === 'business' || activePlan === 'studio' || (!FEATURES.PAYMENTS_ENABLED && !getPlanTierOverride() && !FEATURES.ENFORCE_PLAN_LIMITS)) {
         return (
             <div className="mx-3 mb-3 p-3 rounded-xl bg-gradient-to-br from-green-900 via-emerald-800 to-green-900 border border-green-700/50 shadow-xl relative overflow-hidden">
                 {/* Glow Effects */}
@@ -20,17 +24,49 @@ export function UpgradeCard() {
                     </div>
 
                     <h3 className="text-[13px] font-semibold text-white mb-1">
-                        All Features Unlocked
+                        {activePlan === 'studio' ? 'Studio Plan Active' : 'All Features Unlocked'}
                     </h3>
 
                     <p className="text-[11px] text-slate-300 mb-2 leading-relaxed">
-                        Enjoy unlimited access!
+                        Unlimited access enabled!
                     </p>
                 </div>
             </div>
         );
     }
 
+    // Freelancer Pro Tier
+    if (activePlan === 'pro') {
+        return (
+            <div className="mx-3 mb-3 p-3 rounded-xl bg-gradient-to-br from-indigo-950 via-slate-900 to-purple-950 border border-indigo-700/50 shadow-xl relative overflow-hidden">
+                <div className="relative z-10 text-center">
+                    <div className="inline-flex items-center justify-center w-8 h-8 mb-2 rounded-lg bg-indigo-500/20 border border-indigo-500/30">
+                        <ShieldCheck className="w-4 h-4 text-indigo-400" />
+                    </div>
+
+                    <h3 className="text-[13px] font-semibold text-white mb-0.5">
+                        Freelancer Pro Active
+                    </h3>
+
+                    <p className="text-[11px] text-slate-400 mb-3 leading-tight">
+                        Unlimited canvases & scheduled posts enabled.
+                    </p>
+
+                    <Link href="/pricing" className="block w-full">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full h-7 text-[12px] border-indigo-500/30 hover:bg-indigo-500/20 text-white"
+                        >
+                            Explore Studio
+                        </Button>
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    // Free Starter Tier
     return (
         <div className="mx-3 mb-3 p-3 rounded-xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-slate-700/50 shadow-xl relative overflow-hidden group">
             {/* Glow Effects */}

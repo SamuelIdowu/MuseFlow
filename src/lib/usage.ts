@@ -1,6 +1,6 @@
 
 import { createSupabaseServiceClient } from './supabaseServerClient';
-import { FEATURES } from './featureFlags';
+import { FEATURES, getPlanTierOverride } from './featureFlags';
 
 export type UsageMetric = 'ai_generations' | 'brand_profiles' | 'saved_campaigns' | 'canvas_sessions';
 
@@ -51,44 +51,42 @@ export async function getUsage(userId: string, metric: UsageMetric) {
 }
 
 export async function checkUsageLimit(userId: string, metric: UsageMetric): Promise<boolean> {
-    // FEATURE FLAG: When payments are disabled, bypass all usage limits
-    if (!FEATURES.PAYMENTS_ENABLED) {
+    const override = getPlanTierOverride();
+
+    // FEATURE FLAG: When payments are disabled AND no override is active AND limits are not enforced, bypass all usage limits
+    if (!override && !FEATURES.PAYMENTS_ENABLED && !FEATURES.ENFORCE_PLAN_LIMITS) {
         return true; // Allow unlimited usage
     }
 
-    const supabase = createSupabaseServiceClient();
-
-    // 1. Get user's subscription plan
-    // We check the subscriptions table first, then fall back to users table if needed
-    // For now, let's assume we check the users table which should be synced or the subscriptions table
-
-    // Let's query the subscriptions table for an active subscription
-    const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('price_id, status')
-        .eq('user_id', userId)
-        .in('status', ['active', 'trialing'])
-        .single();
-
     let plan: 'free' | 'pro' | 'business' = 'free';
 
-    if (subscription) {
-        // Map price IDs to plans (bucket them)
-        // This is a simplified mapping. Real implementation might query products.
-        // Ideally we store the plan name in metadata or infer from price ID if we have a constant map
-        // For now, let's fetch the user's role from the users table as a fallback or source of truth
-        const { data: user } = await supabase
-            .from('users')
-            .select('subscription_plan')
-            .eq('id', userId)
+    if (override) {
+        plan = override === 'studio' ? 'business' : override;
+    } else {
+        const supabase = createSupabaseServiceClient();
+
+        // 1. Get user's subscription plan
+        const { data: subscription } = await supabase
+            .from('subscriptions')
+            .select('price_id, status')
+            .eq('user_id', userId)
+            .in('status', ['active', 'trialing'])
             .single();
 
-        if (user?.subscription_plan) {
-            plan = user.subscription_plan as 'free' | 'pro' | 'business';
+        if (subscription) {
+            const { data: user } = await supabase
+                .from('users')
+                .select('subscription_plan')
+                .eq('id', userId)
+                .single();
+
+            if (user?.subscription_plan) {
+                plan = user.subscription_plan as 'free' | 'pro' | 'business';
+            }
         }
     }
 
-    const limit = PLAN_LIMITS[plan][metric];
+    const limit = PLAN_LIMITS[plan]?.[metric] ?? PLAN_LIMITS.free[metric];
 
     if (limit === Infinity) return true;
 

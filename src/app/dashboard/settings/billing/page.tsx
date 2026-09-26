@@ -6,7 +6,7 @@ import { redirect } from 'next/navigation';
 import { SubscriptionManageButton } from './SubscriptionManageButton';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
-import { FEATURES } from '@/lib/featureFlags';
+import { FEATURES, getPlanTierOverride } from '@/lib/featureFlags';
 import { PLANS } from '@/lib/payments/config';
 import Link from 'next/link';
 
@@ -23,13 +23,14 @@ export default async function BillingPage() {
   }
 
   const subscription = await getUserSubscriptionDetails(supabaseUserId);
+  const override = getPlanTierOverride();
 
   const planTier = subscription?.planTier || 'free';
   const planConfig = PLANS[planTier] || PLANS.free;
   const isPaid = planTier !== 'free' && subscription?.status === 'active';
 
-  // FEATURE FLAG: When payments are disabled, show simplified view
-  if (!FEATURES.PAYMENTS_ENABLED) {
+  // FEATURE FLAG: When payments are disabled AND no plan override is active, show simplified view
+  if (!FEATURES.PAYMENTS_ENABLED && !override) {
     return (
       <div className="space-y-6">
         <div>

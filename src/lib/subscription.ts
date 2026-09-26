@@ -1,6 +1,6 @@
 import { createSupabaseServiceClient } from './supabaseServerClient';
 import { Database } from './database.types';
-import { FEATURES } from './featureFlags';
+import { FEATURES, getPlanTierOverride } from './featureFlags';
 import { PlanTier } from './payments/types';
 
 type Subscription = Database['public']['Tables']['subscriptions']['Row'];
@@ -19,6 +19,29 @@ export interface UserSubscriptionDetails {
 }
 
 export async function getUserSubscription(userId: string) {
+  // 1. Check environment variable plan tier override
+  const override = getPlanTierOverride();
+  if (override) {
+    if (override === 'free') {
+      return null;
+    }
+    const envSubscription: Subscription = {
+      id: `env_sub_${userId}`,
+      user_id: userId,
+      status: 'active',
+      price_id: `${override}_plan`,
+      current_period_end: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      created_at: new Date().toISOString(),
+      cancel_at_period_end: false,
+      ended_at: null,
+      cancel_at: null,
+      canceled_at: null,
+      trial_start: null,
+      trial_end: null,
+    };
+    return envSubscription;
+  }
+
   // FEATURE FLAG: When payments are disabled, return mock "business" subscription
   if (!FEATURES.PAYMENTS_ENABLED) {
     const mockSubscription: Subscription = {
@@ -69,6 +92,22 @@ export async function getUserSubscription(userId: string) {
 }
 
 export async function getUserSubscriptionDetails(userId: string): Promise<UserSubscriptionDetails | null> {
+  const override = getPlanTierOverride();
+  if (override) {
+    return {
+      id: `env_sub_${userId}`,
+      userId: userId,
+      planTier: override,
+      status: override === 'free' ? 'none' : 'active',
+      provider: 'env-override',
+      customerId: `env_cust_${userId}`,
+      subscriptionId: `env_sub_${userId}`,
+      currentPeriodEnd: override === 'free' ? null : new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      createdAt: new Date().toISOString(),
+      cancelAtPeriodEnd: false,
+    };
+  }
+
   const supabase = createSupabaseServiceClient();
 
   const { data: user } = await supabase

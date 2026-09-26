@@ -5,6 +5,7 @@ import { PlanTier } from '@/lib/payments/types';
 import { FeatureKey, FeatureAccessResult } from '@/lib/plans/featureGates';
 import { getPlanGateSummaryAction, PlanGateSummary } from '@/lib/plans/planActions';
 import { FeatureGateModal } from '@/components/paywall/FeatureGateModal';
+import { getPlanTierOverride } from '@/lib/featureFlags';
 
 interface PlanGateContextType {
   plan: PlanTier;
@@ -46,8 +47,14 @@ export function PlanGateProvider({ children }: { children: React.ReactNode }) {
 
   const canAccess = useCallback(
     (feature: FeatureKey): boolean => {
-      if (!summary) return true; // optimistic default during hydration
-      return summary.features[feature]?.allowed ?? true;
+      if (summary) {
+        return summary.features[feature]?.allowed ?? true;
+      }
+      const override = getPlanTierOverride();
+      if (override === 'free' && feature === 'scheduled_posts') {
+        return false;
+      }
+      return true;
     },
     [summary]
   );
@@ -71,11 +78,14 @@ export function PlanGateProvider({ children }: { children: React.ReactNode }) {
 
   const activeResult = activeFeature ? summary?.features[activeFeature] : undefined;
 
+  const currentPlan = summary?.plan || getPlanTierOverride() || 'free';
+  const currentIsPaid = summary?.isPaid ?? (currentPlan !== 'free');
+
   return (
     <PlanGateContext.Provider
       value={{
-        plan: summary?.plan || 'free',
-        isPaid: summary?.isPaid || false,
+        plan: currentPlan,
+        isPaid: currentIsPaid,
         isLoading,
         canAccess,
         getFeatureResult,

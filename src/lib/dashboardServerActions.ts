@@ -2,6 +2,7 @@
 
 import { createClerkSupabaseClient } from './supabaseServerClient';
 import { getAuthenticatedSupabaseUserId } from './authUtils';
+import { getPlanTierOverride } from './featureFlags';
 import { Profile } from '@/types/profile';
 
 export interface RecentIdeaItem {
@@ -282,9 +283,12 @@ export async function getDashboardOverviewData(): Promise<DashboardOverviewData>
 
   // Extract Usage & Plan
   let plan: 'free' | 'pro' | 'business' = 'free';
-  if (userRes.status === 'fulfilled' && userRes.value.data?.subscription_plan) {
+  const override = getPlanTierOverride();
+  if (override) {
+    plan = override === 'studio' ? 'business' : override;
+  } else if (userRes.status === 'fulfilled' && userRes.value.data?.subscription_plan) {
     const rawPlan = userRes.value.data.subscription_plan.toLowerCase();
-    if (rawPlan.includes('business')) plan = 'business';
+    if (rawPlan.includes('business') || rawPlan.includes('studio')) plan = 'business';
     else if (rawPlan.includes('pro')) plan = 'pro';
   }
 

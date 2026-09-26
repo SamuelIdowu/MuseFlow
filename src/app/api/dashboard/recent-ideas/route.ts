@@ -5,10 +5,10 @@ import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 async function getRecentIdeasAPI(userId: string, limit = 3) {
   const supabase = createSupabaseServiceClient();
 
-  // Get recent idea kernels
+  // Get recent idea kernels with specific columns
   const { data: ideas, error } = await supabase
     .from('idea_kernels')
-    .select('*')
+    .select('id, kernels, created_at, input_data, input_type')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(limit);
@@ -53,7 +53,11 @@ export async function GET(request: Request) {
     // Call the recent ideas function
     const recentIdeas = await getRecentIdeasAPI(userId, limit);
 
-    return NextResponse.json(recentIdeas);
+    return NextResponse.json(recentIdeas, {
+      headers: {
+        'Cache-Control': 'private, max-age=15, stale-while-revalidate=45',
+      },
+    });
   } catch (error: any) {
     console.error('Error fetching recent ideas:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });

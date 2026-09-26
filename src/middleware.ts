@@ -23,7 +23,7 @@ export default clerkMiddleware(async (auth, req) => {
     req.headers.get("x-load-test-secret") === loadTestSecret
   ) {
     const requestHeaders = new Headers(req.headers);
-    const testUserId = req.headers.get("x-load-test-user-id") || "test_user_load_test";
+    const testUserId = req.headers.get("x-load-test-user-id") || "00000000-0000-0000-0000-000000000001";
     requestHeaders.set("x-load-test-user", testUserId);
     return NextResponse.next({
       request: {

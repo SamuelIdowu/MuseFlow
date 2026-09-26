@@ -2,7 +2,7 @@ import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 import { PlanTier } from '@/lib/payments/types';
 import { PLANS } from '@/lib/payments/config';
 import { PLAN_LIMITS, getUsage, UsageMetric } from '@/lib/usage';
-import { FEATURES } from '@/lib/featureFlags';
+import { FEATURES, getPlanTierOverride } from '@/lib/featureFlags';
 
 export type FeatureKey =
   | 'scheduled_posts'
@@ -126,6 +126,12 @@ export class PlanGateError extends Error {
  * Resolves the effective plan tier for a user.
  */
 export async function getUserEffectivePlan(userId: string): Promise<PlanTier> {
+  // 1. Check if an environment variable overrides the plan tier globally
+  const override = getPlanTierOverride();
+  if (override) {
+    return override;
+  }
+
   // If plan limits enforcement is disabled globally, treat as business
   if (!FEATURES.ENFORCE_PLAN_LIMITS && !FEATURES.PAYMENTS_ENABLED) {
     return 'business';

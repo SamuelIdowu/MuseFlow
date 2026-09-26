@@ -7,7 +7,7 @@ import { useState } from 'react';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { FEATURES } from '@/lib/featureFlags';
+import { FEATURES, getPlanTierOverride } from '@/lib/featureFlags';
 import { createSubscriptionCheckout } from '@/server/actions/billing';
 import { PlanTier } from '@/lib/payments/types';
 
@@ -80,8 +80,10 @@ export function PricingSection() {
   ];
 
   const handleSubscribe = async (tier: PlanTier, href: string | null) => {
-    // FEATURE FLAG: When payments are disabled, redirect to dashboard
-    if (!FEATURES.PAYMENTS_ENABLED) {
+    const override = getPlanTierOverride();
+
+    // FEATURE FLAG: When payments are disabled AND no plan override is set, redirect to dashboard
+    if (!FEATURES.PAYMENTS_ENABLED && !override) {
       if (href) {
         router.push(href);
         return;

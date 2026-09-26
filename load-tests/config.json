@@ -1,7 +1,7 @@
 {
   "targetUrl": "http://localhost:3000",
   "loadTestSecret": "museflow_local_load_test_key_2026",
-  "testUserId": "user_load_test_synthetic_id",
+  "testUserId": "00000000-0000-0000-0000-000000000001",
   "thresholds": {
     "smoke": {
       "http_req_duration_p95": 800,

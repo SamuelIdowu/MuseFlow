@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useUser, useClerk } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
-import { FEATURES } from '@/lib/featureFlags';
+import { FEATURES, getPlanTierOverride } from '@/lib/featureFlags';
 import { createSubscriptionCheckout } from '@/server/actions/billing';
 import { BillingCycle, PlanTier } from '@/lib/payments/types';
 
@@ -30,8 +30,10 @@ export default function SubscribeButton({
   const [loading, setLoading] = useState(false);
 
   const handleSubscribe = async () => {
-    // FEATURE FLAG: When payments are disabled, redirect to dashboard
-    if (!FEATURES.PAYMENTS_ENABLED) {
+    const override = getPlanTierOverride();
+
+    // FEATURE FLAG: When payments are disabled AND no plan override is set, redirect with all access message
+    if (!FEATURES.PAYMENTS_ENABLED && !override) {
       if (!isSignedIn) {
         openSignIn();
         return;

@@ -61,7 +61,11 @@ export async function GET(request: Request) {
     // Call the optimized stats function
     const stats = await getDashboardStatsAPI(userId);
 
-    return NextResponse.json(stats);
+    return NextResponse.json(stats, {
+      headers: {
+        'Cache-Control': 'private, max-age=15, stale-while-revalidate=45',
+      },
+    });
   } catch (error: any) {
     console.error('Error fetching dashboard stats:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });

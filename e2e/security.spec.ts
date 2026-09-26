@@ -92,4 +92,34 @@ test.describe('Security Audit & Compliance Test Suite', () => {
     expect([401, 403, 307, 308]).toContain(profileCreateResponse.status());
   });
 
+  test('Plan Tier Override: verifies env toggle parses free, pro, studio, business and auto', async () => {
+    const { getPlanTierOverride } = await import('../src/lib/featureFlags');
+    const original = process.env.NEXT_PUBLIC_APP_PLAN_TIER;
+
+    try {
+      process.env.NEXT_PUBLIC_APP_PLAN_TIER = 'free';
+      expect(getPlanTierOverride()).toBe('free');
+
+      process.env.NEXT_PUBLIC_APP_PLAN_TIER = 'starter';
+      expect(getPlanTierOverride()).toBe('free');
+
+      process.env.NEXT_PUBLIC_APP_PLAN_TIER = 'pro';
+      expect(getPlanTierOverride()).toBe('pro');
+
+      process.env.NEXT_PUBLIC_APP_PLAN_TIER = 'freelancer';
+      expect(getPlanTierOverride()).toBe('pro');
+
+      process.env.NEXT_PUBLIC_APP_PLAN_TIER = 'studio';
+      expect(getPlanTierOverride()).toBe('studio');
+
+      process.env.NEXT_PUBLIC_APP_PLAN_TIER = 'business';
+      expect(getPlanTierOverride()).toBe('business');
+
+      process.env.NEXT_PUBLIC_APP_PLAN_TIER = 'auto';
+      expect(getPlanTierOverride()).toBeNull();
+    } finally {
+      process.env.NEXT_PUBLIC_APP_PLAN_TIER = original;
+    }
+  });
+
 });
