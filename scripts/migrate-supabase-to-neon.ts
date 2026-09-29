@@ -1,3 +1,7 @@
+import * as dotenv from "dotenv";
+dotenv.config({ path: ".env.local" });
+dotenv.config();
+
 import { createSupabaseServiceClient } from "../src/lib/supabaseServerClient";
 import { db } from "../src/db";
 import * as schema from "../src/db/schema";
@@ -157,8 +161,8 @@ async function runMigration() {
               type: row.type || "paragraph",
               content: row.content || "",
               orderIndex: row.order_index ?? 0,
-              positionX: row.position_x ?? 0,
-              positionY: row.position_y ?? 0,
+              positionX: row.position_x != null ? Number(row.position_x) : 0,
+              positionY: row.position_y != null ? Number(row.position_y) : 0,
               meta: row.meta,
               createdAt: row.created_at ? new Date(row.created_at) : new Date(),
               updatedAt: row.updated_at ? new Date(row.updated_at) : new Date(),

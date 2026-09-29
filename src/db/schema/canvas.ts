@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, jsonb, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, doublePrecision, jsonb, timestamp } from "drizzle-orm/pg-core";
 import { users } from "./users";
 
 export const canvasSessions = pgTable("canvas_sessions", {
@@ -16,8 +16,8 @@ export const canvasBlocks = pgTable("canvas_blocks", {
   type: text("type").default("paragraph"),
   content: text("content").notNull(),
   orderIndex: integer("order_index").default(0).notNull(),
-  positionX: integer("position_x").default(0).notNull(),
-  positionY: integer("position_y").default(0).notNull(),
+  positionX: doublePrecision("position_x").default(0).notNull(),
+  positionY: doublePrecision("position_y").default(0).notNull(),
   meta: jsonb("meta"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
