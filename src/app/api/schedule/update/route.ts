@@ -3,6 +3,7 @@ import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
 import { ensureSupabaseUser, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
+import { updateScheduledPostInDb } from '@/db/queries/schedule';
 
 export async function PUT(request: Request) {
   try {
@@ -48,6 +49,20 @@ export async function PUT(request: Request) {
       const [hours, minutes] = suggestedTime.split(':').map(Number);
       date.setHours(hours, minutes, 0, 0);
       finalScheduledTime = date.toISOString();
+    }
+
+    if (process.env.DATABASE_URL) {
+      try {
+        const updated = await updateScheduledPostInDb(supabaseUserId, postId, {
+          contentBlocks: content_blocks,
+          channel,
+          scheduledTime: finalScheduledTime,
+          status: status || 'scheduled',
+        });
+        if (updated) return NextResponse.json(updated);
+      } catch (neonErr) {
+        console.warn('[PUT /api/schedule/update] Neon error, falling back to Supabase:', neonErr);
+      }
     }
 
     // Use service client to bypass RLS

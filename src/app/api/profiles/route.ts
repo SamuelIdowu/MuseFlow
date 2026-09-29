@@ -3,6 +3,7 @@ import { currentUser } from '@clerk/nextjs/server';
 import { createSupabaseServiceClient, getSupabaseUserId } from '@/lib/supabaseServerClient';
 import { syncProfileToAgent } from '@/lib/researchAgentClient';
 import { checkFeatureAccess } from '@/lib/plans/featureGates';
+import { getUserProfilesFromDb, createProfileInDb } from '@/db/queries/profiles';
 
 // GET /api/profiles - Fetch all profiles for the authenticated user
 export async function GET() {
@@ -25,10 +26,20 @@ export async function GET() {
             return NextResponse.json({ error: 'User not synced' }, { status: 401 });
         }
 
+        // Fetch all user's profiles from the database
+        if (process.env.DATABASE_URL) {
+            try {
+                const profiles = await getUserProfilesFromDb(supabaseUserId);
+                console.log('Profiles GET (Neon) - Successfully fetched profiles:', { count: profiles.length, userId: supabaseUserId });
+                return NextResponse.json({ profiles });
+            } catch (neonErr) {
+                console.warn('Profiles GET (Neon) failed, falling back to Supabase:', neonErr);
+            }
+        }
+
         // Create supabase client to fetch profiles
         const supabase = createSupabaseServiceClient();
 
-        // Fetch all user's profiles from the database
         const { data, error } = await supabase
             .from('profiles')
             .select('*')
@@ -96,6 +107,24 @@ export async function POST(request: Request) {
                 current: gateCheck.current,
                 requiredPlan: gateCheck.requiredPlan,
             }, { status: 403 });
+        }
+
+        if (process.env.DATABASE_URL) {
+            try {
+                const data = await createProfileInDb(supabaseUserId, {
+                    profile_name: profile_name.trim(),
+                    niche: niche || null,
+                    tone_config: tone_config || null,
+                    default_content_type: requestJson.default_content_type || null,
+                    samples: samples || null,
+                    is_active: is_active || false,
+                });
+                console.log('Profiles POST (Neon) - Successfully created profile:', { id: data.id, userId: supabaseUserId });
+                syncProfileToAgent(data.id, data.profile_name, data.niche || undefined).catch(console.warn);
+                return NextResponse.json(data);
+            } catch (neonErr) {
+                console.warn('Profiles POST (Neon) failed, falling back to Supabase:', neonErr);
+            }
         }
 
         // Create supabase client

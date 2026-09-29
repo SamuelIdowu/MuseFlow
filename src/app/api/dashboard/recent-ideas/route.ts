@@ -2,7 +2,24 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
+import { getRecentIdeasFromDb } from '@/db/queries/ideas';
+import { getDbUserId } from '@/db/queries/users';
+
 async function getRecentIdeasAPI(userId: string, limit = 3) {
+  let dbUserId = userId;
+  if (userId.startsWith('user_')) {
+    const mapped = await getDbUserId(userId);
+    if (mapped) dbUserId = mapped;
+  }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      return await getRecentIdeasFromDb(dbUserId, limit);
+    } catch (neonErr) {
+      console.warn('[getRecentIdeasAPI] Neon error, falling back to Supabase:', neonErr);
+    }
+  }
+
   const supabase = createSupabaseServiceClient();
 
   // Get recent idea kernels with specific columns

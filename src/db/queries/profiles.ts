@@ -42,3 +42,48 @@ export async function getUserProfilesFromDb(userId: string) {
     updated_at: p.updatedAt.toISOString(),
   }));
 }
+
+export async function createProfileInDb(
+  userId: string,
+  data: {
+    profile_name: string;
+    niche?: string | null;
+    tone_config?: any;
+    default_content_type?: string | null;
+    samples?: any;
+    is_active?: boolean;
+  }
+) {
+  if (data.is_active) {
+    await db
+      .update(profiles)
+      .set({ isActive: false })
+      .where(eq(profiles.userId, userId));
+  }
+
+  const [created] = await db
+    .insert(profiles)
+    .values({
+      userId,
+      profileName: data.profile_name,
+      niche: data.niche || null,
+      toneConfig: data.tone_config || null,
+      defaultContentType: data.default_content_type || null,
+      samples: data.samples || null,
+      isActive: data.is_active || false,
+    })
+    .returning();
+
+  return {
+    id: created.id,
+    user_id: created.userId,
+    profile_name: created.profileName,
+    niche: created.niche,
+    tone_config: created.toneConfig,
+    samples: created.samples,
+    default_content_type: created.defaultContentType,
+    is_active: created.isActive,
+    created_at: created.createdAt.toISOString(),
+    updated_at: created.updatedAt.toISOString(),
+  };
+}

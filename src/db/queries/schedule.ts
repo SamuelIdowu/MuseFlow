@@ -77,3 +77,60 @@ export async function deleteScheduledPostFromDb(userId: string, id: string) {
     .delete(scheduledPosts)
     .where(and(eq(scheduledPosts.id, id), eq(scheduledPosts.userId, userId)));
 }
+
+export async function getScheduledPostByIdFromDb(userId: string, id: string) {
+  const post = await db.query.scheduledPosts.findFirst({
+    where: and(eq(scheduledPosts.id, id), eq(scheduledPosts.userId, userId)),
+  });
+
+  if (!post) return null;
+
+  return {
+    id: post.id,
+    user_id: post.userId,
+    content_blocks: post.contentBlocks,
+    channel: post.channel,
+    scheduled_time: post.scheduledTime.toISOString(),
+    status: post.status,
+    created_at: post.createdAt.toISOString(),
+    updated_at: post.updatedAt.toISOString(),
+  };
+}
+
+export async function updateScheduledPostInDb(
+  userId: string,
+  id: string,
+  data: {
+    contentBlocks?: any;
+    channel?: string;
+    scheduledTime?: Date | string;
+    status?: string;
+  }
+) {
+  const updates: Record<string, any> = { updatedAt: new Date() };
+  if (data.contentBlocks !== undefined) updates.contentBlocks = data.contentBlocks;
+  if (data.channel !== undefined) updates.channel = data.channel;
+  if (data.scheduledTime !== undefined) {
+    updates.scheduledTime = typeof data.scheduledTime === "string" ? new Date(data.scheduledTime) : data.scheduledTime;
+  }
+  if (data.status !== undefined) updates.status = data.status;
+
+  const [updated] = await db
+    .update(scheduledPosts)
+    .set(updates)
+    .where(and(eq(scheduledPosts.id, id), eq(scheduledPosts.userId, userId)))
+    .returning();
+
+  if (!updated) return null;
+
+  return {
+    id: updated.id,
+    user_id: updated.userId,
+    content_blocks: updated.contentBlocks,
+    channel: updated.channel,
+    scheduled_time: updated.scheduledTime.toISOString(),
+    status: updated.status,
+    created_at: updated.createdAt.toISOString(),
+    updated_at: updated.updatedAt.toISOString(),
+  };
+}

@@ -217,8 +217,17 @@ export async function addCanvasBlockToDb(
     .returning();
 
   return {
-    ...inserted,
+    id: inserted.id,
+    user_id: inserted.userId,
+    canvas_id: inserted.canvasId,
+    type: inserted.type,
+    content: inserted.content,
+    order_index: inserted.orderIndex,
+    position_x: inserted.positionX,
+    position_y: inserted.positionY,
     position: { x: inserted.positionX, y: inserted.positionY },
+    created_at: inserted.createdAt.toISOString(),
+    updated_at: inserted.updatedAt.toISOString(),
   };
 }
 
@@ -285,14 +294,134 @@ export async function deleteEdgeFromDb(userId: string, id: string) {
 }
 
 export async function getUserCanvasSessionsFromDb(userId: string) {
-  return db.query.canvasSessions.findMany({
+  const sessions = await db.query.canvasSessions.findMany({
     where: eq(canvasSessions.userId, userId),
     orderBy: [desc(canvasSessions.updatedAt)],
   });
+
+  return sessions.map((s) => ({
+    id: s.id,
+    name: s.name,
+    created_at: s.createdAt.toISOString(),
+    updated_at: s.updatedAt.toISOString(),
+  }));
 }
 
 export async function deleteCanvasSessionFromDb(userId: string, id: string) {
   await db
     .delete(canvasSessions)
     .where(and(eq(canvasSessions.id, id), eq(canvasSessions.userId, userId)));
+}
+
+export async function createCanvasSessionInDb(userId: string, name: string = "Untitled Canvas") {
+  const [newSession] = await db
+    .insert(canvasSessions)
+    .values({
+      userId,
+      name,
+    })
+    .returning();
+  return {
+    id: newSession.id,
+    name: newSession.name,
+    created_at: newSession.createdAt.toISOString(),
+    updated_at: newSession.updatedAt.toISOString(),
+  };
+}
+
+export async function updateCanvasSessionNameInDb(userId: string, id: string, name: string) {
+  const [updated] = await db
+    .update(canvasSessions)
+    .set({ name, updatedAt: new Date() })
+    .where(and(eq(canvasSessions.id, id), eq(canvasSessions.userId, userId)))
+    .returning();
+  if (!updated) return null;
+  return {
+    id: updated.id,
+    name: updated.name,
+    created_at: updated.createdAt.toISOString(),
+    updated_at: updated.updatedAt.toISOString(),
+  };
+}
+
+export async function clearCanvasInDb(userId: string, targetCanvasId?: string) {
+  let canvasId = targetCanvasId;
+  if (!canvasId) {
+    const latest = await db.query.canvasSessions.findFirst({
+      where: eq(canvasSessions.userId, userId),
+      orderBy: [desc(canvasSessions.createdAt)],
+    });
+    if (!latest) throw new Error("No canvas session found");
+    canvasId = latest.id;
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(canvasEdges)
+      .where(and(eq(canvasEdges.canvasId, canvasId!), eq(canvasEdges.userId, userId)));
+    await tx
+      .delete(canvasBlocks)
+      .where(and(eq(canvasBlocks.canvasId, canvasId!), eq(canvasBlocks.userId, userId)));
+  });
+}
+
+export async function reorderCanvasBlocksInDb(
+  userId: string,
+  blocks: { id: string; order: number }[],
+  canvasId?: string
+) {
+  if (!blocks || blocks.length === 0) return;
+
+  await db.transaction(async (tx) => {
+    for (const block of blocks) {
+      await tx
+        .update(canvasBlocks)
+        .set({ orderIndex: block.order, updatedAt: new Date() })
+        .where(and(eq(canvasBlocks.id, block.id), eq(canvasBlocks.userId, userId)));
+    }
+  });
+}
+
+export async function updateCanvasChatHistoryInDb(
+  userId: string,
+  chatHistory: any[],
+  canvasId?: string
+) {
+  try {
+    let targetCanvasId = canvasId;
+    if (!targetCanvasId) {
+      const latest = await db.query.canvasSessions.findFirst({
+        where: eq(canvasSessions.userId, userId),
+        orderBy: [desc(canvasSessions.createdAt)],
+      });
+      if (latest) {
+        targetCanvasId = latest.id;
+      }
+    }
+
+    if (targetCanvasId && chatHistory.length > 0) {
+      for (const msg of chatHistory) {
+        await db
+          .insert(chatMessages)
+          .values({
+            id: msg.id || crypto.randomUUID(),
+            userId,
+            canvasId: targetCanvasId,
+            role: msg.role,
+            content: msg.content || "",
+            toolInvocations: msg.toolInvocations || null,
+            createdAt: msg.createdAt ? new Date(msg.createdAt) : new Date(),
+          })
+          .onConflictDoUpdate({
+            target: chatMessages.id,
+            set: {
+              content: msg.content || "",
+              toolInvocations: msg.toolInvocations || null,
+            },
+          });
+      }
+    }
+  } catch (err) {
+    console.warn("[updateCanvasChatHistoryInDb] Error upserting chat history:", err);
+  }
 }

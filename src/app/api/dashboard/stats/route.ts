@@ -2,7 +2,24 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 
+import { getDashboardStatsFromDb } from '@/db/queries/dashboard';
+import { getDbUserId } from '@/db/queries/users';
+
 async function getDashboardStatsAPI(userId: string) {
+  let dbUserId = userId;
+  if (userId.startsWith('user_')) {
+    const mapped = await getDbUserId(userId);
+    if (mapped) dbUserId = mapped;
+  }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      return await getDashboardStatsFromDb(dbUserId);
+    } catch (err) {
+      console.warn('[getDashboardStatsAPI] Neon error, falling back to Supabase:', err);
+    }
+  }
+
   const supabase = createSupabaseServiceClient();
 
   // Run all count queries concurrently instead of sequentially

@@ -3,6 +3,11 @@ import { PlanTier } from '@/lib/payments/types';
 import { PLANS } from '@/lib/payments/config';
 import { PLAN_LIMITS, getUsage, UsageMetric } from '@/lib/usage';
 import { FEATURES, getPlanTierOverride } from '@/lib/featureFlags';
+import { db } from '@/db';
+import { users } from '@/db/schema/users';
+import { canvasSessions } from '@/db/schema/canvas';
+import { profiles } from '@/db/schema/profiles';
+import { eq, count } from 'drizzle-orm';
 
 export type FeatureKey =
   | 'scheduled_posts'
@@ -137,6 +142,32 @@ export async function getUserEffectivePlan(userId: string): Promise<PlanTier> {
     return 'business';
   }
 
+  if (process.env.DATABASE_URL) {
+    try {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+        columns: {
+          planTier: true,
+          subscriptionStatus: true,
+          subscriptionPlan: true,
+        },
+      });
+
+      if (!user) return 'free';
+
+      const tier = (user.planTier || user.subscriptionPlan || 'free') as PlanTier;
+      const status = user.subscriptionStatus || 'none';
+
+      if (tier !== 'free' && (status === 'active' || status === 'trialing')) {
+        return tier;
+      }
+
+      return 'free';
+    } catch (neonErr) {
+      console.warn('[getUserEffectivePlan] Neon error, falling back to Supabase:', neonErr);
+    }
+  }
+
   const supabase = createSupabaseServiceClient();
   const { data: user } = await supabase
     .from('users')
@@ -196,13 +227,33 @@ export async function checkFeatureAccess(
   // 2. Quota / Threshold Gates
   if (feature === 'canvas_sessions') {
     const limit = effectivePlan === 'free' ? 3 : Infinity;
-    const supabase = createSupabaseServiceClient();
-    const { count } = await supabase
-      .from('canvas_sessions')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
+    let currentCount = 0;
 
-    const currentCount = count || 0;
+    if (process.env.DATABASE_URL) {
+      try {
+        const [result] = await db
+          .select({ value: count() })
+          .from(canvasSessions)
+          .where(eq(canvasSessions.userId, userId));
+        currentCount = result?.value || 0;
+      } catch (neonErr) {
+        console.warn('[checkFeatureAccess canvas_sessions] Neon error, falling back to Supabase:', neonErr);
+        const supabase = createSupabaseServiceClient();
+        const { count: sbCount } = await supabase
+          .from('canvas_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId);
+        currentCount = sbCount || 0;
+      }
+    } else {
+      const supabase = createSupabaseServiceClient();
+      const { count: sbCount } = await supabase
+        .from('canvas_sessions')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      currentCount = sbCount || 0;
+    }
+
     const isAllowed = currentCount < limit;
 
     return {
@@ -221,13 +272,33 @@ export async function checkFeatureAccess(
 
   if (feature === 'brand_profiles') {
     const limit = effectivePlan === 'free' ? 2 : effectivePlan === 'pro' ? 10 : Infinity;
-    const supabase = createSupabaseServiceClient();
-    const { count } = await supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
+    let currentCount = 0;
 
-    const currentCount = count || 0;
+    if (process.env.DATABASE_URL) {
+      try {
+        const [result] = await db
+          .select({ value: count() })
+          .from(profiles)
+          .where(eq(profiles.userId, userId));
+        currentCount = result?.value || 0;
+      } catch (neonErr) {
+        console.warn('[checkFeatureAccess brand_profiles] Neon error, falling back to Supabase:', neonErr);
+        const supabase = createSupabaseServiceClient();
+        const { count: sbCount } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', userId);
+        currentCount = sbCount || 0;
+      }
+    } else {
+      const supabase = createSupabaseServiceClient();
+      const { count: sbCount } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', userId);
+      currentCount = sbCount || 0;
+    }
+
     const isAllowed = currentCount < limit;
 
     return {

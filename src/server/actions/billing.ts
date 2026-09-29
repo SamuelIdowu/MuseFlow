@@ -8,6 +8,9 @@ import {
   BillingCycle,
   CheckoutResult,
 } from '@/lib/payments';
+import { db } from '@/db';
+import { users } from '@/db/schema/users';
+import { eq } from 'drizzle-orm';
 
 export async function createSubscriptionCheckout(
   planTier: 'pro' | 'studio' | 'business',
@@ -54,22 +57,43 @@ export async function getBillingPortalUrl(returnPath: string = '/dashboard/setti
   const supabaseUserId = await getAuthenticatedSupabaseUserId();
   if (!supabaseUserId) throw new Error('Unauthorized');
 
-  const supabase = createSupabaseServiceClient();
-  const { data: user } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', supabaseUserId)
-    .single();
+  let providerName: string | undefined;
+  let customerId: string | undefined;
+  let subscriptionId: string | undefined;
 
-  if (!user) return null;
+  if (process.env.DATABASE_URL) {
+    try {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, supabaseUserId),
+      });
+      if (user) {
+        providerName = user.paymentProvider || undefined;
+        customerId = user.customerId || user.stripeCustomerId || user.flutterwaveCustomerId || undefined;
+        subscriptionId = user.subscriptionId || user.flutterwaveTransactionRef || undefined;
+      }
+    } catch (neonErr) {
+      console.warn('[getBillingPortalUrl] Neon error, falling back to Supabase:', neonErr);
+    }
+  }
 
-  const providerName = user.payment_provider || undefined;
+  if (!providerName && !customerId && !subscriptionId) {
+    const supabase = createSupabaseServiceClient();
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', supabaseUserId)
+      .single();
+
+    if (!user) return null;
+
+    providerName = user.payment_provider || undefined;
+    customerId = user.customer_id || user.stripe_customer_id || user.flutterwave_customer_id || undefined;
+    subscriptionId = user.subscription_id || user.flutterwave_transaction_ref || undefined;
+  }
+
   const provider = getPaymentProvider(providerName);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
   const returnUrl = `${baseUrl}${returnPath.startsWith('/') ? returnPath : `/${returnPath}`}`;
-
-  const customerId = user.customer_id || user.stripe_customer_id || user.flutterwave_customer_id || undefined;
-  const subscriptionId = user.subscription_id || user.flutterwave_transaction_ref || undefined;
 
   return await provider.getPortalUrl({
     customerId,
@@ -83,21 +107,40 @@ export async function cancelUserSubscription(reason?: string): Promise<{ success
   const supabaseUserId = await getAuthenticatedSupabaseUserId();
   if (!supabaseUserId) throw new Error('Unauthorized');
 
-  const supabase = createSupabaseServiceClient();
-  const { data: user } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', supabaseUserId)
-    .single();
+  let subscriptionId: string | undefined;
+  let providerName: string | undefined;
 
-  if (!user) throw new Error('User not found');
+  if (process.env.DATABASE_URL) {
+    try {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, supabaseUserId),
+      });
+      if (user) {
+        subscriptionId = user.subscriptionId || user.flutterwaveTransactionRef || undefined;
+        providerName = user.paymentProvider || undefined;
+      }
+    } catch (neonErr) {
+      console.warn('[cancelUserSubscription] Neon error, falling back to Supabase:', neonErr);
+    }
+  }
 
-  const subscriptionId = user.subscription_id || user.flutterwave_transaction_ref;
+  if (!subscriptionId) {
+    const supabase = createSupabaseServiceClient();
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', supabaseUserId)
+      .single();
+
+    if (!user) throw new Error('User not found');
+    subscriptionId = user.subscription_id || user.flutterwave_transaction_ref || undefined;
+    providerName = user.payment_provider || undefined;
+  }
+
   if (!subscriptionId) {
     throw new Error('No active subscription found');
   }
 
-  const providerName = user.payment_provider || undefined;
   const provider = getPaymentProvider(providerName);
 
   if (provider.cancelSubscription) {
@@ -109,6 +152,19 @@ export async function cancelUserSubscription(reason?: string): Promise<{ success
   }
 
   // Update subscription status in DB
+  if (process.env.DATABASE_URL) {
+    try {
+      await db
+        .update(users)
+        .set({ subscriptionStatus: 'canceled' })
+        .where(eq(users.id, supabaseUserId));
+      return { success: true, message: 'Subscription canceled successfully' };
+    } catch (neonErr) {
+      console.warn('[cancelUserSubscription] Neon update failed, falling back to Supabase:', neonErr);
+    }
+  }
+
+  const supabase = createSupabaseServiceClient();
   await supabase
     .from('users')
     .update({

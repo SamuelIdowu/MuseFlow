@@ -2,6 +2,9 @@ import { createSupabaseServiceClient } from './supabaseServerClient';
 import { Database } from './database.types';
 import { FEATURES, getPlanTierOverride } from './featureFlags';
 import { PlanTier } from './payments/types';
+import { db } from '@/db';
+import { users } from '@/db/schema/users';
+import { eq } from 'drizzle-orm';
 
 type Subscription = Database['public']['Tables']['subscriptions']['Row'];
 
@@ -61,6 +64,37 @@ export async function getUserSubscription(userId: string) {
     return mockSubscription;
   }
 
+  if (process.env.DATABASE_URL) {
+    try {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+      });
+
+      if (!user || !user.subscriptionStatus || user.subscriptionStatus !== 'active') {
+        return null;
+      }
+
+      const subscription: Subscription = {
+        id: user.subscriptionId || user.flutterwaveTransactionRef || `sub_${user.id}`,
+        user_id: user.id,
+        status: user.subscriptionStatus,
+        price_id: user.planTier || user.subscriptionPlan || user.flutterwavePlanId,
+        current_period_end: user.currentPeriodEnd ? user.currentPeriodEnd.toISOString() : null,
+        created_at: user.createdAt.toISOString(),
+        cancel_at_period_end: false,
+        ended_at: null,
+        cancel_at: null,
+        canceled_at: null,
+        trial_start: null,
+        trial_end: null,
+      };
+
+      return subscription;
+    } catch (neonErr) {
+      console.warn('[getUserSubscription] Neon error, falling back to Supabase:', neonErr);
+    }
+  }
+
   const supabase = createSupabaseServiceClient();
 
   const { data: user } = await supabase
@@ -106,6 +140,31 @@ export async function getUserSubscriptionDetails(userId: string): Promise<UserSu
       createdAt: new Date().toISOString(),
       cancelAtPeriodEnd: false,
     };
+  }
+
+  if (process.env.DATABASE_URL) {
+    try {
+      const user = await db.query.users.findFirst({
+        where: eq(users.id, userId),
+      });
+
+      if (!user) return null;
+
+      return {
+        id: user.subscriptionId || user.flutterwaveTransactionRef || `sub_${user.id}`,
+        userId: user.id,
+        planTier: (user.planTier || user.subscriptionPlan || 'free') as PlanTier,
+        status: user.subscriptionStatus || 'none',
+        provider: user.paymentProvider,
+        customerId: user.customerId || user.stripeCustomerId || user.flutterwaveCustomerId,
+        subscriptionId: user.subscriptionId || user.flutterwaveTransactionRef,
+        currentPeriodEnd: user.currentPeriodEnd ? user.currentPeriodEnd.toISOString() : null,
+        createdAt: user.createdAt.toISOString(),
+        cancelAtPeriodEnd: false,
+      };
+    } catch (neonErr) {
+      console.warn('[getUserSubscriptionDetails] Neon error, falling back to Supabase:', neonErr);
+    }
   }
 
   const supabase = createSupabaseServiceClient();

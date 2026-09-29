@@ -1,6 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { getSupabaseUserId, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
+import { deleteScheduledPostFromDb } from '@/db/queries/schedule';
 
 export async function DELETE(request: Request) {
   try {
@@ -26,6 +27,15 @@ export async function DELETE(request: Request) {
 
     if (!postId) {
       return NextResponse.json({ error: 'Post ID is required' }, { status: 400 });
+    }
+
+    if (process.env.DATABASE_URL) {
+      try {
+        await deleteScheduledPostFromDb(supabaseUserId, postId);
+        return NextResponse.json({ message: 'Scheduled post deleted successfully' });
+      } catch (neonErr) {
+        console.warn('[DELETE /api/schedule/delete] Neon error, falling back to Supabase:', neonErr);
+      }
     }
 
     // Use service client to bypass RLS
