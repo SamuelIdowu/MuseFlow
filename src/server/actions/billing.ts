@@ -1,8 +1,7 @@
 'use server';
 
 import { currentUser } from '@clerk/nextjs/server';
-import { getAuthenticatedSupabaseUserId } from '@/lib/authUtils';
-import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
+import { getAuthenticatedUserId } from '@/lib/authUtils';
 import {
   getPaymentProvider,
   BillingCycle,
@@ -18,9 +17,9 @@ export async function createSubscriptionCheckout(
   returnPath: string = '/dashboard/settings/billing'
 ): Promise<CheckoutResult> {
   const clerkUser = await currentUser();
-  const supabaseUserId = await getAuthenticatedSupabaseUserId();
+  const userId = await getAuthenticatedUserId();
 
-  if (!clerkUser || !supabaseUserId) {
+  if (!clerkUser || !userId) {
     throw new Error('Unauthorized');
   }
 
@@ -43,7 +42,7 @@ export async function createSubscriptionCheckout(
     : `${baseUrl}${returnPath.startsWith('/') ? returnPath : `/${returnPath}`}?billing=cancel`;
 
   return await provider.createCheckout({
-    userId: supabaseUserId,
+    userId,
     userEmail,
     userName,
     planTier,
@@ -54,42 +53,18 @@ export async function createSubscriptionCheckout(
 }
 
 export async function getBillingPortalUrl(returnPath: string = '/dashboard/settings/billing'): Promise<string | null> {
-  const supabaseUserId = await getAuthenticatedSupabaseUserId();
-  if (!supabaseUserId) throw new Error('Unauthorized');
+  const userId = await getAuthenticatedUserId();
+  if (!userId) throw new Error('Unauthorized');
 
-  let providerName: string | undefined;
-  let customerId: string | undefined;
-  let subscriptionId: string | undefined;
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+  });
 
-  if (process.env.DATABASE_URL) {
-    try {
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, supabaseUserId),
-      });
-      if (user) {
-        providerName = user.paymentProvider || undefined;
-        customerId = user.customerId || user.stripeCustomerId || user.flutterwaveCustomerId || undefined;
-        subscriptionId = user.subscriptionId || user.flutterwaveTransactionRef || undefined;
-      }
-    } catch (neonErr) {
-      console.warn('[getBillingPortalUrl] Neon error, falling back to Supabase:', neonErr);
-    }
-  }
+  if (!user) return null;
 
-  if (!providerName && !customerId && !subscriptionId) {
-    const supabase = createSupabaseServiceClient();
-    const { data: user } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', supabaseUserId)
-      .single();
-
-    if (!user) return null;
-
-    providerName = user.payment_provider || undefined;
-    customerId = user.customer_id || user.stripe_customer_id || user.flutterwave_customer_id || undefined;
-    subscriptionId = user.subscription_id || user.flutterwave_transaction_ref || undefined;
-  }
+  const providerName = user.paymentProvider || undefined;
+  const customerId = user.customerId || user.stripeCustomerId || user.flutterwaveCustomerId || undefined;
+  const subscriptionId = user.subscriptionId || user.flutterwaveTransactionRef || undefined;
 
   const provider = getPaymentProvider(providerName);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -98,44 +73,23 @@ export async function getBillingPortalUrl(returnPath: string = '/dashboard/setti
   return await provider.getPortalUrl({
     customerId,
     subscriptionId,
-    userId: supabaseUserId,
+    userId,
     returnUrl,
   });
 }
 
 export async function cancelUserSubscription(reason?: string): Promise<{ success: boolean; message?: string }> {
-  const supabaseUserId = await getAuthenticatedSupabaseUserId();
-  if (!supabaseUserId) throw new Error('Unauthorized');
+  const userId = await getAuthenticatedUserId();
+  if (!userId) throw new Error('Unauthorized');
 
-  let subscriptionId: string | undefined;
-  let providerName: string | undefined;
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, userId),
+  });
 
-  if (process.env.DATABASE_URL) {
-    try {
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, supabaseUserId),
-      });
-      if (user) {
-        subscriptionId = user.subscriptionId || user.flutterwaveTransactionRef || undefined;
-        providerName = user.paymentProvider || undefined;
-      }
-    } catch (neonErr) {
-      console.warn('[cancelUserSubscription] Neon error, falling back to Supabase:', neonErr);
-    }
-  }
+  if (!user) throw new Error('User not found');
 
-  if (!subscriptionId) {
-    const supabase = createSupabaseServiceClient();
-    const { data: user } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', supabaseUserId)
-      .single();
-
-    if (!user) throw new Error('User not found');
-    subscriptionId = user.subscription_id || user.flutterwave_transaction_ref || undefined;
-    providerName = user.payment_provider || undefined;
-  }
+  const subscriptionId = user.subscriptionId || user.flutterwaveTransactionRef || undefined;
+  const providerName = user.paymentProvider || undefined;
 
   if (!subscriptionId) {
     throw new Error('No active subscription found');
@@ -146,31 +100,16 @@ export async function cancelUserSubscription(reason?: string): Promise<{ success
   if (provider.cancelSubscription) {
     await provider.cancelSubscription({
       subscriptionId,
-      userId: supabaseUserId,
+      userId,
       reason,
     });
   }
 
-  // Update subscription status in DB
-  if (process.env.DATABASE_URL) {
-    try {
-      await db
-        .update(users)
-        .set({ subscriptionStatus: 'canceled' })
-        .where(eq(users.id, supabaseUserId));
-      return { success: true, message: 'Subscription canceled successfully' };
-    } catch (neonErr) {
-      console.warn('[cancelUserSubscription] Neon update failed, falling back to Supabase:', neonErr);
-    }
-  }
-
-  const supabase = createSupabaseServiceClient();
-  await supabase
-    .from('users')
-    .update({
-      subscription_status: 'canceled',
-    })
-    .eq('id', supabaseUserId);
+  // Update subscription status in Neon
+  await db
+    .update(users)
+    .set({ subscriptionStatus: 'canceled' })
+    .where(eq(users.id, userId));
 
   return { success: true, message: 'Subscription canceled successfully' };
 }

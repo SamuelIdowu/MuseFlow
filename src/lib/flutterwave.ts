@@ -11,8 +11,12 @@ export const verifyTransaction = async (transactionId: string) => {
       },
     });
     return response.data;
-  } catch (error: any) {
-    console.error('Flutterwave Verification Error:', error.response?.data || error.message);
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      console.error('Flutterwave Verification Error:', error.response?.data || error.message);
+    } else {
+      console.error('Flutterwave Verification Error:', error);
+    }
     throw error;
   }
 };
@@ -26,8 +30,12 @@ export const cancelSubscription = async (subscriptionId: string) => {
       }
     });
     return response.data;
-  } catch (error: any) {
-    console.error('Flutterwave Cancellation Error:', error.response?.data || error.message);
+  } catch (error: unknown) {
+    if (axios.isAxiosError(error)) {
+      console.error('Flutterwave Cancellation Error:', error.response?.data || error.message);
+    } else {
+      console.error('Flutterwave Cancellation Error:', error);
+    }
     throw error;
   }
 };

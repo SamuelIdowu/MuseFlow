@@ -39,7 +39,11 @@ export function FormattingButtons({ editor }: FormattingButtonsProps) {
 
       <button
         type="button"
-        onClick={() => (editor.chain().focus() as any).toggleUnderline().run()}
+        onClick={() =>
+          (editor.chain().focus() as unknown as { toggleUnderline: () => { run: () => boolean } })
+            .toggleUnderline()
+            .run()
+        }
         className={`p-1.5 rounded-md text-xs transition-colors ${
           editor.isActive("underline")
             ? "bg-primary text-primary-foreground shadow-2xs"

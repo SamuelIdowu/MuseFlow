@@ -1,4 +1,4 @@
--- Supabase Database Schema for AI Content Ideation Platform
+-- Neon PostgreSQL Database Schema for AI Content Ideation Platform
 
 -- Table: users
 -- Description: Stores basic user information from Clerk Auth

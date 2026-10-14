@@ -1,12 +1,11 @@
 'use server';
 
-import { getAuthenticatedSupabaseUserId } from '@/lib/authUtils';
+import { getAuthenticatedUserId } from '@/lib/authUtils';
 import {
   getUserEffectivePlan,
   checkFeatureAccess,
   FeatureKey,
   FeatureAccessResult,
-  FEATURE_DEFINITIONS,
 } from './featureGates';
 import { PlanTier } from '@/lib/payments/types';
 
@@ -17,7 +16,7 @@ export interface PlanGateSummary {
 }
 
 export async function getPlanGateSummaryAction(): Promise<PlanGateSummary> {
-  const userId = await getAuthenticatedSupabaseUserId();
+  const userId = await getAuthenticatedUserId();
   const plan = await getUserEffectivePlan(userId);
 
   const featureKeys: FeatureKey[] = [
@@ -45,6 +44,6 @@ export async function getPlanGateSummaryAction(): Promise<PlanGateSummary> {
 }
 
 export async function checkFeatureGateAction(feature: FeatureKey): Promise<FeatureAccessResult> {
-  const userId = await getAuthenticatedSupabaseUserId();
+  const userId = await getAuthenticatedUserId();
   return await checkFeatureAccess(userId, feature);
 }

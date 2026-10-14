@@ -193,7 +193,7 @@ export async function generateDocumentDraftWithAgentAction({
 }): Promise<{ success: boolean; draft?: string; sources?: any[]; error?: string }> {
   try {
     const activeProfile = await withTimeout(getActiveProfile(), 2000, null).catch(() => null);
-    const agentUrl = process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || process.env.RESEARCH_AGENT_URL || 'http://localhost:8000';
+    const agentUrl = process.env.RESEARCH_AGENT_URL || process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || 'http://127.0.0.1:8000';
     const apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
     const clientId = process.env.RESEARCH_AGENT_CLIENT_ID || activeProfile?.id || 'd53be5da-b708-42f1-9357-ea293feb37f8';
 

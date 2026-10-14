@@ -1,7 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
-import { ensureSupabaseUser, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
+import { ensureDbUser } from '@/db/queries/users';
 import { checkFeatureAccess } from '@/lib/plans/featureGates';
 import { getScheduledPostsFromDb, createScheduledPostInDb } from '@/db/queries/schedule';
 
@@ -14,35 +14,14 @@ export async function GET() {
     }
 
     const email = clerkUser.emailAddresses[0]?.emailAddress || '';
-    const supabaseUserId = await ensureSupabaseUser(clerkUser.id, email);
+    const userId = await ensureDbUser(clerkUser.id, email);
 
-    if (!supabaseUserId) {
+    if (!userId) {
       return NextResponse.json({ error: 'Failed to sync user' }, { status: 500 });
     }
 
-    if (process.env.DATABASE_URL) {
-      try {
-        const posts = await getScheduledPostsFromDb(supabaseUserId);
-        return NextResponse.json(posts);
-      } catch (err) {
-        console.warn('[GET /api/schedule] Neon error, falling back to Supabase:', err);
-      }
-    }
-
-    const supabase = createSupabaseServiceClient();
-
-    const { data: scheduledPosts, error } = await supabase
-      .from('scheduled_posts')
-      .select('*')
-      .eq('user_id', supabaseUserId)
-      .order('scheduled_time', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching scheduled posts:', error);
-      throw error;
-    }
-
-    return NextResponse.json(scheduledPosts);
+    const posts = await getScheduledPostsFromDb(userId);
+    return NextResponse.json(posts);
   } catch (error) {
     console.error('Error fetching scheduled posts:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -59,14 +38,14 @@ export async function POST(request: Request) {
     }
 
     const email = clerkUser.emailAddresses[0]?.emailAddress || '';
-    const supabaseUserId = await ensureSupabaseUser(clerkUser.id, email);
+    const userId = await ensureDbUser(clerkUser.id, email);
 
-    if (!supabaseUserId) {
-      console.error('Schedule POST - Failed to ensure Supabase user for Clerk user:', clerkUser.id);
+    if (!userId) {
+      console.error('Schedule POST - Failed to ensure user in database for Clerk user:', clerkUser.id);
       return NextResponse.json({ error: 'Failed to sync user' }, { status: 500 });
     }
 
-    const gateCheck = await checkFeatureAccess(supabaseUserId, 'scheduled_posts');
+    const gateCheck = await checkFeatureAccess(userId, 'scheduled_posts');
     if (!gateCheck.allowed) {
       return NextResponse.json(
         {
@@ -98,38 +77,13 @@ export async function POST(request: Request) {
       finalScheduledTime = date.toISOString();
     }
 
-    if (process.env.DATABASE_URL) {
-      try {
-        const post = await createScheduledPostInDb(supabaseUserId, {
-          contentBlocks: content_blocks,
-          channel,
-          scheduledTime: finalScheduledTime,
-        });
-        return NextResponse.json(post);
-      } catch (err) {
-        console.warn('[POST /api/schedule] Neon error, falling back to Supabase:', err);
-      }
-    }
+    const post = await createScheduledPostInDb(userId, {
+      contentBlocks: content_blocks,
+      channel,
+      scheduledTime: finalScheduledTime,
+    });
 
-    const supabase = createSupabaseServiceClient();
-
-    const { data: scheduledPost, error: insertError } = await supabase
-      .from('scheduled_posts')
-      .insert([{
-        user_id: supabaseUserId,
-        content_blocks,
-        channel,
-        scheduled_time: finalScheduledTime
-      }])
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error('Error creating scheduled post:', insertError);
-      throw insertError;
-    }
-
-    return NextResponse.json(scheduledPost);
+    return NextResponse.json(post);
   } catch (error) {
     console.error('Error scheduling post:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

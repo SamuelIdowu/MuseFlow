@@ -40,6 +40,12 @@ export function convertNodesToMarkdown(
         markdown += "\n";
         break;
       }
+      case "prompt":
+        markdown += `### Goal & Context\n\n${content}\n\n`;
+        break;
+      case "variant":
+        markdown += `### ${(node.data as any)?.title || "Option"}\n\n${content}\n\n`;
+        break;
       default:
         markdown += `${content}\n\n`;
     }

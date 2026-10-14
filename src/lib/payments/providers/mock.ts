@@ -5,6 +5,7 @@ import {
   PortalParams,
   CancelSubscriptionParams,
   NormalizedWebhookEvent,
+  WebhookEventType,
 } from '../types';
 
 export class MockPaymentProvider implements PaymentProvider {
@@ -30,6 +31,7 @@ export class MockPaymentProvider implements PaymentProvider {
   }
 
   async cancelSubscription(_params: CancelSubscriptionParams): Promise<boolean> {
+    void _params;
     return true;
   }
 
@@ -37,23 +39,26 @@ export class MockPaymentProvider implements PaymentProvider {
     rawBody: string,
     _headers: Headers | Record<string, string | string[] | undefined>
   ): Promise<NormalizedWebhookEvent> {
-    let payload: any = {};
+    void _headers;
+    let payload: Record<string, unknown> = {};
     try {
-      payload = typeof rawBody === 'string' && rawBody ? JSON.parse(rawBody) : {};
+      payload = typeof rawBody === 'string' && rawBody ? (JSON.parse(rawBody) as Record<string, unknown>) : {};
     } catch {
       payload = {};
     }
 
+    const payloadData = payload.data as Record<string, unknown> | undefined;
+
     return {
       provider: 'mock',
-      eventId: payload.id || `mock_event_${Date.now()}`,
-      eventType: payload.type || 'subscription.created',
-      userId: payload.userId || payload.data?.userId,
-      workspaceId: payload.workspaceId || payload.data?.workspaceId,
-      customerId: payload.customerId || payload.data?.customerId || `mock_cust_${Date.now()}`,
-      subscriptionId: payload.subscriptionId || payload.data?.subscriptionId || `mock_sub_${Date.now()}`,
-      planTier: (payload.planTier || payload.data?.planTier || 'pro') as any,
-      status: (payload.status || payload.data?.status || 'active') as any,
+      eventId: (payload.id as string) || `mock_event_${Date.now()}`,
+      eventType: ((payload.type as WebhookEventType) || 'subscription.created'),
+      userId: (payload.userId as string) || (payloadData?.userId as string),
+      workspaceId: (payload.workspaceId as string) || (payloadData?.workspaceId as string),
+      customerId: (payload.customerId as string) || (payloadData?.customerId as string) || `mock_cust_${Date.now()}`,
+      subscriptionId: (payload.subscriptionId as string) || (payloadData?.subscriptionId as string) || `mock_sub_${Date.now()}`,
+      planTier: ((payload.planTier || payloadData?.planTier || 'pro') as NormalizedWebhookEvent['planTier']),
+      status: ((payload.status || payloadData?.status || 'active') as NormalizedWebhookEvent['status']),
       currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       rawPayload: payload,
     };

@@ -39,7 +39,7 @@ export class FlutterwavePaymentProvider implements PaymentProvider {
 
     const txRef = `flw_${params.userId}_${Date.now()}`;
 
-    const body: Record<string, any> = {
+    const body: Record<string, unknown> = {
       tx_ref: txRef,
       amount,
       currency: 'USD',
@@ -86,6 +86,7 @@ export class FlutterwavePaymentProvider implements PaymentProvider {
   }
 
   async getPortalUrl(_params?: PortalParams): Promise<string | null> {
+    void _params;
     return null;
   }
 

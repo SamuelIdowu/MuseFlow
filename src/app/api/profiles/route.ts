@@ -1,14 +1,13 @@
 import { NextResponse } from 'next/server';
 import { currentUser } from '@clerk/nextjs/server';
-import { createSupabaseServiceClient, getSupabaseUserId } from '@/lib/supabaseServerClient';
 import { syncProfileToAgent } from '@/lib/researchAgentClient';
 import { checkFeatureAccess } from '@/lib/plans/featureGates';
+import { ensureDbUser } from '@/db/queries/users';
 import { getUserProfilesFromDb, createProfileInDb } from '@/db/queries/profiles';
 
 // GET /api/profiles - Fetch all profiles for the authenticated user
 export async function GET() {
     try {
-        // Get user from Clerk
         const clerkUser = await currentUser();
 
         if (!clerkUser) {
@@ -16,43 +15,16 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        console.log('Profiles GET - Clerk user authenticated:', { clerkId: clerkUser.id, email: clerkUser.emailAddresses?.[0]?.emailAddress });
+        const email = clerkUser.emailAddresses[0]?.emailAddress || '';
+        const userId = await ensureDbUser(clerkUser.id, email);
 
-        // Get Supabase user ID from Clerk ID
-        const supabaseUserId = await getSupabaseUserId(clerkUser.id);
-
-        if (!supabaseUserId) {
-            console.error('Profiles GET - No Supabase user ID found for Clerk user:', clerkUser.id);
+        if (!userId) {
+            console.error('Profiles GET - Failed to sync user for Clerk user:', clerkUser.id);
             return NextResponse.json({ error: 'User not synced' }, { status: 401 });
         }
 
-        // Fetch all user's profiles from the database
-        if (process.env.DATABASE_URL) {
-            try {
-                const profiles = await getUserProfilesFromDb(supabaseUserId);
-                console.log('Profiles GET (Neon) - Successfully fetched profiles:', { count: profiles.length, userId: supabaseUserId });
-                return NextResponse.json({ profiles });
-            } catch (neonErr) {
-                console.warn('Profiles GET (Neon) failed, falling back to Supabase:', neonErr);
-            }
-        }
-
-        // Create supabase client to fetch profiles
-        const supabase = createSupabaseServiceClient();
-
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', supabaseUserId)
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching profiles:', error);
-            throw error;
-        }
-
-        console.log('Profiles GET - Successfully fetched profiles:', { count: data?.length, userId: supabaseUserId });
-        return NextResponse.json({ profiles: data || [] });
+        const profiles = await getUserProfilesFromDb(userId);
+        return NextResponse.json({ profiles });
     } catch (error: any) {
         console.error('Error fetching profiles:', {
             message: error?.message,
@@ -72,7 +44,6 @@ export async function GET() {
 // POST /api/profiles - Create a new profile
 export async function POST(request: Request) {
     try {
-        // Get user from Clerk
         const clerkUser = await currentUser();
 
         if (!clerkUser) {
@@ -80,11 +51,11 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Get Supabase user ID from Clerk ID
-        const supabaseUserId = await getSupabaseUserId(clerkUser.id);
+        const email = clerkUser.emailAddresses[0]?.emailAddress || '';
+        const userId = await ensureDbUser(clerkUser.id, email);
 
-        if (!supabaseUserId) {
-            console.error('Profiles POST - No Supabase user ID found for Clerk user:', clerkUser.id);
+        if (!userId) {
+            console.error('Profiles POST - Failed to sync user for Clerk user:', clerkUser.id);
             return NextResponse.json({ error: 'User not synced' }, { status: 401 });
         }
 
@@ -97,7 +68,7 @@ export async function POST(request: Request) {
         }
 
         // Plan Gate: Check brand_profiles limit
-        const gateCheck = await checkFeatureAccess(supabaseUserId, 'brand_profiles');
+        const gateCheck = await checkFeatureAccess(userId, 'brand_profiles');
         if (!gateCheck.allowed) {
             return NextResponse.json({
                 error: 'PLAN_LIMIT_REACHED',
@@ -109,60 +80,19 @@ export async function POST(request: Request) {
             }, { status: 403 });
         }
 
-        if (process.env.DATABASE_URL) {
-            try {
-                const data = await createProfileInDb(supabaseUserId, {
-                    profile_name: profile_name.trim(),
-                    niche: niche || null,
-                    tone_config: tone_config || null,
-                    default_content_type: requestJson.default_content_type || null,
-                    samples: samples || null,
-                    is_active: is_active || false,
-                });
-                console.log('Profiles POST (Neon) - Successfully created profile:', { id: data.id, userId: supabaseUserId });
-                syncProfileToAgent(data.id, data.profile_name, data.niche || undefined).catch(console.warn);
-                return NextResponse.json(data);
-            } catch (neonErr) {
-                console.warn('Profiles POST (Neon) failed, falling back to Supabase:', neonErr);
-            }
-        }
+        const data = await createProfileInDb(userId, {
+            profile_name: profile_name.trim(),
+            niche: niche || null,
+            tone_config: tone_config || null,
+            default_content_type: requestJson.default_content_type || null,
+            samples: samples || null,
+            is_active: is_active || false,
+        });
 
-        // Create supabase client
-        const supabase = createSupabaseServiceClient();
-
-        // If this profile should be active, deactivate all others first
-        if (is_active) {
-            await supabase
-                .from('profiles')
-                .update({ is_active: false })
-                .eq('user_id', supabaseUserId);
-        }
-
-        // Create new profile
-        console.log('Profiles POST - Creating new profile for user:', supabaseUserId);
-        const { data, error } = await supabase
-            .from('profiles')
-            .insert([{
-                user_id: supabaseUserId,
-                profile_name: profile_name.trim(),
-                niche: niche || null,
-                tone_config: tone_config || null,
-                default_content_type: requestJson.default_content_type || null,
-                samples: samples || null,
-                is_active: is_active || false
-            }])
-            .select()
-            .single();
-
-        if (error) {
-            console.error('Error creating profile:', error);
-            throw error;
-        }
-
-        console.log('Profiles POST - Successfully created profile:', { id: data?.id, userId: supabaseUserId });
         if (data?.id) {
             syncProfileToAgent(data.id, data.profile_name, data.niche || undefined).catch(console.warn);
         }
+
         return NextResponse.json(data);
     } catch (error) {
         console.error('Error creating profile:', error);

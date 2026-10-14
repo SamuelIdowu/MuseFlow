@@ -2,9 +2,9 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { ensureDbUser } from '@/db/queries/users';
 
 /**
- * A resilient way to get the Supabase user ID from the current Clerk session.
+ * A resilient way to get the internal database user UUID from the current Clerk session.
  */
-export async function getAuthenticatedSupabaseUserId(): Promise<string> {
+export async function getAuthenticatedUserId(): Promise<string> {
   const authData = await auth();
   const { userId } = authData;
 
@@ -41,3 +41,6 @@ export async function getAuthenticatedSupabaseUserId(): Promise<string> {
     throw new Error('Authentication synchronization failed. Please check your connection.');
   }
 }
+
+// Backwards-compatible alias for existing call sites
+export const getAuthenticatedSupabaseUserId = getAuthenticatedUserId;

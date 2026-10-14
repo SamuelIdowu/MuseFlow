@@ -1,46 +1,34 @@
 import { NextResponse } from 'next/server';
-import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
+import { currentUser } from '@clerk/nextjs/server';
+import { ensureDbUser } from '@/db/queries/users';
+import { getDashboardStatsFromDb } from '@/db/queries/dashboard';
 
-export async function GET(request: Request) {
-  const supabase = await createSupabaseServiceClient();
-  
+export async function GET(_request: Request) {
   try {
-    // Get the user (more secure than session)
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const clerkUser = await currentUser();
 
-    if (!user || userError) {
+    if (!clerkUser) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get user stats from the database
-    const [
-      { count: ideaCount },
-      { count: canvasCount },
-      { count: scheduleCount }
-    ] = await Promise.all([
-      supabase
-        .from('idea_kernels')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id),
-      supabase
-        .from('canvas_sessions')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id),
-      supabase
-        .from('scheduled_posts')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-    ]);
+    const email = clerkUser.emailAddresses[0]?.emailAddress || '';
+    const userId = await ensureDbUser(clerkUser.id, email);
+
+    if (!userId) {
+      return NextResponse.json({ error: 'User not synced' }, { status: 401 });
+    }
+
+    const stats = await getDashboardStatsFromDb(userId);
 
     const userData = {
-      id: user.id,
-      email: user.email,
+      id: userId,
+      email,
       stats: {
-        ideasGenerated: ideaCount || 0,
-        canvasCreated: canvasCount || 0,
-        scheduledPosts: scheduleCount || 0
+        ideasGenerated: stats.ideasCount,
+        canvasCreated: stats.canvasCount,
+        scheduledPosts: stats.scheduledCount,
       },
-      createdAt: user.created_at
+      createdAt: new Date(clerkUser.createdAt).toISOString(),
     };
 
     return NextResponse.json(userData);

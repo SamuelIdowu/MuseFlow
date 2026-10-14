@@ -111,6 +111,7 @@ export class PolarPaymentsProvider implements PaymentProvider {
     rawBody: string,
     _headers: Headers | Record<string, string | string[] | undefined>
   ): Promise<NormalizedWebhookEvent> {
+    void _headers;
     const payload = JSON.parse(rawBody);
     const eventTypeRaw = payload.type;
     const data = payload.data || {};
@@ -132,7 +133,7 @@ export class PolarPaymentsProvider implements PaymentProvider {
       status = 'active';
     }
 
-    const metadata = data.metadata || (data.custom_field_data as Record<string, any>) || {};
+    const metadata = data.metadata || (data.custom_field_data as Record<string, unknown>) || {};
     const planTier: PlanTier = (metadata.planTier || 'pro') as PlanTier;
     const currentPeriodEnd = data.current_period_end
       ? new Date(data.current_period_end)

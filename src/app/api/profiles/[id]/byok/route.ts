@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { getSupabaseUserId, createSupabaseServiceClient } from "@/lib/supabaseServerClient";
+import { auth, currentUser } from "@clerk/nextjs/server";
+import { ensureDbUser } from "@/db/queries/users";
+import { getProfileByIdFromDb } from "@/db/queries/profiles";
 import {
   getProfileBYOKStatus,
   configureProfileBYOK,
@@ -17,24 +18,19 @@ async function verifyProfileOwnership(profileId: string) {
     return { error: "Unauthorized", status: 401 };
   }
 
-  const supabaseUserId = await getSupabaseUserId(clerkUserId);
-  if (!supabaseUserId) {
+  const user = await currentUser();
+  const email = user?.emailAddresses[0]?.emailAddress || '';
+  const dbUserId = await ensureDbUser(clerkUserId, email);
+  if (!dbUserId) {
     return { error: "User not synchronized", status: 401 };
   }
 
-  const supabase = createSupabaseServiceClient();
-  const { data: profile, error } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("id", profileId)
-    .eq("user_id", supabaseUserId)
-    .single();
-
-  if (error || !profile) {
+  const profile = await getProfileByIdFromDb(dbUserId, profileId);
+  if (!profile) {
     return { error: "Profile not found or access denied", status: 404 };
   }
 
-  return { supabaseUserId, clerkUserId };
+  return { dbUserId, clerkUserId };
 }
 
 export async function GET(

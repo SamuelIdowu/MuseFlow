@@ -19,6 +19,12 @@ interface LinkImageDialogsProps {
   editor: Editor;
 }
 
+interface ExtendedEditorCommands {
+  unsetLink: () => boolean;
+  setLink: (options: { href: string }) => boolean;
+  setImage: (options: { src: string; alt?: string }) => boolean;
+}
+
 export function LinkImageDialogs({ editor }: LinkImageDialogsProps) {
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
@@ -26,16 +32,18 @@ export function LinkImageDialogs({ editor }: LinkImageDialogsProps) {
   const [imageUrl, setImageUrl] = useState("");
   const [imageAlt, setImageAlt] = useState("");
 
+  const editorCommands = editor.commands as unknown as ExtendedEditorCommands;
+
   const handleApplyLink = () => {
     if (!linkUrl.trim()) {
-      (editor.commands as any).unsetLink();
+      editorCommands.unsetLink();
       toast.success("Link removed");
     } else {
       let formattedUrl = linkUrl.trim();
       if (!/^https?:\/\//i.test(formattedUrl)) {
         formattedUrl = `https://${formattedUrl}`;
       }
-      (editor.commands as any).setLink({ href: formattedUrl });
+      editorCommands.setLink({ href: formattedUrl });
       toast.success("Link applied");
     }
     setIsLinkDialogOpen(false);
@@ -47,7 +55,7 @@ export function LinkImageDialogs({ editor }: LinkImageDialogsProps) {
       toast.error("Please enter a valid image URL");
       return;
     }
-    (editor.commands as any).setImage({ src: imageUrl.trim(), alt: imageAlt.trim() });
+    editorCommands.setImage({ src: imageUrl.trim(), alt: imageAlt.trim() });
     toast.success("Image inserted");
     setIsImageDialogOpen(false);
     setImageUrl("");
@@ -116,7 +124,7 @@ export function LinkImageDialogs({ editor }: LinkImageDialogsProps) {
                 size="sm"
                 variant="ghost"
                 onClick={() => {
-                  (editor.commands as any).unsetLink();
+                  editorCommands.unsetLink();
                   setIsLinkDialogOpen(false);
                   toast.success("Link removed");
                 }}

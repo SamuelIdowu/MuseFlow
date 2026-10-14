@@ -15,6 +15,7 @@ import {
   getViewportForBounds,
 } from "@xyflow/react";
 import { BlockData } from "@/features/canvas/components/canvas/CustomNode";
+import { type Profile } from "@/types/profile";
 import {
   addCanvasBlockAction,
   updateCanvasBlockAction,
@@ -27,7 +28,7 @@ import { toast } from "react-hot-toast";
 interface UseCanvasGraphProps {
   activeCanvasId?: string;
   pageTitle: string;
-  activeProfile: any;
+  activeProfile: Profile | null;
   selectedContentTypeId: string;
 }
 
@@ -137,7 +138,7 @@ export function useCanvasGraph({
     [onNodesChangeState]
   );
 
-  const onNodeDragStop = useCallback((_: any, node: Node) => {
+  const onNodeDragStop = useCallback((_: unknown, node: Node) => {
     updateCanvasBlockAction(node.id, {
       position: { x: node.position.x, y: node.position.y },
     }).catch((err) => console.error("Failed to save position", err));
@@ -186,137 +187,161 @@ export function useCanvasGraph({
     }
   }, []);
 
-  const handleUpdateBlock = async (id: string, updates: any) => {
-    setNodes((nds) =>
-      nds.map((node) => {
-        if (node.id === id) {
-          return {
-            ...node,
-            data: { ...node.data, ...updates },
-          };
+  const handleUpdateBlock = useCallback(
+    async (id: string, updates: Partial<BlockData>) => {
+      setNodes((nds) =>
+        nds.map((node) => {
+          if (node.id === id) {
+            return {
+              ...node,
+              data: { ...node.data, ...updates },
+            };
+          }
+          return node;
+        })
+      );
+
+      if (updates.content !== undefined) {
+        if (saveTimeouts.current[id]) {
+          clearTimeout(saveTimeouts.current[id]);
         }
-        return node;
-      })
-    );
-
-    if (updates.content !== undefined) {
-      if (saveTimeouts.current[id]) {
-        clearTimeout(saveTimeouts.current[id]);
+        saveTimeouts.current[id] = setTimeout(async () => {
+          try {
+            await updateCanvasBlockAction(id, { content: updates.content });
+          } catch (error) {
+            console.error("Error auto-saving block:", error);
+            toast.error("Failed to auto-save");
+          }
+          delete saveTimeouts.current[id];
+        }, 1000);
       }
-      saveTimeouts.current[id] = setTimeout(async () => {
-        try {
-          await updateCanvasBlockAction(id, { content: updates.content });
-        } catch (error) {
-          console.error("Error auto-saving block:", error);
-          toast.error("Failed to auto-save");
+
+      if (updates.type !== undefined) {
+        updateCanvasBlockAction(id, { type: updates.type }).catch((error) => {
+          console.error("Error updating block type:", error);
+          toast.error("Failed to update block type");
+        });
+      }
+    },
+    [setNodes]
+  );
+
+  const handleExpandWithAI = useCallback(
+    async (id: string, content: string, blockType: string) => {
+      if (!content?.trim()) {
+        toast.error("Please add some content before expanding");
+        return;
+      }
+      try {
+        setExpandingBlockId(id);
+        const contextBlocks = nodes
+          .filter((n) => n.id !== id)
+          .map((n) => ({ type: n.data?.type, content: n.data?.content }));
+
+        const response = await fetch("/api/canvas/expand", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            block_content: content,
+            block_type: blockType,
+            canvas_title: pageTitle,
+            active_profile: activeProfile,
+            contentTypeId: selectedContentTypeId,
+            context_blocks: contextBlocks,
+            mode: "expand",
+          }),
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || "Failed to expand content");
         }
-        delete saveTimeouts.current[id];
-      }, 1000);
-    }
 
-    if (updates.type !== undefined) {
-      updateCanvasBlockAction(id, { type: updates.type }).catch((error) => {
-        console.error("Error updating block type:", error);
-        toast.error("Failed to update block type");
-      });
-    }
-  };
+        const data = await response.json();
+        if (data.expanded_content && data.expanded_content.trim() !== content.trim()) {
+          await handleUpdateBlock(id, { content: data.expanded_content });
+          toast.success("Content expanded!");
+        } else {
+          toast("AI provided no additional detail for this block.");
+        }
+      } catch (error: unknown) {
+        console.error("[AI] Error expanding content:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to expand content");
+      } finally {
+        setExpandingBlockId(null);
+      }
+    },
+    [nodes, pageTitle, activeProfile, selectedContentTypeId, handleUpdateBlock]
+  );
 
-  const handleExpandWithAI = async (id: string, content: string, blockType: string) => {
-    if (!content?.trim()) {
-      toast.error("Please add some content before expanding");
-      return;
-    }
-    try {
-      setExpandingBlockId(id);
-      const contextBlocks = nodes
-        .filter((n) => n.id !== id)
-        .map((n) => ({ type: n.data?.type, content: n.data?.content }));
-
-      const response = await fetch("/api/canvas/expand", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          block_content: content,
-          block_type: blockType,
-          canvas_title: pageTitle,
-          active_profile: activeProfile,
-          contentTypeId: selectedContentTypeId,
-          context_blocks: contextBlocks,
-          mode: "expand",
-        }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Failed to expand content");
+  const handleRegenerateBlock = useCallback(
+    async (id: string) => {
+      const node = nodes.find((n) => n.id === id);
+      if (!node) return;
+      const content = node.data?.content as string;
+      if (!content?.trim()) {
+        toast.error("Block content is empty.");
+        return;
       }
 
-      const data = await response.json();
-      if (data.expanded_content && data.expanded_content.trim() !== content.trim()) {
-        await handleUpdateBlock(id, { content: data.expanded_content });
-        toast.success("Content expanded!");
-      } else {
-        toast("AI provided no additional detail for this block.");
+      try {
+        setRegeneratingBlockId(id);
+        const contextBlocks = nodes
+          .filter((n) => n.id !== id)
+          .map((n) => ({ type: n.data?.type, content: n.data?.content }));
+
+        const response = await fetch("/api/canvas/expand", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            block_content: content,
+            block_type: node.data?.type,
+            canvas_title: pageTitle,
+            active_profile: activeProfile,
+            contentTypeId: selectedContentTypeId,
+            context_blocks: contextBlocks,
+            mode: "regenerate",
+          }),
+        });
+
+        if (!response.ok) {
+          const err = await response.json();
+          throw new Error(err.error || "Failed to regenerate content");
+        }
+
+        const data = await response.json();
+        if (data.expanded_content && data.expanded_content.trim() !== content.trim()) {
+          await handleUpdateBlock(id, { content: data.expanded_content });
+          toast.success("Content regenerated!");
+        } else {
+          toast("AI returned identical content.");
+        }
+      } catch (error: unknown) {
+        console.error("[AI] Error regenerating content:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to regenerate content");
+      } finally {
+        setRegeneratingBlockId(null);
       }
-    } catch (error: any) {
-      console.error("[AI] Error expanding content:", error);
-      toast.error(error.message || "Failed to expand content");
-    } finally {
-      setExpandingBlockId(null);
-    }
-  };
+    },
+    [nodes, pageTitle, activeProfile, selectedContentTypeId, handleUpdateBlock]
+  );
 
-  const handleRegenerateBlock = async (id: string) => {
-    const node = nodes.find((n) => n.id === id);
-    if (!node) return;
-    const content = node.data?.content as string;
-    if (!content?.trim()) {
-      toast.error("Block content is empty.");
-      return;
-    }
-
-    try {
-      setRegeneratingBlockId(id);
-      const contextBlocks = nodes
-        .filter((n) => n.id !== id)
-        .map((n) => ({ type: n.data?.type, content: n.data?.content }));
-
-      const response = await fetch("/api/canvas/expand", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          block_content: content,
-          block_type: node.data?.type,
-          canvas_title: pageTitle,
-          active_profile: activeProfile,
-          contentTypeId: selectedContentTypeId,
-          context_blocks: contextBlocks,
-          mode: "regenerate",
-        }),
-      });
-
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Failed to regenerate content");
+  const handleDeleteBlock = useCallback(
+    async (id: string) => {
+      try {
+        await deleteCanvasBlockAction(id);
+        setNodes((nds) => nds.filter((n) => n.id !== id));
+        setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+        toast.success("Block deleted");
+      } catch (error) {
+        console.error("Error deleting block:", error);
+        toast.error("Failed to delete block");
       }
+    },
+    [setNodes, setEdges]
+  );
 
-      const data = await response.json();
-      if (data.expanded_content && data.expanded_content.trim() !== content.trim()) {
-        await handleUpdateBlock(id, { content: data.expanded_content });
-        toast.success("Content regenerated!");
-      } else {
-        toast("AI returned identical content.");
-      }
-    } catch (error: any) {
-      console.error("[AI] Error regenerating content:", error);
-      toast.error(error.message || "Failed to regenerate content");
-    } finally {
-      setRegeneratingBlockId(null);
-    }
-  };
-
-  const handleAddBlock = async () => {
+  const handleAddBlock = useCallback(async () => {
     try {
       const lastNode = nodes[nodes.length - 1];
       const position = lastNode
@@ -343,6 +368,7 @@ export function useCanvasGraph({
           onUpdate: handleUpdateBlock,
           onExpand: handleExpandWithAI,
           onRegenerate: handleRegenerateBlock,
+          onDelete: handleDeleteBlock,
           isEditing: false,
           isExpanding: false,
           isRegenerating: false,
@@ -355,7 +381,16 @@ export function useCanvasGraph({
       console.error("Error adding block:", error);
       toast.error("Failed to add block");
     }
-  };
+  }, [
+    nodes,
+    activeCanvasId,
+    handleUpdateBlock,
+    handleExpandWithAI,
+    handleRegenerateBlock,
+    handleDeleteBlock,
+    setEditingBlockId,
+    setNodes,
+  ]);
 
   return {
     nodes,
@@ -372,6 +407,7 @@ export function useCanvasGraph({
     onConnect,
     onNodesDelete,
     handleAddBlock,
+    handleDeleteBlock,
     handleUpdateBlock,
     handleExpandWithAI,
     handleRegenerateBlock,

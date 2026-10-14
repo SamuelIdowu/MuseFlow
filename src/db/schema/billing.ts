@@ -38,9 +38,20 @@ export const usageTracking = pgTable("usage_tracking", {
   uniqueIndex("usage_tracking_user_metric_period_unique").on(table.userId, table.metric, table.periodStart),
 ]);
 
+export const billingWebhookEvents = pgTable("billing_webhook_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: text("event_id").unique().notNull(),
+  provider: text("provider").notNull(),
+  eventType: text("event_type").notNull(),
+  payload: jsonb("payload").notNull(),
+  processedAt: timestamp("processed_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type SavedCampaign = typeof savedCampaigns.$inferSelect;
 export type NewSavedCampaign = typeof savedCampaigns.$inferInsert;
 export type Subscription = typeof subscriptions.$inferSelect;
 export type NewSubscription = typeof subscriptions.$inferInsert;
 export type UsageTracking = typeof usageTracking.$inferSelect;
 export type NewUsageTracking = typeof usageTracking.$inferInsert;
+export type BillingWebhookEvent = typeof billingWebhookEvents.$inferSelect;
+export type NewBillingWebhookEvent = typeof billingWebhookEvents.$inferInsert;

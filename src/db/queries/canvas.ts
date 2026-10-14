@@ -69,6 +69,7 @@ export async function getCanvasDataFromDb(
       content: b.content,
       order: b.orderIndex,
       position: { x: b.positionX ?? 0, y: b.positionY ?? 0 },
+      title: (b.meta as any)?.title || undefined,
     })),
     edges: edges.map((e) => ({
       id: e.id,
@@ -183,7 +184,13 @@ export async function getGlobalChatMessagesFromDb(userId: string) {
 
 export async function addCanvasBlockToDb(
   userId: string,
-  block: { type: string; content: string; order: number; position?: { x: number; y: number } },
+  block: {
+    type: string;
+    content: string;
+    order: number;
+    position?: { x: number; y: number };
+    title?: string;
+  },
   canvasId?: string
 ) {
   let targetCanvasId = canvasId;
@@ -213,6 +220,7 @@ export async function addCanvasBlockToDb(
       orderIndex: block.order,
       positionX: block.position?.x ?? 0,
       positionY: block.position?.y ?? 0,
+      meta: block.title ? { title: block.title } : null,
     })
     .returning();
 
@@ -222,6 +230,7 @@ export async function addCanvasBlockToDb(
     canvas_id: inserted.canvasId,
     type: inserted.type,
     content: inserted.content,
+    title: block.title || undefined,
     order_index: inserted.orderIndex,
     position_x: inserted.positionX,
     position_y: inserted.positionY,

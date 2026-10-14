@@ -1,6 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { NextRequest, NextResponse } from 'next/server';
 import { getPaymentProvider } from '@/lib/payments';
-import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
+import { db } from '@/db';
+import { billingWebhookEvents } from '@/db/schema/billing';
+import { users } from '@/db/schema/users';
+import { eq, or } from 'drizzle-orm';
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,14 +15,10 @@ export async function POST(req: NextRequest) {
     // 2. Delegate signature verification & normalization to the adapter
     const event = await provider.parseWebhook(rawBody, req.headers);
 
-    const supabase = createSupabaseServiceClient();
-
     // 3. Webhook Idempotency Check (prevent duplicate executions on retries)
-    const { data: existing } = await supabase
-      .from('billing_webhook_events')
-      .select('id')
-      .eq('event_id', event.eventId)
-      .maybeSingle();
+    const existing = await db.query.billingWebhookEvents.findFirst({
+      where: eq(billingWebhookEvents.eventId, event.eventId),
+    });
 
     if (existing) {
       return NextResponse.json(
@@ -29,48 +29,45 @@ export async function POST(req: NextRequest) {
 
     // 4. Update User Subscription State
     const updateData: Record<string, any> = {
-      plan_tier: event.planTier || 'free',
-      subscription_status: event.status || 'active',
-      payment_provider: event.provider,
+      planTier: event.planTier || 'free',
+      subscriptionStatus: event.status || 'active',
+      paymentProvider: event.provider,
+      subscriptionPlan: event.planTier || 'free',
     };
 
-    if (event.subscriptionId) updateData.subscription_id = event.subscriptionId;
-    if (event.customerId) updateData.customer_id = event.customerId;
+    if (event.subscriptionId) updateData.subscriptionId = event.subscriptionId;
+    if (event.customerId) updateData.customerId = event.customerId;
     if (event.currentPeriodEnd) {
-      updateData.current_period_end = event.currentPeriodEnd.toISOString();
+      updateData.currentPeriodEnd = event.currentPeriodEnd;
     }
-
-    // Map backwards-compatible legacy fields if applicable
-    updateData.subscription_plan = event.planTier || 'free';
 
     // Locate target user
     if (event.userId) {
-      await supabase
-        .from('users')
-        .update(updateData)
-        .eq('id', event.userId);
+      await db.update(users).set(updateData).where(eq(users.id, event.userId));
     } else if (event.userEmail) {
-      await supabase
-        .from('users')
-        .update(updateData)
-        .eq('email', event.userEmail);
+      await db.update(users).set(updateData).where(eq(users.email, event.userEmail));
     } else if (event.customerId) {
-      await supabase
-        .from('users')
-        .update(updateData)
-        .or(`customer_id.eq.${event.customerId},stripe_customer_id.eq.${event.customerId},flutterwave_customer_id.eq.${event.customerId}`);
+      await db.update(users).set(updateData).where(
+        or(
+          eq(users.customerId, event.customerId),
+          eq(users.stripeCustomerId, event.customerId),
+          eq(users.flutterwaveCustomerId, event.customerId)
+        )
+      );
     } else if (event.subscriptionId) {
-      await supabase
-        .from('users')
-        .update(updateData)
-        .or(`subscription_id.eq.${event.subscriptionId},flutterwave_transaction_ref.eq.${event.subscriptionId}`);
+      await db.update(users).set(updateData).where(
+        or(
+          eq(users.subscriptionId, event.subscriptionId),
+          eq(users.flutterwaveTransactionRef, event.subscriptionId)
+        )
+      );
     }
 
     // 5. Record Event for Idempotency
-    await supabase.from('billing_webhook_events').insert({
-      event_id: event.eventId,
+    await db.insert(billingWebhookEvents).values({
+      eventId: event.eventId,
       provider: event.provider,
-      event_type: event.eventType,
+      eventType: event.eventType,
       payload: event.rawPayload as any,
     });
 

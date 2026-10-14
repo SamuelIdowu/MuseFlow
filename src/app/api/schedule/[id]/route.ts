@@ -1,7 +1,7 @@
 import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
-import { ensureSupabaseUser, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
+import { ensureDbUser } from '@/db/queries/users';
 import {
   getScheduledPostByIdFromDb,
   updateScheduledPostInDb,
@@ -12,7 +12,7 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(request: Request, context: RouteContext) {
+export async function GET(_request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
     const clerkUser = await currentUser();
@@ -22,32 +22,14 @@ export async function GET(request: Request, context: RouteContext) {
     }
 
     const email = clerkUser.emailAddresses[0]?.emailAddress || '';
-    const supabaseUserId = await ensureSupabaseUser(clerkUser.id, email);
+    const userId = await ensureDbUser(clerkUser.id, email);
 
-    if (!supabaseUserId) {
+    if (!userId) {
       return NextResponse.json({ error: 'User not synced' }, { status: 401 });
     }
 
-    if (process.env.DATABASE_URL) {
-      try {
-        const post = await getScheduledPostByIdFromDb(supabaseUserId, id);
-        if (post) return NextResponse.json(post);
-        return NextResponse.json({ error: 'Post not found' }, { status: 404 });
-      } catch (neonErr) {
-        console.warn('[GET /api/schedule/[id]] Neon error, falling back to Supabase:', neonErr);
-      }
-    }
-
-    const supabase = createSupabaseServiceClient();
-
-    const { data: post, error } = await supabase
-      .from('scheduled_posts')
-      .select('*')
-      .eq('id', id)
-      .eq('user_id', supabaseUserId)
-      .single();
-
-    if (error || !post) {
+    const post = await getScheduledPostByIdFromDb(userId, id);
+    if (!post) {
       return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
@@ -68,9 +50,9 @@ export async function PUT(request: Request, context: RouteContext) {
     }
 
     const email = clerkUser.emailAddresses[0]?.emailAddress || '';
-    const supabaseUserId = await ensureSupabaseUser(clerkUser.id, email);
+    const userId = await ensureDbUser(clerkUser.id, email);
 
-    if (!supabaseUserId) {
+    if (!userId) {
       return NextResponse.json({ error: 'Failed to sync user' }, { status: 500 });
     }
 
@@ -93,54 +75,25 @@ export async function PUT(request: Request, context: RouteContext) {
       finalScheduledTime = date.toISOString();
     }
 
-    if (process.env.DATABASE_URL) {
-      try {
-        const updated = await updateScheduledPostInDb(supabaseUserId, id, {
-          contentBlocks: content_blocks,
-          channel,
-          scheduledTime: finalScheduledTime,
-          status,
-        });
-        if (updated) return NextResponse.json(updated);
-      } catch (neonErr) {
-        console.warn('[PUT /api/schedule/[id]] Neon error, falling back to Supabase:', neonErr);
-      }
-    }
-
-    const supabase = createSupabaseServiceClient();
-
-    const updates: Record<string, any> = {
-      content_blocks,
+    const updated = await updateScheduledPostInDb(userId, id, {
+      contentBlocks: content_blocks,
       channel,
-      scheduled_time: finalScheduledTime,
-      updated_at: new Date().toISOString(),
-    };
+      scheduledTime: finalScheduledTime,
+      status,
+    });
 
-    if (status) {
-      updates.status = status;
+    if (!updated) {
+      return NextResponse.json({ error: 'Post not found' }, { status: 404 });
     }
 
-    const { data, error } = await supabase
-      .from('scheduled_posts')
-      .update(updates)
-      .eq('id', id)
-      .eq('user_id', supabaseUserId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Error updating scheduled post:', error);
-      throw error;
-    }
-
-    return NextResponse.json(data);
+    return NextResponse.json(updated);
   } catch (error) {
     console.error('Error updating scheduled post:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-export async function DELETE(request: Request, context: RouteContext) {
+export async function DELETE(_request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
     const clerkUser = await currentUser();
@@ -150,34 +103,13 @@ export async function DELETE(request: Request, context: RouteContext) {
     }
 
     const email = clerkUser.emailAddresses[0]?.emailAddress || '';
-    const supabaseUserId = await ensureSupabaseUser(clerkUser.id, email);
+    const userId = await ensureDbUser(clerkUser.id, email);
 
-    if (!supabaseUserId) {
+    if (!userId) {
       return NextResponse.json({ error: 'User not synced' }, { status: 401 });
     }
 
-    if (process.env.DATABASE_URL) {
-      try {
-        await deleteScheduledPostFromDb(supabaseUserId, id);
-        return NextResponse.json({ message: 'Scheduled post deleted successfully' });
-      } catch (neonErr) {
-        console.warn('[DELETE /api/schedule/[id]] Neon error, falling back to Supabase:', neonErr);
-      }
-    }
-
-    const supabase = createSupabaseServiceClient();
-
-    const { error } = await supabase
-      .from('scheduled_posts')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', supabaseUserId);
-
-    if (error) {
-      console.error('Error deleting scheduled post:', error);
-      throw error;
-    }
-
+    await deleteScheduledPostFromDb(userId, id);
     return NextResponse.json({ message: 'Scheduled post deleted successfully' });
   } catch (error) {
     console.error('Error deleting scheduled post:', error);

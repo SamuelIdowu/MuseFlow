@@ -118,6 +118,7 @@ export class DodoPaymentsProvider implements PaymentProvider {
     rawBody: string,
     _headers: Headers | Record<string, string | string[] | undefined>
   ): Promise<NormalizedWebhookEvent> {
+    void _headers;
     const payload = JSON.parse(rawBody);
     const eventTypeRaw = payload.type || payload.event_type;
     const data = payload.data || {};

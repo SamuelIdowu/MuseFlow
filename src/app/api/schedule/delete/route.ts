@@ -1,6 +1,6 @@
 import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-import { getSupabaseUserId, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
+import { ensureDbUser } from '@/db/queries/users';
 import { deleteScheduledPostFromDb } from '@/db/queries/schedule';
 
 export async function DELETE(request: Request) {
@@ -13,11 +13,11 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get Supabase user ID from Clerk ID
-    const supabaseUserId = await getSupabaseUserId(clerkUser.id);
+    const email = clerkUser.emailAddresses[0]?.emailAddress || '';
+    const userId = await ensureDbUser(clerkUser.id, email);
 
-    if (!supabaseUserId) {
-      console.error('Schedule DELETE - No Supabase user ID found for Clerk user:', clerkUser.id);
+    if (!userId) {
+      console.error('Schedule DELETE - Failed to sync user for Clerk user:', clerkUser.id);
       return NextResponse.json({ error: 'User not synced' }, { status: 401 });
     }
 
@@ -29,30 +29,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Post ID is required' }, { status: 400 });
     }
 
-    if (process.env.DATABASE_URL) {
-      try {
-        await deleteScheduledPostFromDb(supabaseUserId, postId);
-        return NextResponse.json({ message: 'Scheduled post deleted successfully' });
-      } catch (neonErr) {
-        console.warn('[DELETE /api/schedule/delete] Neon error, falling back to Supabase:', neonErr);
-      }
-    }
-
-    // Use service client to bypass RLS
-    const supabase = createSupabaseServiceClient();
-
-    // Delete the scheduled post from the database
-    const { error } = await supabase
-      .from('scheduled_posts')
-      .delete()
-      .eq('id', postId)
-      .eq('user_id', supabaseUserId);
-
-    if (error) {
-      console.error('Error deleting scheduled post:', error);
-      throw error;
-    }
-
+    await deleteScheduledPostFromDb(userId, postId);
     return NextResponse.json({ message: 'Scheduled post deleted successfully' });
   } catch (error) {
     console.error('Error deleting scheduled post:', error);

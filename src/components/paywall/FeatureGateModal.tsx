@@ -22,7 +22,7 @@ import {
   ShieldAlert,
   Loader2,
 } from 'lucide-react';
-import { FeatureKey, FEATURE_DEFINITIONS } from '@/lib/plans/featureGates';
+import { FeatureKey, FEATURE_DEFINITIONS } from '@/lib/plans/featureDefinitions';
 import { createSubscriptionCheckout } from '@/server/actions/billing';
 import { toast } from 'react-hot-toast';
 

@@ -617,7 +617,7 @@ export function HomeChatHub({ activeProfile, onPostScheduled }: HomeChatHubProps
                   </div>
                   <div className="flex items-center gap-2 bg-card px-3.5 py-2 rounded-xl border border-border shadow-2xs">
                     <Sparkles className="w-3 h-3 text-primary animate-pulse" />
-                    <span className="font-medium text-foreground">Gemini is generating your content...</span>
+                    <span className="font-medium text-foreground">Drafting...</span>
                   </div>
                 </div>
               )}

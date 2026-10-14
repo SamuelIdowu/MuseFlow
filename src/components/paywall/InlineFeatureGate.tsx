@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Lock, Sparkles, ArrowRight } from 'lucide-react';
-import { FeatureKey, FEATURE_DEFINITIONS } from '@/lib/plans/featureGates';
+import { FeatureKey, FEATURE_DEFINITIONS } from '@/lib/plans/featureDefinitions';
 
 interface InlineFeatureGateProps {
   feature: FeatureKey;

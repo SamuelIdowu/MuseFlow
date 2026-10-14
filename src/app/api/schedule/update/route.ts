@@ -2,7 +2,7 @@
 import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { suggestBestTime } from '@/lib/geminiClient';
-import { ensureSupabaseUser, createSupabaseServiceClient } from '@/lib/supabaseServerClient';
+import { ensureDbUser } from '@/db/queries/users';
 import { updateScheduledPostInDb } from '@/db/queries/schedule';
 
 export async function PUT(request: Request) {
@@ -14,11 +14,10 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get or create Supabase user ID from Clerk ID
     const email = clerkUser.emailAddresses[0]?.emailAddress || '';
-    const supabaseUserId = await ensureSupabaseUser(clerkUser.id, email);
+    const userId = await ensureDbUser(clerkUser.id, email);
 
-    if (!supabaseUserId) {
+    if (!userId) {
       return NextResponse.json({ error: 'Failed to sync user' }, { status: 500 });
     }
 
@@ -51,41 +50,18 @@ export async function PUT(request: Request) {
       finalScheduledTime = date.toISOString();
     }
 
-    if (process.env.DATABASE_URL) {
-      try {
-        const updated = await updateScheduledPostInDb(supabaseUserId, postId, {
-          contentBlocks: content_blocks,
-          channel,
-          scheduledTime: finalScheduledTime,
-          status: status || 'scheduled',
-        });
-        if (updated) return NextResponse.json(updated);
-      } catch (neonErr) {
-        console.warn('[PUT /api/schedule/update] Neon error, falling back to Supabase:', neonErr);
-      }
+    const updated = await updateScheduledPostInDb(userId, postId, {
+      contentBlocks: content_blocks,
+      channel,
+      scheduledTime: finalScheduledTime,
+      status: status || 'scheduled',
+    });
+
+    if (!updated) {
+      return NextResponse.json({ error: 'Post not found or unauthorized' }, { status: 404 });
     }
 
-    // Use service client to bypass RLS
-    const supabase = createSupabaseServiceClient();
-
-    // Update the scheduled post in the database
-    // Ensure we also check user_id to prevent updating other users' posts
-    const { data, error } = await supabase
-      .from('scheduled_posts')
-      .update({
-        content_blocks,
-        channel,
-        scheduled_time: finalScheduledTime,
-        status: status || 'scheduled'
-      })
-      .eq('id', postId)
-      .eq('user_id', supabaseUserId)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json(data);
+    return NextResponse.json(updated);
   } catch (error: any) {
     console.error('Error updating scheduled post:', error);
     return NextResponse.json(

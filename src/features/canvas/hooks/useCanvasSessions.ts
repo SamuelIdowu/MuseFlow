@@ -31,9 +31,7 @@ export function useCanvasSessions(initialTitle?: string) {
 
   if (sessionParam !== prevSessionParam) {
     setPrevSessionParam(sessionParam);
-    if (sessionParam) {
-      setInternalActiveId(sessionParam);
-    }
+    setInternalActiveId(sessionParam || undefined);
   }
 
   const activeCanvasId = sessionParam || internalActiveId;

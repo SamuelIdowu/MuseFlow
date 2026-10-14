@@ -1,20 +1,18 @@
 import { useUser } from "@clerk/nextjs";
 
 /**
- * Hook to get the Supabase user ID for the current Clerk user
- * Ensures the user exists in Supabase by calling the API
+ * Ensures the user exists in Neon database by calling /api/user/ensure
  */
-export async function getSupabaseUserIdClient(_clerkUserId?: string): Promise<string | null> {
+export async function getDbUserIdClient(_clerkUserId?: string): Promise<string | null> {
+    void _clerkUserId;
     try {
-        // Call API to ensure user exists in Supabase
-        // The API uses service role key and returns the Supabase user ID
         const ensureResponse = await fetch('/api/user/ensure', {
             method: 'POST',
         });
 
         if (!ensureResponse.ok) {
             const errorData = await ensureResponse.json().catch(() => ({}));
-            console.error('Failed to ensure user exists in Supabase:', {
+            console.error('Failed to ensure user exists in database:', {
                 status: ensureResponse.status,
                 statusText: ensureResponse.statusText,
                 error: errorData
@@ -23,22 +21,19 @@ export async function getSupabaseUserIdClient(_clerkUserId?: string): Promise<st
         }
 
         const responseData = await ensureResponse.json();
-        console.log('User ensured in Supabase:', responseData);
-
-        // Return the Supabase user ID from the API response
-        // No need to query again - the API already has it!
-        return responseData.supabaseUserId || null;
+        return responseData.userId || responseData.supabaseUserId || null;
     } catch (error) {
-        console.error('Error in getSupabaseUserIdClient:', error);
+        console.error('Error in getDbUserIdClient:', error);
         return null;
     }
 }
 
+export const getSupabaseUserIdClient = getDbUserIdClient;
+
 /**
- * React hook to get Supabase user ID from Clerk user
- * Returns null while loading or if there's an error
+ * React hook to get Clerk user ID
  */
-export function useSupabaseUserId() {
+export function useDbUserId() {
     const { user: clerkUser, isLoaded } = useUser();
 
     if (!isLoaded || !clerkUser) {
@@ -47,3 +42,6 @@ export function useSupabaseUserId() {
 
     return clerkUser.id;
 }
+
+export const useSupabaseUserId = useDbUserId;
+

@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type Part } from "@google/generative-ai";
 import { Profile } from "@/types/profile";
 import { CONTENT_TYPES } from "@/types/content";
 import { fetchUrlContent, isValidUrl } from "./urlUtils";
@@ -73,7 +73,7 @@ async function buildProfileContext(profile?: Profile | null): Promise<string> {
 }
 
 function getResearchAgentConfig() {
-  const agentUrl = process.env.RESEARCH_AGENT_URL || process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || 'http://localhost:8000';
+  const agentUrl = process.env.RESEARCH_AGENT_URL || process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || 'http://127.0.0.1:8000';
   const apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
   const clientId = process.env.RESEARCH_AGENT_CLIENT_ID || process.env.NEXT_PUBLIC_RESEARCH_AGENT_CLIENT_ID || '00000000-0000-0000-0000-000000000000';
 
@@ -98,14 +98,16 @@ export async function checkResearchAgentHealth(): Promise<boolean> {
 }
 
 async function tryGenerateWithResearchAgent(input: string, profileId?: string, contentTypeId?: string): Promise<{ success: boolean; data?: string; error?: string }> {
+  const { agentUrl, apiKey, clientId: defaultClientId } = getResearchAgentConfig();
+  const timeoutMs = parseInt(process.env.RESEARCH_AGENT_TIMEOUT_MS || '180000', 10);
+
   try {
-    const { agentUrl, apiKey, clientId: defaultClientId } = getResearchAgentConfig();
     const clientId = profileId || defaultClientId;
 
     const brief = contentTypeId ? `[Format Requirement: ${contentTypeId}]\n\n${input}` : input;
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     const res = await fetch(`${agentUrl}/generate`, {
       method: 'POST',
@@ -132,12 +134,20 @@ async function tryGenerateWithResearchAgent(input: string, profileId?: string, c
       return { success: false, error: `Research Agent returned ${res.status}: ${errBody}` };
     }
     return { success: false, error: 'No draft returned from Research Agent' };
-  } catch (err: any) {
-    return { success: false, error: `Could not connect to Research Agent at http://localhost:8000 (${err.message})` };
+  } catch (err: unknown) {
+    const errObj = err as { name?: string; message?: string } | undefined;
+    if (errObj?.name === 'AbortError' || errObj?.message?.toLowerCase().includes('abort')) {
+      return {
+        success: false,
+        error: `Research Agent request timed out after ${Math.round(timeoutMs / 1000)}s while generating content. Multi-step research and live web queries can take longer on deep topics.`,
+      };
+    }
+    return { success: false, error: `Could not connect to Research Agent at ${agentUrl} (${errObj?.message || String(err)})` };
   }
 }
 
-export async function generateChatResponse(input: string, activeProfile?: Profile | null, _history: any[] = [], contentTypeId?: string): Promise<string> {
+export async function generateChatResponse(input: string, activeProfile?: Profile | null, _history: unknown[] = [], contentTypeId?: string): Promise<string> {
+  void _history;
   // Exclusively route to Research Agent (Fallback disabled)
   const agentResult = await tryGenerateWithResearchAgent(input, activeProfile?.id, contentTypeId);
   if (agentResult.success && agentResult.data) {
@@ -407,6 +417,30 @@ export async function formatForChannel(
   }
 }
 
+export interface CampaignPostItem {
+  content: string;
+  type: string;
+}
+
+export interface ChatHistoryItem {
+  role: string;
+  content: string;
+}
+
+export interface CanvasContextBlock {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  content: string;
+}
+
+export interface CanvasContextEdge {
+  source: string;
+  target: string;
+  label?: string;
+}
+
 export async function generateCampaignContent(
   topic: string,
   activeProfile?: Profile | null,
@@ -415,10 +449,10 @@ export async function generateCampaignContent(
   tone: string = 'professional',
   userInstruction: string = '',
   context: string = ''
-): Promise<any[]> {
+): Promise<CampaignPostItem[]> {
   if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
     console.error("GEMINI_API_KEY is not set for generateCampaignContent");
-    return Array(count).fill({ content: `Simulated post about ${topic}` });
+    return Array(count).fill({ content: `Simulated post about ${topic}`, type: 'general' });
   }
 
   try {
@@ -459,8 +493,8 @@ export async function generateCampaignContent(
     // Clean up markdown code blocks if present
     const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-    return JSON.parse(cleanText);
-  } catch (error) {
+    return JSON.parse(cleanText) as CampaignPostItem[];
+  } catch (error: unknown) {
     console.error("Error generating campaign content:", error);
     return [];
   }
@@ -469,9 +503,9 @@ export async function generateCampaignContent(
 export async function generateCanvasBlocksFromChat(
   input: string,
   activeProfile?: Profile | null,
-  history: any[] = [],
+  history: ChatHistoryItem[] = [],
   files: { data: string; mimeType: string }[] = [],
-  currentCanvas?: { blocks: any[], edges: any[] }
+  currentCanvas?: { blocks: CanvasContextBlock[]; edges: CanvasContextEdge[] }
 ): Promise<{ 
   blocks: { id: string; type: string; content: string; title?: string; x?: number; y?: number; action?: 'create' | 'update' | 'delete' }[]; 
   edges: { source: string; target: string; label?: string; action?: 'create' | 'delete' }[];
@@ -585,7 +619,7 @@ Your mission is to transform user requests—even short, casual, or typo-laden p
 
     Return ONLY raw JSON, no markdown wrapper.`;
 
-    const parts: any[] = [{ text: prompt }];
+    const parts: (string | Part)[] = [{ text: prompt }];
     
     // Add files
     if (files && files.length > 0) {
@@ -623,8 +657,8 @@ Your mission is to transform user requests—even short, casual, or typo-laden p
 
     // Try primary model (gemini-2.5-flash), fallback to gemini-2.0-flash
     const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash"];
-    let response: any = null;
-    let lastError: any = null;
+    let response: { promptFeedback?: { blockReason?: string }; text: () => string } | null = null;
+    let lastError: unknown = null;
 
     for (const modelName of modelsToTry) {
       try {
@@ -634,8 +668,8 @@ Your mission is to transform user requests—even short, casual, or typo-laden p
           response = result.response;
           break;
         }
-      } catch (err: any) {
-        console.warn(`[Gemini Canvas] Generation failed with ${modelName}:`, err?.message || err);
+      } catch (err: unknown) {
+        console.warn(`[Gemini Canvas] Generation failed with ${modelName}:`, (err as Error)?.message || err);
         lastError = err;
       }
     }
@@ -658,7 +692,7 @@ Your mission is to transform user requests—even short, casual, or typo-laden p
       throw new Error("Empty response from Gemini API");
     }
 
-    let parsed: any = null;
+    let parsed: { blocks?: { id: string; type: string; content: string; title?: string; x?: number; y?: number; action?: 'create' | 'update' | 'delete' }[]; edges?: { source: string; target: string; label?: string; action?: 'create' | 'delete' }[]; message?: string } | null = null;
     const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
     try {
       parsed = JSON.parse(cleanText);
@@ -689,10 +723,10 @@ Your mission is to transform user requests—even short, casual, or typo-laden p
       edges: [],
       source: usedAgent ? 'research_agent' : 'gemini'
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in generateCanvasBlocksFromChat:", error);
     
-    const errorMessage = error.message || "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("API key not valid")) {
       return {
         message: "Your Google Gemini API key in `.env.local` is invalid or expired. Please update it in `.env.local` or configure BYOK in **Brand Profiles → Model & BYOK Settings**.",

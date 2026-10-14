@@ -36,7 +36,7 @@ export class PaystackPaymentProvider implements PaymentProvider {
         ? (planConfig?.priceYearly || 0) * 100
         : (planConfig?.priceMonthly || 0) * 100;
 
-    const body: Record<string, any> = {
+    const body: Record<string, unknown> = {
       email: params.userEmail,
       amount: amountInKoboOrCents,
       callback_url: params.successUrl,
@@ -74,6 +74,7 @@ export class PaystackPaymentProvider implements PaymentProvider {
   }
 
   async getPortalUrl(_params?: PortalParams): Promise<string | null> {
+    void _params;
     // Paystack manages subscriptions via their email management links or API
     return null;
   }

@@ -1,4 +1,4 @@
-import { getAuthenticatedSupabaseUserId } from '@/lib/authUtils';
+import { getAuthenticatedUserId } from '@/lib/authUtils';
 import { getUserSubscriptionDetails } from '@/lib/subscription';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,15 +14,15 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function BillingPage() {
-  let supabaseUserId: string;
+  let userId: string;
   try {
-    supabaseUserId = await getAuthenticatedSupabaseUserId();
+    userId = await getAuthenticatedUserId();
   } catch (error) {
     console.error('Billing page auth error:', error);
     redirect('/sign-in');
   }
 
-  const subscription = await getUserSubscriptionDetails(supabaseUserId);
+  const subscription = await getUserSubscriptionDetails(userId);
   const override = getPlanTierOverride();
 
   const planTier = subscription?.planTier || 'free';
@@ -135,7 +135,7 @@ export default async function BillingPage() {
           {isPaid ? (
             <SubscriptionManageButton
               subscriptionId={subscription?.subscriptionId}
-              userId={supabaseUserId}
+              userId={userId}
             />
           ) : (
             <Button asChild>

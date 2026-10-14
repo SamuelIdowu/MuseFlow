@@ -1,4 +1,6 @@
-import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
+import { db } from '@/db';
+import { scheduledPosts } from '@/db/schema/schedule';
+import { eq, and, lte } from 'drizzle-orm';
 
 export interface ProcessRemindersResult {
   processed: number;
@@ -7,58 +9,52 @@ export interface ProcessRemindersResult {
 }
 
 /**
- * Process due scheduled posts.
+ * Process due scheduled posts (Neon Postgres via Drizzle).
  * Fetches all posts whose scheduled_time is in the past and status is 'scheduled'.
  * Transitions their status to 'ready' to prevent double-firing.
  */
 export async function processDueScheduledPosts(): Promise<ProcessRemindersResult> {
-  const supabase = createSupabaseServiceClient();
-  const now = new Date().toISOString();
+  const now = new Date();
 
-  const { data: duePosts, error: fetchError } = await supabase
-    .from('scheduled_posts')
-    .select('id, user_id, channel, scheduled_time, content_blocks')
-    .eq('status', 'scheduled')
-    .lte('scheduled_time', now)
-    .limit(50);
+  try {
+    const duePosts = await db.query.scheduledPosts.findMany({
+      where: and(
+        eq(scheduledPosts.status, 'scheduled'),
+        lte(scheduledPosts.scheduledTime, now)
+      ),
+      limit: 50,
+    });
 
-  if (fetchError) {
+    if (!duePosts || duePosts.length === 0) {
+      return { processed: 0, postIds: [], errors: [] };
+    }
+
+    const processedIds: string[] = [];
+    const errors: string[] = [];
+
+    for (const post of duePosts) {
+      try {
+        await db
+          .update(scheduledPosts)
+          .set({
+            status: 'ready',
+            updatedAt: new Date(),
+          })
+          .where(eq(scheduledPosts.id, post.id));
+
+        processedIds.push(post.id);
+      } catch (err: unknown) {
+        errors.push(`Error processing post ${post.id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    return {
+      processed: processedIds.length,
+      postIds: processedIds,
+      errors,
+    };
+  } catch (fetchError: any) {
     console.error('Failed to fetch due scheduled posts:', fetchError);
     throw fetchError;
   }
-
-  if (!duePosts || duePosts.length === 0) {
-    return { processed: 0, postIds: [], errors: [] };
-  }
-
-  const processedIds: string[] = [];
-  const errors: string[] = [];
-
-  for (const post of duePosts) {
-    try {
-      // Transition status to ready
-      const { error: updateError } = await supabase
-        .from('scheduled_posts')
-        .update({
-          status: 'ready',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', post.id);
-
-      if (updateError) {
-        errors.push(`Failed to update post ${post.id}: ${updateError.message}`);
-        continue;
-      }
-
-      processedIds.push(post.id);
-    } catch (err: any) {
-      errors.push(`Error processing post ${post.id}: ${err.message || err}`);
-    }
-  }
-
-  return {
-    processed: processedIds.length,
-    postIds: processedIds,
-    errors,
-  };
 }

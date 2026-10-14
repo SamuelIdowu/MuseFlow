@@ -3,8 +3,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { getActiveProfile } from './dashboardServerActions';
 import { generateCampaignContent } from './geminiClient';
-import { createSupabaseServiceClient } from './supabaseServerClient';
-import { getAuthenticatedSupabaseUserId } from './authUtils';
+import { getAuthenticatedUserId } from './authUtils';
 
 interface CampaignPost {
     content: string;
@@ -25,8 +24,6 @@ export async function generateCampaignAction(topic: string, count: number, platf
     const { userId } = await auth();
     if (!userId) throw new Error('User not authenticated');
 
-    // Verify user exists/has email by calling getActiveProfile
-    // getActiveProfile handles auth checks and Supabase user verification internally
     const activeProfile = await getActiveProfile();
 
     return await generateCampaignContent(topic, activeProfile, count, platform, tone, userInstruction, context);
@@ -44,93 +41,16 @@ export async function saveCampaignAction(
     tone: string,
     posts: CampaignPost[]
 ): Promise<SavedCampaign> {
-    const supabaseUserId = await getAuthenticatedSupabaseUserId();
-
-    if (process.env.DATABASE_URL) {
-        try {
-            return await saveCampaignInDb(supabaseUserId, topic, platform, tone, posts);
-        } catch (err) {
-            console.warn('[saveCampaignAction] Neon error, falling back to Supabase:', err);
-        }
-    }
-
-    const supabase = createSupabaseServiceClient();
-
-    const { data, error } = await supabase
-        .from('saved_campaigns')
-        .insert({
-            user_id: supabaseUserId,
-            topic,
-            platform,
-            tone,
-            posts: JSON.parse(JSON.stringify(posts)),
-        })
-        .select()
-        .single();
-
-    if (error) {
-        console.error('Error saving campaign:', error);
-        throw new Error('Failed to save campaign');
-    }
-
-    return {
-        ...data,
-        posts: data.posts as unknown as CampaignPost[],
-    };
+    const userId = await getAuthenticatedUserId();
+    return await saveCampaignInDb(userId, topic, platform, tone, posts);
 }
 
 export async function getSavedCampaignsAction(): Promise<SavedCampaign[]> {
-    const supabaseUserId = await getAuthenticatedSupabaseUserId();
-
-    if (process.env.DATABASE_URL) {
-        try {
-            return await getSavedCampaignsFromDb(supabaseUserId);
-        } catch (err) {
-            console.warn('[getSavedCampaignsAction] Neon error, falling back to Supabase:', err);
-        }
-    }
-
-    const supabase = createSupabaseServiceClient();
-
-    const { data, error } = await supabase
-        .from('saved_campaigns')
-        .select('*')
-        .eq('user_id', supabaseUserId)
-        .order('created_at', { ascending: false });
-
-    if (error) {
-        console.error('Error fetching saved campaigns:', error);
-        throw new Error('Failed to fetch saved campaigns');
-    }
-
-    return (data || []).map(campaign => ({
-        ...campaign,
-        posts: campaign.posts as unknown as CampaignPost[],
-    }));
+    const userId = await getAuthenticatedUserId();
+    return await getSavedCampaignsFromDb(userId);
 }
 
 export async function deleteSavedCampaignAction(id: string): Promise<void> {
-    const supabaseUserId = await getAuthenticatedSupabaseUserId();
-
-    if (process.env.DATABASE_URL) {
-        try {
-            await deleteSavedCampaignFromDb(supabaseUserId, id);
-            return;
-        } catch (err) {
-            console.warn('[deleteSavedCampaignAction] Neon error, falling back to Supabase:', err);
-        }
-    }
-
-    const supabase = createSupabaseServiceClient();
-
-    const { error } = await supabase
-        .from('saved_campaigns')
-        .delete()
-        .eq('id', id)
-        .eq('user_id', supabaseUserId);
-
-    if (error) {
-        console.error('Error deleting saved campaign:', error);
-        throw new Error('Failed to delete saved campaign');
-    }
+    const userId = await getAuthenticatedUserId();
+    await deleteSavedCampaignFromDb(userId, id);
 }

@@ -109,6 +109,7 @@ export class CreemPaymentsProvider implements PaymentProvider {
     rawBody: string,
     _headers: Headers | Record<string, string | string[] | undefined>
   ): Promise<NormalizedWebhookEvent> {
+    void _headers;
     const payload = JSON.parse(rawBody);
     const eventTypeRaw = payload.event || payload.type;
     const data = payload.data || {};

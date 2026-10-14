@@ -31,7 +31,7 @@ export interface BYOKStatusResponse {
   byok_configured: boolean;
 }
 
-const AGENT_BASE_URL = process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || "http://localhost:8000";
+const AGENT_BASE_URL = process.env.RESEARCH_AGENT_URL || process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || "http://127.0.0.1:8000";
 const AGENT_API_KEY = process.env.RESEARCH_AGENT_API_KEY || "dev_tenant_key";
 
 /**
@@ -209,7 +209,7 @@ export async function streamGenerationFromAgent(
     if (callbacks.onDone) {
       callbacks.onDone(fullText);
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     if (callbacks.onError) {
       callbacks.onError(err instanceof Error ? err : new Error(String(err)));
     } else {

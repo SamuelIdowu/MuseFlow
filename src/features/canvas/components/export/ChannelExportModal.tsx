@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, Copy, Download, Share2, Twitter, Linkedin, FileText, Sparkles } from "lucide-react";
+import { Check, Copy, Download, Share2, Twitter, Linkedin, FileText } from "lucide-react";
 import { toast } from "react-hot-toast";
 
 interface ChannelExportModalProps {

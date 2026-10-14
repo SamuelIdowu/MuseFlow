@@ -1,4 +1,3 @@
-import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
 import { PlanTier } from '@/lib/payments/types';
 import { PLANS } from '@/lib/payments/config';
 import { PLAN_LIMITS, getUsage, UsageMetric } from '@/lib/usage';
@@ -9,123 +8,15 @@ import { canvasSessions } from '@/db/schema/canvas';
 import { profiles } from '@/db/schema/profiles';
 import { eq, count } from 'drizzle-orm';
 
-export type FeatureKey =
-  | 'scheduled_posts'
-  | 'canvas_sessions'
-  | 'ai_generations'
-  | 'brand_profiles'
-  | 'saved_campaigns';
+import {
+  FeatureKey,
+  FeatureMeta,
+  FEATURE_DEFINITIONS,
+  FeatureAccessResult,
+  PlanGateError,
+} from './featureDefinitions';
 
-export interface FeatureMeta {
-  id: FeatureKey;
-  name: string;
-  badge: string;
-  description: string;
-  minPlan: PlanTier;
-  metric?: UsageMetric;
-  benefits: string[];
-}
-
-export const FEATURE_DEFINITIONS: Record<FeatureKey, FeatureMeta> = {
-  scheduled_posts: {
-    id: 'scheduled_posts',
-    name: 'Automated Post Scheduling',
-    badge: 'Freelancer Pro',
-    description:
-      'Schedule and queue multi-channel posts across X/Twitter, LinkedIn, and newsletters with AI Best-Time optimization.',
-    minPlan: 'pro',
-    benefits: [
-      'Automated multi-channel calendar sync',
-      'AI Best-Time scheduling suggestions',
-      'Background reminder notifications',
-      'Unlimited scheduled posts queue',
-    ],
-  },
-  canvas_sessions: {
-    id: 'canvas_sessions',
-    name: 'Unlimited Canvas Workspaces',
-    badge: 'Freelancer Pro',
-    description:
-      'Free Starter includes up to 3 canvas workspaces. Upgrade to Freelancer Pro to create and organize unlimited canvases.',
-    minPlan: 'pro',
-    metric: 'canvas_sessions',
-    benefits: [
-      'Unlimited canvas workspaces',
-      'All narrative graph templates unlocked',
-      'Seamless 1-click export to editor',
-      'Multi-canvas graph-to-draft compilation',
-    ],
-  },
-  ai_generations: {
-    id: 'ai_generations',
-    name: '500 Monthly AI Generations',
-    badge: 'Freelancer Pro',
-    description:
-      'You have reached your 25 monthly AI generation limit on the Free plan. Upgrade to Freelancer Pro for 500 generations each month.',
-    minPlan: 'pro',
-    metric: 'ai_generations',
-    benefits: [
-      '500 AI generations every month',
-      'Research Agent deep ideation',
-      'Automated multi-channel campaign generator',
-      'Instant node & block expansion',
-    ],
-  },
-  brand_profiles: {
-    id: 'brand_profiles',
-    name: '10 Brand Profiles',
-    badge: 'Freelancer Pro',
-    description:
-      'Free Starter includes 2 brand profiles. Upgrade to Freelancer Pro to configure up to 10 distinct client voices.',
-    minPlan: 'pro',
-    metric: 'brand_profiles',
-    benefits: [
-      'Manage up to 10 brand voices & personas',
-      'Custom tone calibration & writing samples',
-      '1-click active profile switching',
-    ],
-  },
-  saved_campaigns: {
-    id: 'saved_campaigns',
-    name: 'Unlimited Saved Campaigns',
-    badge: 'Freelancer Pro',
-    description:
-      'Free Starter includes 5 saved campaigns. Upgrade to Freelancer Pro to create and save unlimited marketing campaigns.',
-    minPlan: 'pro',
-    metric: 'saved_campaigns',
-    benefits: [
-      'Unlimited campaign workflows',
-      'Cross-platform asset packaging',
-      'Direct calendar export',
-    ],
-  },
-};
-
-export interface FeatureAccessResult {
-  allowed: boolean;
-  feature: FeatureKey;
-  plan: PlanTier;
-  requiredPlan: PlanTier;
-  current?: number;
-  limit?: number | 'unlimited';
-  reason?: string;
-  featureMeta: FeatureMeta;
-}
-
-export class PlanGateError extends Error {
-  code = 'PLAN_LIMIT_REACHED';
-  feature: FeatureKey;
-  requiredPlan: PlanTier;
-  limit?: number | 'unlimited';
-
-  constructor(feature: FeatureKey, requiredPlan: PlanTier, limit?: number | 'unlimited', message?: string) {
-    super(message || `Feature ${feature} is locked. Requires ${requiredPlan} plan.`);
-    this.name = 'PlanGateError';
-    this.feature = feature;
-    this.requiredPlan = requiredPlan;
-    this.limit = limit;
-  }
-}
+export * from './featureDefinitions';
 
 /**
  * Resolves the effective plan tier for a user.
@@ -142,49 +33,30 @@ export async function getUserEffectivePlan(userId: string): Promise<PlanTier> {
     return 'business';
   }
 
-  if (process.env.DATABASE_URL) {
-    try {
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-        columns: {
-          planTier: true,
-          subscriptionStatus: true,
-          subscriptionPlan: true,
-        },
-      });
+  try {
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+      columns: {
+        planTier: true,
+        subscriptionStatus: true,
+        subscriptionPlan: true,
+      },
+    });
 
-      if (!user) return 'free';
+    if (!user) return 'free';
 
-      const tier = (user.planTier || user.subscriptionPlan || 'free') as PlanTier;
-      const status = user.subscriptionStatus || 'none';
+    const tier = (user.planTier || user.subscriptionPlan || 'free') as PlanTier;
+    const status = user.subscriptionStatus || 'none';
 
-      if (tier !== 'free' && (status === 'active' || status === 'trialing')) {
-        return tier;
-      }
-
-      return 'free';
-    } catch (neonErr) {
-      console.warn('[getUserEffectivePlan] Neon error, falling back to Supabase:', neonErr);
+    if (tier !== 'free' && (status === 'active' || status === 'trialing')) {
+      return tier;
     }
+
+    return 'free';
+  } catch (err) {
+    console.error('[getUserEffectivePlan] Neon error:', err);
+    return 'free';
   }
-
-  const supabase = createSupabaseServiceClient();
-  const { data: user } = await supabase
-    .from('users')
-    .select('plan_tier, subscription_status, subscription_plan')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (!user) return 'free';
-
-  const tier = (user.plan_tier || user.subscription_plan || 'free') as PlanTier;
-  const status = user.subscription_status || 'none';
-
-  if (tier !== 'free' && (status === 'active' || status === 'trialing')) {
-    return tier;
-  }
-
-  return 'free';
 }
 
 /**
@@ -229,29 +101,14 @@ export async function checkFeatureAccess(
     const limit = effectivePlan === 'free' ? 3 : Infinity;
     let currentCount = 0;
 
-    if (process.env.DATABASE_URL) {
-      try {
-        const [result] = await db
-          .select({ value: count() })
-          .from(canvasSessions)
-          .where(eq(canvasSessions.userId, userId));
-        currentCount = result?.value || 0;
-      } catch (neonErr) {
-        console.warn('[checkFeatureAccess canvas_sessions] Neon error, falling back to Supabase:', neonErr);
-        const supabase = createSupabaseServiceClient();
-        const { count: sbCount } = await supabase
-          .from('canvas_sessions')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId);
-        currentCount = sbCount || 0;
-      }
-    } else {
-      const supabase = createSupabaseServiceClient();
-      const { count: sbCount } = await supabase
-        .from('canvas_sessions')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-      currentCount = sbCount || 0;
+    try {
+      const [result] = await db
+        .select({ value: count() })
+        .from(canvasSessions)
+        .where(eq(canvasSessions.userId, userId));
+      currentCount = result?.value || 0;
+    } catch (err) {
+      console.error('[checkFeatureAccess canvas_sessions] Neon error:', err);
     }
 
     const isAllowed = currentCount < limit;
@@ -274,29 +131,14 @@ export async function checkFeatureAccess(
     const limit = effectivePlan === 'free' ? 2 : effectivePlan === 'pro' ? 10 : Infinity;
     let currentCount = 0;
 
-    if (process.env.DATABASE_URL) {
-      try {
-        const [result] = await db
-          .select({ value: count() })
-          .from(profiles)
-          .where(eq(profiles.userId, userId));
-        currentCount = result?.value || 0;
-      } catch (neonErr) {
-        console.warn('[checkFeatureAccess brand_profiles] Neon error, falling back to Supabase:', neonErr);
-        const supabase = createSupabaseServiceClient();
-        const { count: sbCount } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', userId);
-        currentCount = sbCount || 0;
-      }
-    } else {
-      const supabase = createSupabaseServiceClient();
-      const { count: sbCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', userId);
-      currentCount = sbCount || 0;
+    try {
+      const [result] = await db
+        .select({ value: count() })
+        .from(profiles)
+        .where(eq(profiles.userId, userId));
+      currentCount = result?.value || 0;
+    } catch (err) {
+      console.error('[checkFeatureAccess brand_profiles] Neon error:', err);
     }
 
     const isAllowed = currentCount < limit;

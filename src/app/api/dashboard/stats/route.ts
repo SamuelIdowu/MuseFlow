@@ -1,64 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
-
 import { getDashboardStatsFromDb } from '@/db/queries/dashboard';
 import { getDbUserId } from '@/db/queries/users';
-
-async function getDashboardStatsAPI(userId: string) {
-  let dbUserId = userId;
-  if (userId.startsWith('user_')) {
-    const mapped = await getDbUserId(userId);
-    if (mapped) dbUserId = mapped;
-  }
-
-  if (process.env.DATABASE_URL) {
-    try {
-      return await getDashboardStatsFromDb(dbUserId);
-    } catch (err) {
-      console.warn('[getDashboardStatsAPI] Neon error, falling back to Supabase:', err);
-    }
-  }
-
-  const supabase = createSupabaseServiceClient();
-
-  // Run all count queries concurrently instead of sequentially
-  const [
-    ideasRes,
-    contentRes,
-    scheduledRes,
-    profileRes,
-  ] = await Promise.all([
-    supabase
-      .from('idea_kernels')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId),
-    supabase
-      .from('canvas_sessions')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId),
-    supabase
-      .from('scheduled_posts')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId),
-    supabase
-      .from('profiles')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId),
-  ]);
-
-  if (ideasRes.error) console.error('Error fetching ideas count:', ideasRes.error);
-  if (contentRes.error) console.error('Error fetching content count:', contentRes.error);
-  if (scheduledRes.error) console.error('Error fetching scheduled posts count:', scheduledRes.error);
-  if (profileRes.error) console.error('Error fetching profile count:', profileRes.error);
-
-  return {
-    ideasCount: ideasRes.count || 0,
-    contentCount: contentRes.count || 0,
-    scheduledCount: scheduledRes.count || 0,
-    profileCount: profileRes.count || 0,
-  };
-}
 
 export async function GET(request: Request) {
   try {
@@ -75,8 +18,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Call the optimized stats function
-    const stats = await getDashboardStatsAPI(userId);
+    let dbUserId = userId;
+    if (userId.startsWith('user_')) {
+      const mapped = await getDbUserId(userId);
+      if (mapped) dbUserId = mapped;
+    }
+
+    const stats = await getDashboardStatsFromDb(dbUserId);
 
     return NextResponse.json(stats, {
       headers: {

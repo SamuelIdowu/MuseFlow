@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
 import { FEATURES } from '@/lib/featureFlags';
-
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
+import { db } from '@/db';
+import { users } from '@/db/schema/users';
+import { eq } from 'drizzle-orm';
 import crypto from 'crypto';
 
 export async function POST(req: Request) {
@@ -42,20 +38,19 @@ export async function POST(req: Request) {
         if (event === 'charge.completed' && data.status === 'successful') {
             // Handle successful charge (renewal or first time)
             const email = data.customer.email;
-            // Logic to extend subscription expiry
-            await supabaseAdmin
-                .from('users')
-                .update({
-                    subscription_status: 'active',
-                    current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // Logic should ideally be more robust based on plan interval
+            await db
+                .update(users)
+                .set({
+                    subscriptionStatus: 'active',
+                    currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
                 })
-                .eq('email', email);
+                .where(eq(users.email, email));
         } else if (event === 'subscription.cancelled') {
             const email = data.customer.email;
-            await supabaseAdmin
-                .from('users')
-                .update({ subscription_status: 'cancelled' })
-                .eq('email', email);
+            await db
+                .update(users)
+                .set({ subscriptionStatus: 'cancelled' })
+                .where(eq(users.email, email));
         }
 
         return NextResponse.json({ status: 'success' });

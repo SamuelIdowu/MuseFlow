@@ -1,53 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
-
 import { getRecentIdeasFromDb } from '@/db/queries/ideas';
 import { getDbUserId } from '@/db/queries/users';
-
-async function getRecentIdeasAPI(userId: string, limit = 3) {
-  let dbUserId = userId;
-  if (userId.startsWith('user_')) {
-    const mapped = await getDbUserId(userId);
-    if (mapped) dbUserId = mapped;
-  }
-
-  if (process.env.DATABASE_URL) {
-    try {
-      return await getRecentIdeasFromDb(dbUserId, limit);
-    } catch (neonErr) {
-      console.warn('[getRecentIdeasAPI] Neon error, falling back to Supabase:', neonErr);
-    }
-  }
-
-  const supabase = createSupabaseServiceClient();
-
-  // Get recent idea kernels with specific columns
-  const { data: ideas, error } = await supabase
-    .from('idea_kernels')
-    .select('id, kernels, created_at, input_data, input_type')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    console.error('Error fetching recent ideas:', error);
-    throw new Error('Could not fetch recent ideas');
-  }
-
-  // Transform the data to have a flat list of ideas with their metadata
-  const recentIdeas = (ideas || []).flatMap(idea =>
-    ((idea.kernels as string[]) || []).map((kernel: string, index: number) => ({
-      id: `${idea.id}-${index}`,
-      title: kernel,
-      createdAt: idea.created_at,
-      inputData: idea.input_data,
-      inputType: idea.input_type,
-    }))
-  ).slice(0, limit); // Limit again after flattening
-
-  return recentIdeas;
-}
 
 export async function GET(request: Request) {
   try {
@@ -64,11 +18,16 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    let dbUserId = userId;
+    if (userId.startsWith('user_')) {
+      const mapped = await getDbUserId(userId);
+      if (mapped) dbUserId = mapped;
+    }
+
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '3', 10);
 
-    // Call the recent ideas function
-    const recentIdeas = await getRecentIdeasAPI(userId, limit);
+    const recentIdeas = await getRecentIdeasFromDb(dbUserId, limit);
 
     return NextResponse.json(recentIdeas, {
       headers: {

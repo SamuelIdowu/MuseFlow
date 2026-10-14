@@ -30,7 +30,9 @@ export function FontPicker({
   const handleFontSelect = (font: FontFamilyOption) => {
     setInternalFont(font.name);
     onFontChange?.(font.name, font.value);
-    (editor.chain().focus() as any).setFontFamily(font.value).run();
+    (editor.chain().focus() as unknown as { setFontFamily: (f: string) => { run: () => boolean } })
+      .setFontFamily(font.value)
+      .run();
     toast.success(`Applied ${font.label} font`, { duration: 1500 });
   };
 

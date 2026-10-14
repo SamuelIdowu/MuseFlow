@@ -1,12 +1,23 @@
-import { createSupabaseServiceClient } from './supabaseServerClient';
-import { Database } from './database.types';
 import { FEATURES, getPlanTierOverride } from './featureFlags';
 import { PlanTier } from './payments/types';
 import { db } from '@/db';
 import { users } from '@/db/schema/users';
 import { eq } from 'drizzle-orm';
 
-type Subscription = Database['public']['Tables']['subscriptions']['Row'];
+export interface SubscriptionRecord {
+  id: string;
+  user_id: string;
+  status: string;
+  price_id?: string | null;
+  current_period_end?: string | null;
+  created_at: string;
+  cancel_at_period_end: boolean;
+  ended_at?: string | null;
+  cancel_at?: string | null;
+  canceled_at?: string | null;
+  trial_start?: string | null;
+  trial_end?: string | null;
+}
 
 export interface UserSubscriptionDetails {
   id: string;
@@ -21,14 +32,14 @@ export interface UserSubscriptionDetails {
   cancelAtPeriodEnd?: boolean;
 }
 
-export async function getUserSubscription(userId: string) {
+export async function getUserSubscription(userId: string): Promise<SubscriptionRecord | null> {
   // 1. Check environment variable plan tier override
   const override = getPlanTierOverride();
   if (override) {
     if (override === 'free') {
       return null;
     }
-    const envSubscription: Subscription = {
+    return {
       id: `env_sub_${userId}`,
       user_id: userId,
       status: 'active',
@@ -42,12 +53,11 @@ export async function getUserSubscription(userId: string) {
       trial_start: null,
       trial_end: null,
     };
-    return envSubscription;
   }
 
   // FEATURE FLAG: When payments are disabled, return mock "business" subscription
   if (!FEATURES.PAYMENTS_ENABLED) {
-    const mockSubscription: Subscription = {
+    return {
       id: `mock_sub_${userId}`,
       user_id: userId,
       status: 'active',
@@ -61,68 +71,35 @@ export async function getUserSubscription(userId: string) {
       trial_start: null,
       trial_end: null,
     };
-    return mockSubscription;
   }
 
-  if (process.env.DATABASE_URL) {
-    try {
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-      });
+  try {
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
 
-      if (!user || !user.subscriptionStatus || user.subscriptionStatus !== 'active') {
-        return null;
-      }
-
-      const subscription: Subscription = {
-        id: user.subscriptionId || user.flutterwaveTransactionRef || `sub_${user.id}`,
-        user_id: user.id,
-        status: user.subscriptionStatus,
-        price_id: user.planTier || user.subscriptionPlan || user.flutterwavePlanId,
-        current_period_end: user.currentPeriodEnd ? user.currentPeriodEnd.toISOString() : null,
-        created_at: user.createdAt.toISOString(),
-        cancel_at_period_end: false,
-        ended_at: null,
-        cancel_at: null,
-        canceled_at: null,
-        trial_start: null,
-        trial_end: null,
-      };
-
-      return subscription;
-    } catch (neonErr) {
-      console.warn('[getUserSubscription] Neon error, falling back to Supabase:', neonErr);
+    if (!user || !user.subscriptionStatus || user.subscriptionStatus !== 'active') {
+      return null;
     }
-  }
 
-  const supabase = createSupabaseServiceClient();
-
-  const { data: user } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if (!user || !user.subscription_status || user.subscription_status !== 'active') {
+    return {
+      id: user.subscriptionId || user.flutterwaveTransactionRef || `sub_${user.id}`,
+      user_id: user.id,
+      status: user.subscriptionStatus,
+      price_id: user.planTier || user.subscriptionPlan || user.flutterwavePlanId,
+      current_period_end: user.currentPeriodEnd ? user.currentPeriodEnd.toISOString() : null,
+      created_at: user.createdAt.toISOString(),
+      cancel_at_period_end: false,
+      ended_at: null,
+      cancel_at: null,
+      canceled_at: null,
+      trial_start: null,
+      trial_end: null,
+    };
+  } catch (err) {
+    console.error('[getUserSubscription] Neon error:', err);
     return null;
   }
-
-  const subscription: Subscription = {
-    id: user.subscription_id || user.flutterwave_transaction_ref || `sub_${user.id}`,
-    user_id: user.id,
-    status: user.subscription_status,
-    price_id: user.plan_tier || user.subscription_plan || user.flutterwave_plan_id,
-    current_period_end: user.current_period_end,
-    created_at: user.created_at,
-    cancel_at_period_end: false,
-    ended_at: null,
-    cancel_at: null,
-    canceled_at: null,
-    trial_start: null,
-    trial_end: null,
-  };
-
-  return subscription;
 }
 
 export async function getUserSubscriptionDetails(userId: string): Promise<UserSubscriptionDetails | null> {
@@ -142,53 +119,29 @@ export async function getUserSubscriptionDetails(userId: string): Promise<UserSu
     };
   }
 
-  if (process.env.DATABASE_URL) {
-    try {
-      const user = await db.query.users.findFirst({
-        where: eq(users.id, userId),
-      });
+  try {
+    const user = await db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
 
-      if (!user) return null;
+    if (!user) return null;
 
-      return {
-        id: user.subscriptionId || user.flutterwaveTransactionRef || `sub_${user.id}`,
-        userId: user.id,
-        planTier: (user.planTier || user.subscriptionPlan || 'free') as PlanTier,
-        status: user.subscriptionStatus || 'none',
-        provider: user.paymentProvider,
-        customerId: user.customerId || user.stripeCustomerId || user.flutterwaveCustomerId,
-        subscriptionId: user.subscriptionId || user.flutterwaveTransactionRef,
-        currentPeriodEnd: user.currentPeriodEnd ? user.currentPeriodEnd.toISOString() : null,
-        createdAt: user.createdAt.toISOString(),
-        cancelAtPeriodEnd: false,
-      };
-    } catch (neonErr) {
-      console.warn('[getUserSubscriptionDetails] Neon error, falling back to Supabase:', neonErr);
-    }
+    return {
+      id: user.subscriptionId || user.flutterwaveTransactionRef || `sub_${user.id}`,
+      userId: user.id,
+      planTier: (user.planTier || user.subscriptionPlan || 'free') as PlanTier,
+      status: user.subscriptionStatus || 'none',
+      provider: user.paymentProvider,
+      customerId: user.customerId || user.stripeCustomerId || user.flutterwaveCustomerId,
+      subscriptionId: user.subscriptionId || user.flutterwaveTransactionRef,
+      currentPeriodEnd: user.currentPeriodEnd ? user.currentPeriodEnd.toISOString() : null,
+      createdAt: user.createdAt.toISOString(),
+      cancelAtPeriodEnd: false,
+    };
+  } catch (err) {
+    console.error('[getUserSubscriptionDetails] Neon error:', err);
+    return null;
   }
-
-  const supabase = createSupabaseServiceClient();
-
-  const { data: user } = await supabase
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .single();
-
-  if (!user) return null;
-
-  return {
-    id: user.subscription_id || user.flutterwave_transaction_ref || `sub_${user.id}`,
-    userId: user.id,
-    planTier: (user.plan_tier || user.subscription_plan || 'free') as PlanTier,
-    status: user.subscription_status || 'none',
-    provider: user.payment_provider,
-    customerId: user.customer_id || user.stripe_customer_id || user.flutterwave_customer_id,
-    subscriptionId: user.subscription_id || user.flutterwave_transaction_ref,
-    currentPeriodEnd: user.current_period_end,
-    createdAt: user.created_at,
-    cancelAtPeriodEnd: false,
-  };
 }
 
 export async function getSubscriptionStatus(userId: string) {

@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { PlanTier } from '@/lib/payments/types';
-import { FeatureKey, FeatureAccessResult } from '@/lib/plans/featureGates';
+import { FeatureKey, FeatureAccessResult } from '@/lib/plans/featureDefinitions';
 import { getPlanGateSummaryAction, PlanGateSummary } from '@/lib/plans/planActions';
 import { FeatureGateModal } from '@/components/paywall/FeatureGateModal';
 import { getPlanTierOverride } from '@/lib/featureFlags';

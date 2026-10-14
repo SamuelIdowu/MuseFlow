@@ -47,7 +47,9 @@ export function FontSizePicker({
             key={size.value}
             onClick={() => {
               setCurrentSize(size.name);
-              (editor.chain().focus() as any).setFontSize(size.value).run();
+              (editor.chain().focus() as unknown as { setFontSize: (s: string) => { run: () => boolean } })
+                .setFontSize(size.value)
+                .run();
             }}
             className="flex items-center justify-between px-2 py-1.5 text-xs rounded-md cursor-pointer hover:bg-muted"
           >

@@ -1,9 +1,18 @@
 'use server';
 
-import { createClerkSupabaseClient } from './supabaseServerClient';
-import { getAuthenticatedSupabaseUserId } from './authUtils';
+import { getAuthenticatedUserId } from './authUtils';
 import { getPlanTierOverride } from './featureFlags';
 import { Profile } from '@/types/profile';
+import { db } from '@/db';
+import { ideaKernels } from '@/db/schema/ideas';
+import { canvasSessions } from '@/db/schema/canvas';
+import { savedCampaigns } from '@/db/schema/billing';
+import { scheduledPosts } from '@/db/schema/schedule';
+import { users } from '@/db/schema/users';
+import { usageTracking } from '@/db/schema/billing';
+import { eq, desc, asc, and } from 'drizzle-orm';
+import { getDashboardStatsFromDb } from '@/db/queries/dashboard';
+import { getActiveProfileFromDb, createProfileInDb } from '@/db/queries/profiles';
 
 export interface RecentIdeaItem {
   id: string;
@@ -47,9 +56,10 @@ export interface UsageData {
 export interface DashboardOverviewData {
   stats: {
     ideasCount: number;
+    contentCount?: number;
     canvasCount: number;
-    campaignsCount: number;
     scheduledCount: number;
+    campaignsCount: number;
     profileCount: number;
   };
   activeProfile: Profile | null;
@@ -60,101 +70,16 @@ export interface DashboardOverviewData {
   usage: UsageData;
 }
 
-import { getDashboardStatsFromDb } from '@/db/queries/dashboard';
-import { getActiveProfileFromDb } from '@/db/queries/profiles';
-
 export async function getDashboardStats() {
-  const supabaseUserId = await getAuthenticatedSupabaseUserId();
-
-  if (process.env.DATABASE_URL) {
-    try {
-      return await getDashboardStatsFromDb(supabaseUserId);
-    } catch (err) {
-      console.warn('[getDashboardStats] Neon error, falling back to Supabase:', err);
-    }
-  }
-
-  const supabase = await createClerkSupabaseClient();
-
-  let ideasCount = 0;
-  let contentCount = 0;
-  let scheduledCount = 0;
-  let profileCount = 0;
-  let campaignsCount = 0;
-
-  try {
-    const [
-      ideasRes,
-      canvasRes,
-      scheduledRes,
-      profileRes,
-      campaignsRes
-    ] = await Promise.all([
-      supabase.from('idea_kernels').select('*', { count: 'exact', head: true }).eq('user_id', supabaseUserId),
-      supabase.from('canvas_sessions').select('*', { count: 'exact', head: true }).eq('user_id', supabaseUserId),
-      supabase.from('scheduled_posts').select('*', { count: 'exact', head: true }).eq('user_id', supabaseUserId),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('user_id', supabaseUserId),
-      supabase.from('saved_campaigns').select('*', { count: 'exact', head: true }).eq('user_id', supabaseUserId)
-    ]);
-
-    ideasCount = ideasRes.count || 0;
-    contentCount = canvasRes.count || 0;
-    scheduledCount = scheduledRes.count || 0;
-    profileCount = profileRes.count || 0;
-    campaignsCount = campaignsRes.count || 0;
-  } catch (error) {
-    console.error('[getDashboardStats] Database error:', error);
-  }
-
-  return {
-    ideasCount,
-    contentCount,
-    canvasCount: contentCount,
-    scheduledCount,
-    profileCount,
-    campaignsCount
-  };
+  const userId = await getAuthenticatedUserId();
+  return await getDashboardStatsFromDb(userId);
 }
 
 export async function getActiveProfile(): Promise<Profile | null> {
   try {
-    const fetchProfilePromise = (async () => {
-      const supabaseUserId = await getAuthenticatedSupabaseUserId();
-
-      if (process.env.DATABASE_URL) {
-        try {
-          const profile = await getActiveProfileFromDb(supabaseUserId);
-          if (profile) return profile as Profile;
-        } catch (dbErr) {
-          console.warn('[getActiveProfile] Neon error, falling back to Supabase:', dbErr);
-        }
-      }
-
-      const supabase = await createClerkSupabaseClient();
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', supabaseUserId)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      if (error) {
-        console.error('Error fetching active profile:', error);
-        return null;
-      }
-
-      return data as Profile;
-    })();
-
-    let timer: NodeJS.Timeout | undefined;
-    const timeoutPromise = new Promise<null>((resolve) => {
-      timer = setTimeout(() => resolve(null), 5000);
-    });
-
-    return await Promise.race([fetchProfilePromise, timeoutPromise]).finally(() => {
-      if (timer) clearTimeout(timer);
-    });
+    const userId = await getAuthenticatedUserId();
+    const profile = await getActiveProfileFromDb(userId);
+    return profile as Profile | null;
   } catch (err) {
     console.error('Error in getActiveProfile:', err);
     return null;
@@ -162,159 +87,128 @@ export async function getActiveProfile(): Promise<Profile | null> {
 }
 
 export async function getDashboardOverviewData(): Promise<DashboardOverviewData> {
-  const supabaseUserId = await getAuthenticatedSupabaseUserId();
-  const supabase = await createClerkSupabaseClient();
+  const userId = await getAuthenticatedUserId();
 
-  // Parallel data fetching for optimal performance
+  // Parallel data fetching via Neon Drizzle queries
   const [
-    statsData,
-    activeProfileData,
-    ideasRes,
-    canvasesRes,
-    campaignsRes,
-    postsRes,
-    userRes,
-    usageTrackingRes
-  ] = await Promise.allSettled([
-    getDashboardStats(),
-    getActiveProfile(),
-    supabase
-      .from('idea_kernels')
-      .select('id, input_data, input_type, kernels, created_at')
-      .eq('user_id', supabaseUserId)
-      .order('created_at', { ascending: false })
-      .limit(6),
-    supabase
-      .from('canvas_sessions')
-      .select('id, name, updated_at, created_at')
-      .eq('user_id', supabaseUserId)
-      .order('updated_at', { ascending: false })
-      .limit(4),
-    supabase
-      .from('saved_campaigns')
-      .select('id, topic, platform, tone, posts, created_at')
-      .eq('user_id', supabaseUserId)
-      .order('created_at', { ascending: false })
-      .limit(4),
-    supabase
-      .from('scheduled_posts')
-      .select('id, channel, scheduled_time, status, content_blocks, created_at')
-      .eq('user_id', supabaseUserId)
-      .order('scheduled_time', { ascending: true })
-      .limit(4),
-    supabase
-      .from('users')
-      .select('subscription_plan')
-      .eq('id', supabaseUserId)
-      .maybeSingle(),
-    supabase
-      .from('usage_tracking')
-      .select('count')
-      .eq('user_id', supabaseUserId)
-      .eq('metric', 'ai_generations')
-      .maybeSingle()
+    stats,
+    activeProfile,
+    ideasRows,
+    canvasesRows,
+    campaignsRows,
+    postsRows,
+    userRow,
+    usageRow
+  ] = await Promise.all([
+    getDashboardStatsFromDb(userId),
+    getActiveProfileFromDb(userId),
+    db.query.ideaKernels.findMany({
+      where: eq(ideaKernels.userId, userId),
+      orderBy: [desc(ideaKernels.createdAt)],
+      limit: 6,
+    }),
+    db.query.canvasSessions.findMany({
+      where: eq(canvasSessions.userId, userId),
+      orderBy: [desc(canvasSessions.updatedAt)],
+      limit: 4,
+    }),
+    db.query.savedCampaigns.findMany({
+      where: eq(savedCampaigns.userId, userId),
+      orderBy: [desc(savedCampaigns.createdAt)],
+      limit: 4,
+    }),
+    db.query.scheduledPosts.findMany({
+      where: eq(scheduledPosts.userId, userId),
+      orderBy: [asc(scheduledPosts.scheduledTime)],
+      limit: 4,
+    }),
+    db.query.users.findFirst({
+      where: eq(users.id, userId),
+    }),
+    db.query.usageTracking.findFirst({
+      where: and(eq(usageTracking.userId, userId), eq(usageTracking.metric, 'ai_generations')),
+      orderBy: [desc(usageTracking.periodStart)],
+    }),
   ]);
 
-  // Extract Stats
-  const stats = statsData.status === 'fulfilled' ? statsData.value : {
-    ideasCount: 0,
-    contentCount: 0,
-    canvasCount: 0,
-    scheduledCount: 0,
-    profileCount: 0,
-    campaignsCount: 0
-  };
-
-  // Extract Active Profile
-  const activeProfile = activeProfileData.status === 'fulfilled' ? activeProfileData.value : null;
-
   // Extract Recent Ideas
-  let recentIdeas: RecentIdeaItem[] = [];
-  if (ideasRes.status === 'fulfilled' && ideasRes.value.data) {
-    recentIdeas = ideasRes.value.data.map((item: any) => {
-      let rawKernels: string[] = [];
-      if (Array.isArray(item.kernels)) {
-        rawKernels = item.kernels;
-      } else if (typeof item.kernels === 'string') {
-        try {
-          rawKernels = JSON.parse(item.kernels);
-        } catch {
-          rawKernels = [item.kernels];
-        }
+  const recentIdeas: RecentIdeaItem[] = ideasRows.map((item) => {
+    let rawKernels: string[] = [];
+    if (Array.isArray(item.kernels)) {
+      rawKernels = item.kernels as string[];
+    } else if (typeof item.kernels === 'string') {
+      try {
+        rawKernels = JSON.parse(item.kernels);
+      } catch {
+        rawKernels = [item.kernels];
       }
-      return {
-        id: item.id,
-        topic: item.input_data || 'Untitled Idea',
-        kernels: rawKernels,
-        inputType: item.input_type || 'text',
-        createdAt: item.created_at
-      };
-    });
-  }
+    }
+    return {
+      id: item.id,
+      topic: item.inputData || 'Untitled Idea',
+      kernels: rawKernels,
+      inputType: item.inputType || 'text',
+      createdAt: item.createdAt.toISOString(),
+    };
+  });
 
   // Extract Recent Canvases
-  let recentCanvases: RecentCanvasItem[] = [];
-  if (canvasesRes.status === 'fulfilled' && canvasesRes.value.data) {
-    recentCanvases = canvasesRes.value.data.map((canvas: any) => ({
-      id: canvas.id,
-      name: canvas.name || 'Untitled Canvas',
-      updatedAt: canvas.updated_at || canvas.created_at
-    }));
-  }
+  const recentCanvases: RecentCanvasItem[] = canvasesRows.map((canvas) => ({
+    id: canvas.id,
+    name: canvas.name || 'Untitled Canvas',
+    updatedAt: (canvas.updatedAt || canvas.createdAt).toISOString(),
+  }));
 
   // Extract Recent Campaigns
-  let recentCampaigns: RecentCampaignItem[] = [];
-  if (campaignsRes.status === 'fulfilled' && campaignsRes.value.data) {
-    recentCampaigns = campaignsRes.value.data.map((c: any) => {
-      let postCount = 0;
-      if (Array.isArray(c.posts)) {
-        postCount = c.posts.length;
-      }
-      return {
-        id: c.id,
-        topic: c.topic || 'Untitled Campaign',
-        platform: c.platform || 'Multi-channel',
-        tone: c.tone || 'General',
-        postCount,
-        createdAt: c.created_at
-      };
-    });
-  }
+  const recentCampaigns: RecentCampaignItem[] = campaignsRows.map((c) => {
+    let postCount = 0;
+    if (Array.isArray(c.posts)) {
+      postCount = c.posts.length;
+    }
+    return {
+      id: c.id,
+      topic: c.topic || 'Untitled Campaign',
+      platform: c.platform || 'Multi-channel',
+      tone: c.tone || 'General',
+      postCount,
+      createdAt: c.createdAt.toISOString(),
+    };
+  });
 
   // Extract Upcoming Scheduled Posts
-  let upcomingPosts: UpcomingPostItem[] = [];
-  if (postsRes.status === 'fulfilled' && postsRes.value.data) {
-    upcomingPosts = postsRes.value.data.map((post: any) => {
-      let preview = '';
-      if (Array.isArray(post.content_blocks) && post.content_blocks.length > 0) {
-        preview = typeof post.content_blocks[0] === 'string' 
-          ? post.content_blocks[0] 
-          : post.content_blocks[0]?.content || '';
-      } else if (typeof post.content_blocks === 'string') {
-        preview = post.content_blocks;
-      }
-      return {
-        id: post.id,
-        channel: post.channel || 'generic',
-        scheduledTime: post.scheduled_time || post.created_at,
-        status: post.status || 'scheduled',
-        previewContent: preview.slice(0, 120)
-      };
-    });
-  }
+  const upcomingPosts: UpcomingPostItem[] = postsRows.map((post) => {
+    let preview = '';
+    if (Array.isArray(post.contentBlocks) && post.contentBlocks.length > 0) {
+      const firstBlock = post.contentBlocks[0] as any;
+      preview = typeof firstBlock === 'string' ? firstBlock : firstBlock?.content || '';
+    } else if (typeof post.contentBlocks === 'string') {
+      preview = post.contentBlocks;
+    }
+    return {
+      id: post.id,
+      channel: post.channel || 'generic',
+      scheduledTime: post.scheduledTime.toISOString(),
+      status: post.status || 'scheduled',
+      previewContent: preview.slice(0, 120),
+    };
+  });
 
   // Extract Usage & Plan
   let plan: 'free' | 'pro' | 'business' = 'free';
   const override = getPlanTierOverride();
   if (override) {
     plan = override === 'studio' ? 'business' : override;
-  } else if (userRes.status === 'fulfilled' && userRes.value.data?.subscription_plan) {
-    const rawPlan = userRes.value.data.subscription_plan.toLowerCase();
+  } else if (userRow?.subscriptionPlan) {
+    const rawPlan = userRow.subscriptionPlan.toLowerCase();
+    if (rawPlan.includes('business') || rawPlan.includes('studio')) plan = 'business';
+    else if (rawPlan.includes('pro')) plan = 'pro';
+  } else if (userRow?.planTier) {
+    const rawPlan = userRow.planTier.toLowerCase();
     if (rawPlan.includes('business') || rawPlan.includes('studio')) plan = 'business';
     else if (rawPlan.includes('pro')) plan = 'pro';
   }
 
-  const currentUsage = usageTrackingRes.status === 'fulfilled' ? usageTrackingRes.value.data?.count || 0 : 0;
+  const currentUsage = usageRow?.count || 0;
   const limitMap = { free: 25, pro: 500, business: 2500 };
   const limit = limitMap[plan] || 25;
   const percentage = Math.min(100, Math.round((currentUsage / limit) * 100));
@@ -325,9 +219,9 @@ export async function getDashboardOverviewData(): Promise<DashboardOverviewData>
       canvasCount: stats.canvasCount,
       campaignsCount: stats.campaignsCount,
       scheduledCount: stats.scheduledCount,
-      profileCount: stats.profileCount
+      profileCount: stats.profileCount,
     },
-    activeProfile,
+    activeProfile: activeProfile as Profile | null,
     recentIdeas,
     recentCanvases,
     recentCampaigns,
@@ -336,8 +230,8 @@ export async function getDashboardOverviewData(): Promise<DashboardOverviewData>
       current: currentUsage,
       limit,
       plan,
-      percentage
-    }
+      percentage,
+    },
   };
 }
 
@@ -352,39 +246,17 @@ export async function createQuickProfileAction(params: {
   };
   is_active?: boolean;
 }) {
-  const supabaseUserId = await getAuthenticatedSupabaseUserId();
-  const supabase = createClerkSupabaseClient();
-  const client = await supabase;
+  const userId = await getAuthenticatedUserId();
 
-  // If this profile should be active, deactivate others
-  if (params.is_active !== false) {
-    await client
-      .from('profiles')
-      .update({ is_active: false })
-      .eq('user_id', supabaseUserId);
-  }
-
-  const { data, error } = await client
-    .from('profiles')
-    .insert([{
-      user_id: supabaseUserId,
-      profile_name: params.profile_name.trim(),
-      niche: params.niche.trim(),
-      tone_config: params.tone_config || {
-        professionalism: 6,
-        creativity: 7,
-        casualness: 6,
-        directness: 7
-      },
-      is_active: params.is_active !== false
-    }])
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Failed to create quick profile:', error);
-    throw new Error(error.message || 'Failed to create profile');
-  }
-
-  return data;
-}
+  return await createProfileInDb(userId, {
+    profile_name: params.profile_name.trim(),
+    niche: params.niche.trim(),
+    tone_config: params.tone_config || {
+      professionalism: 6,
+      creativity: 7,
+      casualness: 6,
+      directness: 7,
+    },
+    is_active: params.is_active !== false,
+  });
+}

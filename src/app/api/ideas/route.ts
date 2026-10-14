@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateChatResponse } from '@/lib/geminiClient';
-import { auth, currentUser } from '@clerk/nextjs/server';
-import { createSupabaseServiceClient, ensureSupabaseUser } from '@/lib/supabaseServerClient';
+import { auth } from '@clerk/nextjs/server';
 
 
 export const maxDuration = 60;

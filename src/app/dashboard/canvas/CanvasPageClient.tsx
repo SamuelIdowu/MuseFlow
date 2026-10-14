@@ -85,7 +85,11 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
   const [isChannelExportOpen, setIsChannelExportOpen] = useState(false);
   const selectedContentTypeId = CONTENT_TYPES[0]?.id || "linkedin_post";
 
-  // Canvas Sessions hook
+  // Navigation and initialization refs to prevent render/compile loops
+  const lastLoadedSessionIdRef = useRef<string | null>(null);
+  const processedImportRef = useRef<string | null>(null);
+  const processedIdeaIdRef = useRef<string | null>(null);
+  const isInitializingRef = useRef<boolean>(false);
   const {
     canvasSessions,
     activeCanvasId,
@@ -110,6 +114,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
       if (!newSession?.id) throw new Error("Could not create canvas session");
 
       toast.success(`Created "${template.title}" canvas!`);
+      lastLoadedSessionIdRef.current = newSession.id;
       setCurrentSessionId(newSession.id);
       setActiveCanvasId(newSession.id);
       router.push(`/dashboard/canvas?session=${newSession.id}`);
@@ -129,6 +134,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
       const newSession = await createCanvasSessionAction("New Canvas");
       if (newSession?.id) {
         toast.success("Created new canvas");
+        lastLoadedSessionIdRef.current = newSession.id;
         setCurrentSessionId(newSession.id);
         setActiveCanvasId(newSession.id);
         router.push(`/dashboard/canvas?session=${newSession.id}`);
@@ -144,6 +150,8 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
   };
 
   const handleSelectSession = async (id: string) => {
+    if (id === currentSessionId && id === lastLoadedSessionIdRef.current) return;
+    lastLoadedSessionIdRef.current = id;
     setCurrentSessionId(id);
     setActiveCanvasId(id);
     router.push(`/dashboard/canvas?session=${id}`);
@@ -155,6 +163,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
       await deleteCanvasSessionAction(id);
       toast.success("Canvas deleted");
       if (activeCanvasId === id || currentSessionId === id) {
+        lastLoadedSessionIdRef.current = null;
         setCurrentSessionId(null);
         setActiveCanvasId(undefined);
         router.push("/dashboard/canvas");
@@ -167,6 +176,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
   };
 
   const handleBackToHub = () => {
+    lastLoadedSessionIdRef.current = null;
     setCurrentSessionId(null);
     setActiveCanvasId(undefined);
     router.push("/dashboard/canvas");
@@ -187,6 +197,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     onConnect,
     onNodesDelete,
     handleAddBlock,
+    handleDeleteBlock,
     handleUpdateBlock,
     handleExpandWithAI,
     handleRegenerateBlock,
@@ -234,7 +245,6 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
     Node<BlockData>,
     Edge
   > | null>(null);
-  const processedImportRef = useRef<string | null>(null);
 
   useEffect(() => {
     getCanvasModelProviderAction()
@@ -290,6 +300,18 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         );
       }
 
+      // Check if this is a branching brainstorm (Option 1, 2, 3...) or sequential pipeline
+      const childrenCount = decomposed.length - 1;
+      const isBranching =
+        decomposed.length > 1 &&
+        decomposed[0].parentIndex === undefined &&
+        decomposed.slice(1).every((b) => b.parentIndex === 0);
+
+      const isSequential =
+        !isBranching &&
+        decomposed.length > 1 &&
+        decomposed.slice(1).every((b, i) => b.parentIndex === i);
+
       const startX = 80;
       const startY = 120;
       const colWidth = 440;
@@ -305,9 +327,39 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
 
       decomposed.forEach((block, idx) => {
         const tempId = `imported_${Date.now()}_${idx}`;
-        const x = startX + (idx % 3) * colWidth;
-        const y = startY + Math.floor(idx / 3) * rowHeight;
-        const position = { x, y };
+        let position = { x: startX, y: startY };
+
+        if (isBranching) {
+          if (idx === 0) {
+            // Root prompt/goal block vertically centered relative to child branches
+            const totalBranchHeight = Math.min(childrenCount, 4) * 340;
+            const rootY = Math.max(80, totalBranchHeight / 2 - 120);
+            position = { x: 80, y: rootY };
+          } else {
+            const childIdx = idx - 1;
+            if (childrenCount <= 4) {
+              position = { x: 580, y: 60 + childIdx * 340 };
+            } else {
+              const col = childIdx % 2;
+              const row = Math.floor(childIdx / 2);
+              position = { x: 580 + col * 460, y: 60 + row * 340 };
+            }
+          }
+        } else if (isSequential) {
+          if (decomposed.length <= 4) {
+            position = { x: startX + idx * 460, y: 120 };
+          } else {
+            position = {
+              x: startX + (idx % 3) * colWidth,
+              y: startY + Math.floor(idx / 3) * rowHeight,
+            };
+          }
+        } else {
+          position = {
+            x: startX + (idx % 3) * colWidth,
+            y: startY + Math.floor(idx / 3) * rowHeight,
+          };
+        }
 
         const node: Node<BlockData> = {
           id: tempId,
@@ -318,10 +370,12 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
             id: tempId,
             type: block.type,
             content: block.content,
+            title: block.title,
             order: idx,
             onUpdate: handleUpdateBlock,
             onExpand: handleExpandWithAI,
             onRegenerate: handleRegenerateBlock,
+            onDelete: handleDeleteBlock,
             isEditing: false,
             isExpanding: false,
             isRegenerating: false,
@@ -332,11 +386,38 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         tempBlockMap.push({ tempId, block, index: idx, position });
       });
 
+      // Construct connecting edges immediately based on parentIndex
+      const newEdges: Edge[] = [];
+      decomposed.forEach((block, idx) => {
+        if (block.parentIndex !== undefined && tempBlockMap[block.parentIndex]) {
+          const parentTempId = tempBlockMap[block.parentIndex].tempId;
+          const childTempId = tempBlockMap[idx].tempId;
+          newEdges.push({
+            id: `edge_${parentTempId}_${childTempId}`,
+            source: parentTempId,
+            target: childTempId,
+            type: "smoothstep",
+            animated: true,
+            label: block.edgeLabel,
+            style: { stroke: "#6366f1", strokeWidth: 2 },
+          });
+        }
+      });
+
       setNodes(newNodes);
+      setEdges(newEdges);
+
+      // Fit view smoothly so all imported blocks and edges are neatly visible
+      setTimeout(() => {
+        reactFlowInstanceRef.current?.fitView({
+          padding: 0.2,
+          duration: 400,
+        });
+      }, 150);
 
       // Async DB persist
       try {
-        const savedRealIds: string[] = [];
+        const idMapping = new Map<string, string>(); // tempId -> realId
         for (const item of tempBlockMap) {
           try {
             const added = await addCanvasBlockAction(
@@ -345,11 +426,12 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
                 content: item.block.content,
                 order: item.index,
                 position: item.position,
+                title: item.block.title,
               },
               resolvedCanvasId
             );
             if (added?.id) {
-              savedRealIds.push(added.id);
+              idMapping.set(item.tempId, added.id);
               setNodes((nds) =>
                 nds.map((n) =>
                   n.id === item.tempId
@@ -367,22 +449,27 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
           }
         }
 
-        for (let i = 1; i < savedRealIds.length; i++) {
-          const srcId = savedRealIds[i - 1];
-          const tgtId = savedRealIds[i];
-          if (srcId && tgtId) {
-            const prevTempId = tempBlockMap[i - 1]?.tempId;
-            const currTempId = tempBlockMap[i]?.tempId;
+        // Persist edges to DB
+        for (const edge of newEdges) {
+          const realSource = idMapping.get(edge.source);
+          const realTarget = idMapping.get(edge.target);
+          if (realSource && realTarget) {
             try {
               const savedEdge = await addEdgeAction({
-                source: srcId,
-                target: tgtId,
+                source: realSource,
+                target: realTarget,
+                label: (edge.label as string) || undefined,
               });
               if (savedEdge?.id) {
                 setEdges((eds) =>
                   eds.map((e) =>
-                    e.source === prevTempId && e.target === currTempId
-                      ? { ...e, id: savedEdge.id, source: srcId, target: tgtId }
+                    e.id === edge.id
+                      ? {
+                          ...e,
+                          id: savedEdge.id,
+                          source: realSource,
+                          target: realTarget,
+                        }
                       : e
                   )
                 );
@@ -407,6 +494,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
       handleUpdateBlock,
       handleExpandWithAI,
       handleRegenerateBlock,
+      handleDeleteBlock,
       setEditingBlockId,
     ]
   );
@@ -427,13 +515,11 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         const newSession = await createCanvasSessionAction(topicTitle);
         if (newSession?.id) {
           targetSessionId = newSession.id;
+          lastLoadedSessionIdRef.current = newSession.id;
+          setCurrentSessionId(newSession.id);
           setActiveCanvasId(newSession.id);
           loadCanvasSessions();
-          window.history.replaceState(
-            null,
-            "",
-            `/dashboard/canvas?session=${newSession.id}`
-          );
+          router.replace(`/dashboard/canvas?session=${newSession.id}`);
         }
       }
       const success = await applyImportPayload(parsed, [], targetSessionId);
@@ -502,7 +588,7 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         name: canvasSessionName,
       } = await getCanvasDataAction(targetCanvasId, isForcedNew, initialTitle);
 
-      if ((pendingImport || Boolean(importParam)) && fetchedBlocks.length > 0) {
+      if ((pendingImport || Boolean(importParam)) && fetchedBlocks.length > 0 && !overrideSessionId) {
         const importTitle =
           pendingImport?.topic || topicParam || "Imported Canvas";
         try {
@@ -513,17 +599,13 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
             fetchedBlocks = [];
             fetchedEdges = [];
             fetchedChatHistory = [];
-            window.history.replaceState(
-              null,
-              "",
-              `/dashboard/canvas?session=${newSession.id}`
-            );
           }
         } catch (createErr) {
           console.error("Failed to create isolated session for import:", createErr);
         }
       }
 
+      lastLoadedSessionIdRef.current = actualCanvasId;
       setCurrentSessionId(actualCanvasId);
       setActiveCanvasId(actualCanvasId);
       const resolvedTitle =
@@ -568,10 +650,12 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
             id: block.id,
             type: block.type || "paragraph",
             content: block.content,
+            title: block.title,
             order: block.order,
             onUpdate: handleUpdateBlock,
             onExpand: handleExpandWithAI,
             onRegenerate: handleRegenerateBlock,
+            onDelete: handleDeleteBlock,
             isEditing: false,
             isExpanding: false,
             isRegenerating: false,
@@ -581,7 +665,14 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
       );
 
       setNodes(initialNodes);
-      setEdges(fetchedEdges || []);
+      setEdges(
+        (fetchedEdges || []).map((e: any) => ({
+          ...e,
+          type: e.type || "smoothstep",
+          animated: e.animated ?? true,
+          style: e.style || { stroke: "#6366f1", strokeWidth: 2 },
+        }))
+      );
 
       if (pendingImport) {
         await applyImportPayload(pendingImport, [], actualCanvasId);
@@ -594,7 +685,8 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         }, 100);
       }
 
-      if (ideaIdParam) {
+      if (ideaIdParam && processedIdeaIdRef.current !== ideaIdParam) {
+        processedIdeaIdRef.current = ideaIdParam;
         try {
           const loadedChat = await getChatById(ideaIdParam);
           if (
@@ -619,6 +711,12 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
         }
       }
 
+      // If the URL had temporary query params (import, new, ideaId, or topic without session),
+      // cleanly replace URL so searchParams is synchronized without loop
+      if (isNewParam || importParam || ideaIdParam || (topicParam && !sessionParam)) {
+        router.replace(`/dashboard/canvas?session=${actualCanvasId}`);
+      }
+
       loadCanvasSessions();
     } catch (error) {
       console.error("Error fetching canvas blocks:", error);
@@ -630,17 +728,23 @@ export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
 
   useEffect(() => {
     if (sessionParam) {
-      if (sessionParam !== activeCanvasId) {
+      if (lastLoadedSessionIdRef.current !== sessionParam) {
+        lastLoadedSessionIdRef.current = sessionParam;
         setCurrentSessionId(sessionParam);
         fetchBlocks(sessionParam);
       }
     } else if (isNewParam || importParam || topicParam || ideaIdParam) {
-      fetchBlocks();
+      if (isInitializingRef.current) return;
+      isInitializingRef.current = true;
+      fetchBlocks().finally(() => {
+        isInitializingRef.current = false;
+      });
     } else {
+      lastLoadedSessionIdRef.current = null;
       setCurrentSessionId(null);
       setLoading(false);
     }
-  }, [sessionParam, isNewParam, importParam, topicParam, ideaIdParam, activeCanvasId]);
+  }, [sessionParam, isNewParam, importParam, topicParam, ideaIdParam]);
 
   // Chat handlers
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

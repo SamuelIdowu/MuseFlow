@@ -1,8 +1,7 @@
 'use server';
 
-import { createClerkSupabaseClient } from '@/lib/supabaseServerClient';
-import { getAuthenticatedSupabaseUserId } from '@/lib/authUtils';
-import { ideaRepository } from '../repositories/ideaRepository';
+import { getAuthenticatedUserId } from '@/lib/authUtils';
+import type { Profile } from '@/types/profile';
 
 import {
   getRecentIdeasFromDb,
@@ -15,104 +14,47 @@ import {
 } from '@/db/queries/ideas';
 
 export async function getRecentIdeas(limit: number = 3) {
-  const userId = await getAuthenticatedSupabaseUserId();
-  if (process.env.DATABASE_URL) {
-    try {
-      return await getRecentIdeasFromDb(userId, limit);
-    } catch (err) {
-      console.warn('[getRecentIdeas] Neon error, falling back to Supabase:', err);
-    }
-  }
-  const supabase = await createClerkSupabaseClient();
-  return ideaRepository.getRecentIdeas(supabase, userId, limit);
+  const userId = await getAuthenticatedUserId();
+  return await getRecentIdeasFromDb(userId, limit);
 }
 
 export async function getRecentChats(limit: number = 20) {
-  const userId = await getAuthenticatedSupabaseUserId();
-  if (process.env.DATABASE_URL) {
-    try {
-      return await getRecentChatsFromDb(userId, limit);
-    } catch (err) {
-      console.warn('[getRecentChats] Neon error, falling back to Supabase:', err);
-    }
-  }
-  const supabase = await createClerkSupabaseClient();
-  return ideaRepository.getRecentChats(supabase, userId, limit);
+  const userId = await getAuthenticatedUserId();
+  return await getRecentChatsFromDb(userId, limit);
 }
 
 export async function getChatById(id: string) {
-  const userId = await getAuthenticatedSupabaseUserId();
-  if (process.env.DATABASE_URL) {
-    try {
-      const chat = await getChatByIdFromDb(userId, id);
-      if (chat) return chat;
-    } catch (err) {
-      console.warn('[getChatById] Neon error, falling back to Supabase:', err);
-    }
-  }
-  const supabase = await createClerkSupabaseClient();
-  return ideaRepository.getChatById(supabase, userId, id);
+  const userId = await getAuthenticatedUserId();
+  return await getChatByIdFromDb(userId, id);
 }
 
 export async function getUserIdeasAction() {
-  const userId = await getAuthenticatedSupabaseUserId();
-  if (process.env.DATABASE_URL) {
-    try {
-      return await getUserIdeasFromDb(userId);
-    } catch (err) {
-      console.warn('[getUserIdeasAction] Neon error, falling back to Supabase:', err);
-    }
-  }
-  const supabase = await createClerkSupabaseClient();
-  return ideaRepository.getUserIdeas(supabase, userId);
+  const userId = await getAuthenticatedUserId();
+  return await getUserIdeasFromDb(userId);
 }
 
 export async function saveToIdeasAction(content: string, title?: string) {
-  const userId = await getAuthenticatedSupabaseUserId();
-  if (process.env.DATABASE_URL) {
-    try {
-      return await saveToIdeasInDb(userId, content, title);
-    } catch (err) {
-      console.warn('[saveToIdeasAction] Neon error, falling back to Supabase:', err);
-    }
-  }
-  const supabase = await createClerkSupabaseClient();
-  return ideaRepository.saveToIdeas(supabase, userId, content, title);
+  const userId = await getAuthenticatedUserId();
+  return await saveToIdeasInDb(userId, content, title);
 }
 
 export async function deleteIdeaAction(id: string) {
-  const userId = await getAuthenticatedSupabaseUserId();
-  if (process.env.DATABASE_URL) {
-    try {
-      return await deleteIdeaFromDb(userId, id);
-    } catch (err) {
-      console.warn('[deleteIdeaAction] Neon error, falling back to Supabase:', err);
-    }
-  }
-  const supabase = await createClerkSupabaseClient();
-  return ideaRepository.deleteIdea(supabase, userId, id);
+  const userId = await getAuthenticatedUserId();
+  return await deleteIdeaFromDb(userId, id);
 }
 
 export async function deleteAllChatsAction() {
-  const userId = await getAuthenticatedSupabaseUserId();
-  if (process.env.DATABASE_URL) {
-    try {
-      return await deleteAllChatsFromDb(userId);
-    } catch (err) {
-      console.warn('[deleteAllChatsAction] Neon error, falling back to Supabase:', err);
-    }
-  }
-  const supabase = await createClerkSupabaseClient();
-  return ideaRepository.deleteAllChats(supabase, userId);
+  const userId = await getAuthenticatedUserId();
+  return await deleteAllChatsFromDb(userId);
 }
 
 export async function generateChatIdeaAction(params: {
   inputText: string;
   contentType?: string;
-  activeProfile?: any;
-  history?: any[];
+  activeProfile?: Profile | null;
+  history?: Array<{ role: string; content: string }>;
 }) {
-  const userId = await getAuthenticatedSupabaseUserId();
+  const userId = await getAuthenticatedUserId();
   const { assertFeatureAllowed } = await import('@/lib/plans/featureGates');
   await assertFeatureAllowed(userId, 'ai_generations');
 

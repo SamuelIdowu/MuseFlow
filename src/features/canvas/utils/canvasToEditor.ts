@@ -106,6 +106,18 @@ export function compileCanvasToDocument(
         );
         break;
 
+      case "prompt":
+        htmlParts.push(
+          `<h3>Goal & Context</h3><p>${cleanContent.replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br/>")}</p>`
+        );
+        break;
+
+      case "variant":
+        htmlParts.push(
+          `<h3>${(node.data as any)?.title || "Variation"}</h3><p>${cleanContent.replace(/\n\n/g, "</p><p>").replace(/\n/g, "<br/>")}</p>`
+        );
+        break;
+
       case "paragraph":
       default:
         htmlParts.push(
