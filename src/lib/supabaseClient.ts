@@ -1,13 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
-import { Database } from "./database.types";
+/**
+ * @deprecated Supabase has been removed in favor of Neon PostgreSQL + Drizzle ORM.
+ */
+export const supabase = null as any;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    "Missing required environment variables: NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY"
-  );
-}
-
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);

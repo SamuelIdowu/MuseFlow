@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Calendar, Copy, Download, Trash2 } from "lucide-react";
+import { Sparkles, Calendar, Copy, Download, Trash2, FileEdit, MoreHorizontal, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +20,13 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Idea {
     id: string;
@@ -73,96 +80,137 @@ export function ExpandableIdeaCard({ idea, onSchedule, onDelete }: ExpandableIde
 
     return (
         <>
-            <Card className="group hover:shadow-md transition-shadow w-full overflow-hidden">
-                <CardHeader>
-                    <div className="flex justify-between items-start">
-                        <CardTitle className="text-lg group-hover:text-primary transition-colors">
+            <Card className="border border-border bg-card shadow-sm hover:shadow-md hover:border-primary/50 transition-all w-full overflow-hidden rounded-xl">
+                <CardHeader className="p-4 pb-3 border-b border-border bg-muted/20">
+                    <div className="flex justify-between items-start gap-2">
+                        <CardTitle className="text-base font-bold text-foreground group-hover:text-primary transition-colors">
                             {idea.title}
                         </CardTitle>
                         <Badge
                             variant={idea.status === "new" ? "default" : "secondary"}
-                            className="ml-2"
+                            className="ml-2 font-semibold text-[10px] uppercase tracking-wider shrink-0"
                         >
                             {idea.status}
                         </Badge>
                     </div>
-                    <CardDescription>{idea.createdAt}</CardDescription>
+                    <CardDescription className="text-xs text-muted-foreground font-medium">{idea.createdAt}</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="p-4 space-y-4">
                     {/* Description with Read More button */}
                     <div>
-                        <p className="text-muted-foreground break-words">
+                        <p className="text-foreground/80 text-xs sm:text-sm leading-relaxed break-words">
                             {truncateText(idea.description, 100)}
                         </p>
                         {shouldShowReadMore && (
                             <button
                                 onClick={() => setIsModalOpen(true)}
-                                className="text-sm text-primary hover:underline mt-1"
+                                className="text-xs font-semibold text-primary hover:underline mt-1.5 inline-flex items-center gap-1"
                             >
-                                Read more
+                                <span>Read more</span>
+                                <ArrowRight className="h-3 w-3" />
                             </button>
                         )}
                     </div>
 
                     {/* Always visible tags */}
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                         {idea.tags.map((tag, index) => (
-                            <Badge key={index} variant="outline">
+                            <Badge key={index} variant="outline" className="text-[10px] font-medium bg-muted/60 text-foreground border-border">
                                 {tag}
                             </Badge>
                         ))}
                     </div>
 
-                    {/* Always visible action buttons */}
-                    <div className="flex flex-wrap gap-2">
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href={`/dashboard/canvas?ideaId=${idea.id}`}>
-                                <Sparkles className="mr-2 h-4 w-4" />
-                                Use Idea
-                            </Link>
-                        </Button>
+                    {/* Compacted Action Bar: 1 Primary CTA + Overflow Menu */}
+                    <div className="flex items-center justify-between pt-2.5 border-t border-border/80">
                         <Button
-                            variant="ghost"
+                            variant="secondary"
                             size="sm"
+                            className="h-7 text-xs font-semibold gap-1.5 px-3 bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 shadow-2xs"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onSchedule(idea);
+                                try {
+                                    localStorage.setItem(
+                                        'museflow_editor_import',
+                                        JSON.stringify({
+                                            title: idea.title,
+                                            content: idea.description,
+                                            channel: 'all',
+                                            importedAt: new Date().toISOString(),
+                                        })
+                                    );
+                                    window.location.href = `/dashboard/editor?import=${Date.now()}`;
+                                } catch {
+                                    window.location.href = '/dashboard/editor';
+                                }
                             }}
                         >
-                            <Calendar className="mr-2 h-4 w-4" />
-                            Schedule
+                            <FileEdit className="h-3.5 w-3.5 text-primary" />
+                            <span>Open in Editor</span>
                         </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                exportIdea("copy");
-                            }}
-                        >
-                            <Copy className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                exportIdea("download");
-                            }}
-                        >
-                            <Download className="h-4 w-4" />
-                        </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(idea.id);
-                            }}
-                        >
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted"
+                                    onClick={(e) => e.stopPropagation()}
+                                    title="More options"
+                                >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 text-xs font-medium">
+                                <DropdownMenuItem asChild>
+                                    <Link href={`/dashboard/canvas?ideaId=${idea.id}`} className="cursor-pointer flex items-center gap-2">
+                                        <Sparkles className="h-3.5 w-3.5 text-sky-500" />
+                                        <span>Open in Canvas</span>
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onSchedule(idea);
+                                    }}
+                                    className="cursor-pointer flex items-center gap-2"
+                                >
+                                    <Calendar className="h-3.5 w-3.5 text-emerald-500" />
+                                    <span>Schedule Post</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        exportIdea("copy");
+                                    }}
+                                    className="cursor-pointer flex items-center gap-2"
+                                >
+                                    <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span>Copy Text</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        exportIdea("download");
+                                    }}
+                                    className="cursor-pointer flex items-center gap-2"
+                                >
+                                    <Download className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span>Download (.txt)</span>
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDelete(idea.id);
+                                    }}
+                                    className="cursor-pointer flex items-center gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    <span>Delete</span>
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </CardContent>
             </Card>

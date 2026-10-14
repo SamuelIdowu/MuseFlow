@@ -2,11 +2,68 @@
 
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-import { useSignIn } from '@clerk/nextjs';
+import { useSignIn, useAuth } from '@clerk/nextjs';
 import { AuthCard } from '@/components/auth/AuthCard';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { AlreadySignedInModal } from '@/components/auth/AlreadySignedInModal';
+import { WaveLoader } from '@/components/ui/wave-loader';
 
 export default function SignInPage() {
-  const { signIn, isLoaded } = useSignIn();
+  const { signIn, isLoaded: isSignInLoaded } = useSignIn();
+  const { userId, isLoaded: isAuthLoaded } = useAuth();
+  const router = useRouter();
+  const [showModal, setShowModal] = useState(false);
+  const [isLooping, setIsLooping] = useState(false);
+  const searchParams = useSearchParams();
+  const redirectedFrom = searchParams.get('redirectedFrom');
+
+  // Redirect or show modal if already signed in
+  useEffect(() => {
+    if (isAuthLoaded && userId) {
+      // Check if we're in a redirect loop
+      if (redirectedFrom === 'auth-error') {
+        setIsLooping(true);
+        setShowModal(true);
+        return;
+      }
+
+      setShowModal(true);
+      // Wait a bit to show the modal before redirecting automatically
+      const timer = setTimeout(() => {
+        router.push('/dashboard');
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthLoaded, userId, router, redirectedFrom]);
+
+  // If already signed in, show a minimal loading state while the modal handles the rest
+  if (isAuthLoaded && userId) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
+        <AlreadySignedInModal isOpen={showModal} />
+        <div className="flex flex-col items-center gap-4 text-center max-w-md px-4">
+          <WaveLoader message={isLooping ? "" : "Redirecting to dashboard..."} size="md" />
+          {isLooping && (
+            <div className="space-y-2">
+              <p className="text-gray-900 dark:text-gray-100 font-semibold">Session sync needed</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                We detected a minor synchronization issue with your session. 
+                Please use the buttons in the popup to continue or sign out.
+              </p>
+              <Button 
+                variant="link" 
+                className="text-orange-600 dark:text-orange-400 p-0 h-auto"
+                onClick={() => window.location.reload()}
+              >
+                Refresh page
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthCard mode="sign-in">
@@ -30,7 +87,7 @@ export default function SignInPage() {
             redirectUrl: '/dashboard',
             redirectUrlComplete: '/dashboard',
           })}
-          disabled={!isLoaded}
+          disabled={!isSignInLoaded}
         >
           <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />

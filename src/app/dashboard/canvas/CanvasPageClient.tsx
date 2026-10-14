@@ -1,576 +1,1111 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Profile } from "@/types/profile";
-import { CONTENT_TYPES, CATEGORIES } from "@/types/content";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Trash2, Loader2, Eye, Download, FileText, FileCode, FileType, Save, PlusCircle } from "lucide-react";
+import { CONTENT_TYPES } from "@/types/content";
 import { toast } from "react-hot-toast";
-import {
-    getCanvasDataAction,
-    addCanvasBlockAction,
-    updateCanvasBlockAction,
-    deleteCanvasBlockAction,
-    clearCanvasAction,
-    saveToIdeasAction,
-    addEdgeAction,
-    deleteEdgeAction
-} from "@/lib/dashboardServerActions";
 
 import {
-    ReactFlow,
-    Background,
-    Controls,
-    useNodesState,
-    useEdgesState,
-    addEdge,
-    Connection,
-    Edge,
-    Node,
-    NodeChange,
-    EdgeChange,
-    applyNodeChanges,
-    applyEdgeChanges
-} from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+  getCanvasDataAction,
+  addCanvasBlockAction,
+  updateCanvasBlockAction,
+  deleteCanvasBlockAction,
+  clearCanvasAction,
+  addEdgeAction,
+  deleteEdgeAction,
+  addChatMessageAction,
+  updateCanvasChatHistoryAction,
+  generateCanvasChatResponseAction,
+  createCanvasSessionAction,
+  updateCanvasSessionNameAction,
+  deleteCanvasSessionAction,
+  getCanvasModelProviderAction,
+  instantiateCanvasTemplateAction,
+} from "@/features/canvas/actions/canvasActions";
+import { saveToIdeasAction, getChatById } from "@/features/ideas/actions/ideaActions";
 
-import CustomNode, { BlockData } from "@/components/dashboard/canvas/CustomNode";
+import {
+  ReactFlow,
+  Background,
+  ReactFlowInstance,
+  Node,
+  Edge,
+} from "@xyflow/react";
+import "@xyflow/react/dist/style.css";
+
+import CustomNode, { BlockData } from "@/features/canvas/components/canvas/CustomNode";
+import { CanvasZoomToolbar } from "@/features/canvas/components/canvas/CanvasZoomToolbar";
+import { CanvasHeader } from "@/features/canvas/components/canvas/CanvasHeader";
+import { CanvasChatSidebar } from "@/features/canvas/components/canvas/CanvasChatSidebar";
+import { CanvasSkeleton } from "@/features/canvas/components/canvas/CanvasSkeleton";
+import { CanvasHubView } from "@/features/canvas/components/canvas/CanvasHubView";
+import { CanvasTemplate } from "@/features/canvas/constants/canvasTemplates";
+import { exportCanvasToEditorAction } from "@/features/canvas/utils/canvasToEditor";
+import { ChannelExportModal } from "@/features/canvas/components/export/ChannelExportModal";
+
+import { useCanvasSessions } from "@/features/canvas/hooks/useCanvasSessions";
+import { useCanvasGraph } from "@/features/canvas/hooks/useCanvasGraph";
+import {
+  decomposeContentIntoBlocks,
+  DecomposedBlock,
+} from "@/features/canvas/utils/decomposeContent";
+import {
+  convertNodesToMarkdown,
+  exportCanvas,
+} from "@/features/canvas/utils/canvasExport";
 
 const nodeTypes = {
-    custom: CustomNode,
+  custom: CustomNode,
 };
 
 interface CanvasPageClientProps {
-    activeProfile: Profile | null;
+  activeProfile: Profile | null;
+  clerkId: string | null;
 }
 
 export function CanvasPageClient({ activeProfile }: CanvasPageClientProps) {
-    const searchParams = useSearchParams();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionParam =
+    searchParams.get("session") ||
+    searchParams.get("id") ||
+    searchParams.get("canvasId");
+  const isNewParam = searchParams.get("new") === "true";
+  const importParam = searchParams.get("import");
+  const topicParam = searchParams.get("topic");
+  const ideaIdParam = searchParams.get("ideaId");
 
-    // React Flow State
-    const [nodes, setNodes, onNodesChangeState] = useNodesState<Node<BlockData>>([]);
-    const [edges, setEdges, onEdgesChangeState] = useEdgesState<Edge>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(sessionParam || null);
+  const isHubView = !currentSessionId && !isNewParam && !importParam && !ideaIdParam;
 
-    const [loading, setLoading] = useState(true);
-    const [editingBlockId, setEditingBlockId] = useState<string | null>(null);
-    const [expandingBlockId, setExpandingBlockId] = useState<string | null>(null);
-    const [regeneratingBlockId, setRegeneratingBlockId] = useState<string | null>(null);
-    const [pageTitle, setPageTitle] = useState(searchParams.get("title") || "My New Article");
-    const [selectedContentTypeId, setSelectedContentTypeId] = useState<string>(CONTENT_TYPES[0]?.id || 'linkedin_post');
-    const [showPreview, setShowPreview] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [isCreatingCanvas, setIsCreatingCanvas] = useState(false);
+  const [isExportingToEditor, setIsExportingToEditor] = useState(false);
+  const [isChannelExportOpen, setIsChannelExportOpen] = useState(false);
+  const selectedContentTypeId = CONTENT_TYPES[0]?.id || "linkedin_post";
 
-    const saveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
-    const positionSaveTimeouts = useRef<{ [key: string]: NodeJS.Timeout }>({});
+  // Navigation and initialization refs to prevent render/compile loops
+  const lastLoadedSessionIdRef = useRef<string | null>(null);
+  const processedImportRef = useRef<string | null>(null);
+  const processedIdeaIdRef = useRef<string | null>(null);
+  const isInitializingRef = useRef<boolean>(false);
+  const {
+    canvasSessions,
+    activeCanvasId,
+    setActiveCanvasId,
+    pageTitle,
+    setPageTitle,
+    handleTitleChange,
+    loadCanvasSessions,
+    handleSwitchCanvas,
+  } = useCanvasSessions();
 
-    useEffect(() => {
-        fetchBlocks();
-    }, []);
+  // Template instantiation handler
+  const handleSelectTemplate = async (template: CanvasTemplate) => {
+    try {
+      setIsCreatingCanvas(true);
+      const newSession = await instantiateCanvasTemplateAction({
+        title: template.title,
+        blocks: template.blocks,
+        edges: template.edges,
+      });
 
-    const fetchBlocks = async () => {
-        try {
-            setLoading(true);
-            const { blocks: fetchedBlocks, edges: fetchedEdges } = await getCanvasDataAction();
+      if (!newSession?.id) throw new Error("Could not create canvas session");
 
-            // Check if we need initial layout (if all are at 0,0)
-            const needsLayout = fetchedBlocks.length > 1 && fetchedBlocks.every(b => b.position.x === 0 && b.position.y === 0);
+      toast.success(`Created "${template.title}" canvas!`);
+      lastLoadedSessionIdRef.current = newSession.id;
+      setCurrentSessionId(newSession.id);
+      setActiveCanvasId(newSession.id);
+      router.push(`/dashboard/canvas?session=${newSession.id}`);
+      await fetchBlocks(newSession.id);
+      loadCanvasSessions();
+    } catch (err: any) {
+      console.error("Failed to load template:", err);
+      toast.error(err?.message || "Could not load canvas template");
+    } finally {
+      setIsCreatingCanvas(false);
+    }
+  };
 
-            const initialNodes = fetchedBlocks.map((block: any, index: number) => ({
-                id: block.id,
-                type: 'custom',
-                position: needsLayout ? { x: 250, y: index * 300 } : block.position,
-                dragHandle: '.drag-handle',
-                data: {
-                    id: block.id,
-                    type: block.type || "paragraph",
-                    content: block.content,
-                    order: block.order, // Keep for reference
-                    onUpdate: handleUpdateBlock,
-                    onExpand: handleExpandWithAI,
-                    onRegenerate: handleRegenerateBlock,
-                    isEditing: false, // Will be managed by local state/context if needed, or derived
-                    isExpanding: false,
-                    isRegenerating: false,
-                    setEditingId: setEditingBlockId
-                }
-            }));
+  const handleCreateNew = async () => {
+    try {
+      setIsCreatingCanvas(true);
+      const newSession = await createCanvasSessionAction("New Canvas");
+      if (newSession?.id) {
+        toast.success("Created new canvas");
+        lastLoadedSessionIdRef.current = newSession.id;
+        setCurrentSessionId(newSession.id);
+        setActiveCanvasId(newSession.id);
+        router.push(`/dashboard/canvas?session=${newSession.id}`);
+        await fetchBlocks(newSession.id);
+        loadCanvasSessions();
+      }
+    } catch (err) {
+      console.error("Failed to create new canvas:", err);
+      toast.error("Could not create new canvas");
+    } finally {
+      setIsCreatingCanvas(false);
+    }
+  };
 
-            // Hydrate extra state for UI (loading spinners)
-            // We pass the *current* state values to the node data. 
-            // NOTE: Since nodes are state, we need to update them when expandingBlockId etc changes.
-            // This is handled by a separate effect or by updating nodes when those states change.
+  const handleSelectSession = async (id: string) => {
+    if (id === currentSessionId && id === lastLoadedSessionIdRef.current) return;
+    lastLoadedSessionIdRef.current = id;
+    setCurrentSessionId(id);
+    setActiveCanvasId(id);
+    router.push(`/dashboard/canvas?session=${id}`);
+    await fetchBlocks(id);
+  };
 
-            setNodes(initialNodes);
-            setEdges(fetchedEdges || []);
-        } catch (error) {
-            console.error("Error fetching canvas blocks:", error);
-            toast.error("Failed to load canvas");
-        } finally {
-            setLoading(false);
-        }
+  const handleDeleteCanvasSession = async (id: string) => {
+    try {
+      await deleteCanvasSessionAction(id);
+      toast.success("Canvas deleted");
+      if (activeCanvasId === id || currentSessionId === id) {
+        lastLoadedSessionIdRef.current = null;
+        setCurrentSessionId(null);
+        setActiveCanvasId(undefined);
+        router.push("/dashboard/canvas");
+      }
+      loadCanvasSessions();
+    } catch (err) {
+      console.error("Failed to delete canvas:", err);
+      toast.error("Could not delete canvas");
+    }
+  };
+
+  const handleBackToHub = () => {
+    lastLoadedSessionIdRef.current = null;
+    setCurrentSessionId(null);
+    setActiveCanvasId(undefined);
+    router.push("/dashboard/canvas");
+  };
+
+  // Canvas Graph hook
+  const {
+    nodes,
+    setNodes,
+    edges,
+    setEdges,
+    translateExtent,
+    nodeExtent,
+    minOverviewZoom,
+    onNodesChange,
+    onNodeDragStop,
+    onEdgesChange,
+    onConnect,
+    onNodesDelete,
+    handleAddBlock,
+    handleDeleteBlock,
+    handleUpdateBlock,
+    handleExpandWithAI,
+    handleRegenerateBlock,
+    setEditingBlockId,
+  } = useCanvasGraph({
+    activeCanvasId,
+    pageTitle,
+    activeProfile,
+    selectedContentTypeId,
+  });
+
+  const handleSendToEditor = async () => {
+    if (nodes.length === 0) {
+      toast.error("Add at least one block to export to the editor");
+      return;
+    }
+    try {
+      setIsExportingToEditor(true);
+      const { docId } = await exportCanvasToEditorAction(nodes, edges, pageTitle);
+      toast.success("Compiled canvas into document draft!");
+      router.push(`/dashboard/editor?docId=${docId}`);
+    } catch (err) {
+      console.error("Failed to send canvas to editor:", err);
+      toast.error("Could not export canvas to editor");
+    } finally {
+      setIsExportingToEditor(false);
+    }
+  };
+
+  // Chat State
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [agentStatus, setAgentStatus] = useState<string | null>(null);
+  const [modelProvider, setModelProvider] = useState<string | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<
+    { name: string; type: string; data: string }[]
+  >([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [isChatLoading, setIsChatLoading] = useState(false);
+
+  // Fullscreen & DOM refs
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+  const reactFlowInstanceRef = useRef<ReactFlowInstance<
+    Node<BlockData>,
+    Edge
+  > | null>(null);
+
+  useEffect(() => {
+    getCanvasModelProviderAction()
+      .then((provider) => setModelProvider(provider))
+      .catch(() => setModelProvider("gemini"));
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!canvasContainerRef.current) return;
+    if (!document.fullscreenElement) {
+      canvasContainerRef.current.requestFullscreen().catch((err) => {
+        toast.error(`Error entering full-screen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
     };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () =>
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
 
-    // Update node data when loading states change
-    useEffect(() => {
-        setNodes((nds) => nds.map((node) => ({
-            ...node,
-            data: {
-                ...node.data,
-                isEditing: node.id === editingBlockId,
-                isExpanding: node.id === expandingBlockId,
-                isRegenerating: node.id === regeneratingBlockId,
-                setEditingId: setEditingBlockId
-            }
-        })));
-    }, [editingBlockId, expandingBlockId, regeneratingBlockId, setNodes]);
+  // Import payload application
+  const applyImportPayload = useCallback(
+    async (parsed: any, _existingNodes?: Node<BlockData>[], targetCanvasId?: string) => {
+      if (!parsed || (!parsed.content && !parsed.topic)) return false;
 
+      const contentToInsert = parsed.content || parsed.topic || "";
+      const topicTitle = parsed.topic || parsed.title;
 
-    const onNodesChange = useCallback(
-        (changes: NodeChange<Node<BlockData>>[]) => {
-            onNodesChangeState(changes);
+      const decomposed = decomposeContentIntoBlocks(contentToInsert, topicTitle);
+      if (decomposed.length === 0) return false;
 
-            // Handle position updates
-            changes.forEach((change) => {
-                if (change.type === 'position' && change.dragging) {
-                    // Debounce save
-                    const node = nodes.find(n => n.id === change.id); // This might be stale during drag, but good enough for ID?
-                    // Actually `change` has the ID.
-                    if (change.position) {
-                        const id = change.id;
-                        if (positionSaveTimeouts.current[id]) {
-                            clearTimeout(positionSaveTimeouts.current[id]);
-                        }
-                        positionSaveTimeouts.current[id] = setTimeout(() => {
-                            // We need to get the latest position from the node state, 
-                            // but inside this timeout `nodes` might be stale if we don't use functional update or ref.
-                            // Better to trust the resize/drag end event, but `change.position` is partial.
-                            // Simplest: just trigger an update with the new position if we know it.
-                            // But ReactFlow handles state. We just sync to DB.
+      const effectiveTitle =
+        decomposed[0]?.extractedTitle || topicTitle || "Imported Canvas";
+      setPageTitle(effectiveTitle);
 
-                            // Let's rely on the latest node state *at the time of save*.
-                            // But we can't access it easily without a ref.
-                            // For now, let's just assume the user stops dragging eventually.
-                            // We should probably use `onNodeDragStop` instead for DB sync.
-                        }, 1000);
-                    }
-                }
-            });
-        },
-        [onNodesChangeState, nodes]
-    );
+      const resolvedCanvasId =
+        targetCanvasId ||
+        activeCanvasId ||
+        searchParams.get("session") ||
+        searchParams.get("id") ||
+        undefined;
 
-    const onNodeDragStop = useCallback((event: any, node: Node) => {
-        updateCanvasBlockAction(node.id, {
-            position: { x: node.position.x, y: node.position.y }
-        }).catch(err => console.error("Failed to save position", err));
-    }, []);
-
-    const onEdgesChange = useCallback(
-        (changes: EdgeChange[]) => {
-            onEdgesChangeState(changes);
-            changes.forEach(change => {
-                if (change.type === 'remove') {
-                    deleteEdgeAction(change.id).catch(err => console.error("Failed to delete edge", err));
-                }
-            });
-        },
-        [onEdgesChangeState]
-    );
-
-    const onConnect = useCallback(
-        async (params: Connection) => {
-            if (!params.source || !params.target) return;
-
-            // Optimistic update
-            setEdges((eds) => addEdge(params, eds));
-
-            try {
-                await addEdgeAction({
-                    source: params.source,
-                    target: params.target
-                });
-            } catch (error) {
-                console.error("Failed to create edge", error);
-                toast.error("Failed to connect nodes");
-                // Revert? (Complex without ID)
-            }
-        },
-        [setEdges]
-    );
-
-    const handleAddBlock = async () => {
-        try {
-            // Position: Center of viewport or relative to last node?
-            // For now: offset from last node or default 100,100
-            const lastNode = nodes[nodes.length - 1];
-            const position = lastNode ? { x: lastNode.position.x, y: lastNode.position.y + 350 } : { x: 250, y: 100 };
-
-            const newBlock = {
-                type: "paragraph",
-                content: "",
-                order: nodes.length,
-                position
-            };
-
-            const addedBlock = await addCanvasBlockAction(newBlock);
-
-            const newNode: Node<BlockData> = {
-                id: addedBlock.id,
-                type: 'custom',
-                position: addedBlock.position,
-                dragHandle: '.drag-handle',
-                data: {
-                    id: addedBlock.id,
-                    type: addedBlock.type || "paragraph",
-                    content: addedBlock.content || "",
-                    order: addedBlock.order_index,
-                    title: undefined,
-                    onUpdate: handleUpdateBlock,
-                    onExpand: handleExpandWithAI,
-                    onRegenerate: handleRegenerateBlock,
-                    isEditing: false,
-                    isExpanding: false,
-                    isRegenerating: false,
-                    setEditingId: setEditingBlockId
-                }
-            };
-
-            setNodes((nds) => [...nds, newNode]);
-            toast.success("Block added");
-        } catch (error) {
-            console.error("Error adding block:", error);
-            toast.error("Failed to add block");
-        }
-    };
-
-    const handleUpdateBlock = async (id: string, updates: any) => {
-        // Optimistic update
-        setNodes((nds) => nds.map((node) => {
-            if (node.id === id) {
-                return {
-                    ...node,
-                    data: { ...node.data, ...updates }
-                };
-            }
-            return node;
-        }));
-
-        // Debounce content updates
-        if (updates.content !== undefined) {
-            if (saveTimeouts.current[id]) {
-                clearTimeout(saveTimeouts.current[id]);
-            }
-            saveTimeouts.current[id] = setTimeout(async () => {
-                try {
-                    await updateCanvasBlockAction(id, { content: updates.content });
-                } catch (error) {
-                    console.error("Error auto-saving block:", error);
-                    toast.error("Failed to auto-save");
-                }
-                delete saveTimeouts.current[id];
-            }, 1000);
-        }
-
-        // Immediate update for other fields (like type)
-        if (updates.type !== undefined) {
-            updateCanvasBlockAction(id, { type: updates.type })
-                .catch(error => {
-                    console.error("Error updating block type:", error);
-                    toast.error("Failed to update block type");
-                });
-        }
-    };
-
-    // Deleting handled by selecting node + Backspace (React Flow default).
-    // But we need to listen to onNodesDelete to remove from DB.
-    const onNodesDelete = useCallback(async (deletedNodes: Node[]) => {
-        for (const node of deletedNodes) {
-            try {
-                await deleteCanvasBlockAction(node.id);
-                toast.success("Block deleted");
-            } catch (error) {
-                console.error("Error deleting block:", error);
-                toast.error("Failed to delete block");
-            }
-        }
-    }, []);
-
-
-    const handleClearCanvas = async () => {
-        if (!confirm("Are you sure you want to clear the entire canvas? This cannot be undone.")) return;
-
-        try {
-            setLoading(true);
-            await clearCanvasAction();
-            setNodes([]);
-            setEdges([]);
-            toast.success("Canvas cleared");
-        } catch (error) {
-            console.error("Error clearing canvas:", error);
-            toast.error("Failed to clear canvas");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-
-    const handleExpandWithAI = async (id: string, content: string, blockType: string) => {
-        if (!content?.trim()) {
-            toast.error('Please add some content before expanding');
-            return;
-        }
-
-        try {
-            setExpandingBlockId(id);
-            // Construct context from all other nodes
-            const contextBlocks = nodes
-                .filter(n => n.id !== id)
-                .map(n => ({ type: n.data.type, content: n.data.content }));
-
-            const response = await fetch('/api/canvas/expand', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    block_content: content,
-                    block_type: blockType,
-                    canvas_title: pageTitle,
-                    active_profile: activeProfile,
-                    contentTypeId: selectedContentTypeId,
-                    context_blocks: contextBlocks,
-                }),
-            });
-
-            if (!response.ok) throw new Error('Failed to expand content');
-
-            const data = await response.json();
-            await handleUpdateBlock(id, { content: data.expanded_content });
-            toast.success('Content expanded!');
-        } catch (error: any) {
-            console.error('Error expanding content:', error);
-            toast.error(error.message || 'Failed to expand content');
-        } finally {
-            setExpandingBlockId(null);
-        }
-    };
-
-    const handleRegenerateBlock = async (id: string) => {
-        const node = nodes.find(n => n.id === id);
-        if (!node) return;
-        const content = node.data.content as string;
-
-        if (!content?.trim()) {
-            toast.error('Block content is empty.');
-            return;
-        }
-
-        try {
-            setRegeneratingBlockId(id);
-            const contextBlocks = nodes
-                .filter(n => n.id !== id)
-                .map(n => ({ type: n.data.type, content: n.data.content }));
-
-            const response = await fetch('/api/canvas/expand', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    block_content: `Rewrite this differently: ${content}`,
-                    block_type: node.data.type,
-                    canvas_title: pageTitle,
-                    active_profile: activeProfile,
-                    contentTypeId: selectedContentTypeId,
-                    context_blocks: contextBlocks,
-                })
-            });
-
-            if (!response.ok) throw new Error('Failed to regenerate content');
-
-            const data = await response.json();
-            await handleUpdateBlock(id, { content: data.expanded_content });
-            toast.success('Content regenerated!');
-        } catch (error: any) {
-            console.error('Error regenerating content:', error);
-            toast.error(error.message || 'Failed to regenerate content');
-        } finally {
-            setRegeneratingBlockId(null);
-        }
-    };
-
-    const handleSaveCanvasToIdeas = async () => {
-        const content = convertToMarkdown();
-        if (!content.trim()) {
-            toast.error("Canvas is empty");
-            return;
-        }
-
-        try {
-            await saveToIdeasAction(content, pageTitle || "Untitled Canvas");
-            toast.success("Canvas saved to Ideas!");
-        } catch (error) {
-            console.error("Error saving canvas to ideas:", error);
-            toast.error("Failed to save canvas to ideas");
-        }
-    };
-
-    const convertToMarkdown = (): string => {
-        let markdown = `# ${pageTitle}\n\n`;
-        // Sort nodes by Y position
-        const sortedNodes = [...nodes].sort((a, b) => a.position.y - b.position.y);
-
-        sortedNodes.forEach((node) => {
-            const content = (node.data.content as string || '').trim();
-            const type = node.data.type as string;
-            if (!content) return;
-
-            switch (type) {
-                case "heading":
-                    markdown += `## ${content}\n\n`;
-                    break;
-                case "hook":
-                    markdown += `> **Hook:** ${content}\n\n`;
-                    break;
-                case "problem":
-                    markdown += `### Problem\n\n${content}\n\n`;
-                    break;
-                case "solution":
-                    markdown += `### Solution\n\n${content}\n\n`;
-                    break;
-                case "call-to-action":
-                    markdown += `---\n\n**${content}**\n\n`;
-                    break;
-                case "quote":
-                    markdown += `> ${content}\n\n`;
-                    break;
-                case "list":
-                    const items = content.split('\n').filter(i => i.trim());
-                    items.forEach((item: string) => {
-                        markdown += `- ${item.trim()}\n`;
-                    });
-                    markdown += '\n';
-                    break;
-                default:
-                    markdown += `${content}\n\n`;
-            }
-        });
-
-        return markdown;
-    };
-
-    const handleExport = (format: 'markdown' | 'text') => {
-        let content: string;
-        let filename: string;
-        let mimeType: string;
-
-        // Simple export only support markdown/text for now due to HTML complexity with nodes
-        switch (format) {
-            case 'markdown':
-                content = convertToMarkdown();
-                filename = `${pageTitle.replace(/\s+/g, '-').toLowerCase()}.md`;
-                mimeType = 'text/markdown';
-                break;
-            case 'text':
-                content = convertToMarkdown(); // Simplify to same for now, or strip md
-                filename = `${pageTitle.replace(/\s+/g, '-').toLowerCase()}.txt`;
-                mimeType = 'text/plain';
-                break;
-            default:
-                return;
-        }
-
-        const blob = new Blob([content], { type: mimeType });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        toast.success(`Exported as ${format.toUpperCase()}`);
-    };
-
-
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-[50vh]">
-                <div className="flex items-center gap-2">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                    <span>Loading canvas...</span>
-                </div>
-            </div>
+      if (resolvedCanvasId) {
+        updateCanvasSessionNameAction(resolvedCanvasId, effectiveTitle).catch(
+          console.error
         );
+      }
+
+      // Check if this is a branching brainstorm (Option 1, 2, 3...) or sequential pipeline
+      const childrenCount = decomposed.length - 1;
+      const isBranching =
+        decomposed.length > 1 &&
+        decomposed[0].parentIndex === undefined &&
+        decomposed.slice(1).every((b) => b.parentIndex === 0);
+
+      const isSequential =
+        !isBranching &&
+        decomposed.length > 1 &&
+        decomposed.slice(1).every((b, i) => b.parentIndex === i);
+
+      const startX = 80;
+      const startY = 120;
+      const colWidth = 440;
+      const rowHeight = 360;
+
+      const newNodes: Node<BlockData>[] = [];
+      const tempBlockMap: {
+        tempId: string;
+        block: DecomposedBlock;
+        index: number;
+        position: { x: number; y: number };
+      }[] = [];
+
+      decomposed.forEach((block, idx) => {
+        const tempId = `imported_${Date.now()}_${idx}`;
+        let position = { x: startX, y: startY };
+
+        if (isBranching) {
+          if (idx === 0) {
+            // Root prompt/goal block vertically centered relative to child branches
+            const totalBranchHeight = Math.min(childrenCount, 4) * 340;
+            const rootY = Math.max(80, totalBranchHeight / 2 - 120);
+            position = { x: 80, y: rootY };
+          } else {
+            const childIdx = idx - 1;
+            if (childrenCount <= 4) {
+              position = { x: 580, y: 60 + childIdx * 340 };
+            } else {
+              const col = childIdx % 2;
+              const row = Math.floor(childIdx / 2);
+              position = { x: 580 + col * 460, y: 60 + row * 340 };
+            }
+          }
+        } else if (isSequential) {
+          if (decomposed.length <= 4) {
+            position = { x: startX + idx * 460, y: 120 };
+          } else {
+            position = {
+              x: startX + (idx % 3) * colWidth,
+              y: startY + Math.floor(idx / 3) * rowHeight,
+            };
+          }
+        } else {
+          position = {
+            x: startX + (idx % 3) * colWidth,
+            y: startY + Math.floor(idx / 3) * rowHeight,
+          };
+        }
+
+        const node: Node<BlockData> = {
+          id: tempId,
+          type: "custom",
+          position,
+          dragHandle: ".drag-handle",
+          data: {
+            id: tempId,
+            type: block.type,
+            content: block.content,
+            title: block.title,
+            order: idx,
+            onUpdate: handleUpdateBlock,
+            onExpand: handleExpandWithAI,
+            onRegenerate: handleRegenerateBlock,
+            onDelete: handleDeleteBlock,
+            isEditing: false,
+            isExpanding: false,
+            isRegenerating: false,
+            setEditingId: setEditingBlockId,
+          },
+        };
+        newNodes.push(node);
+        tempBlockMap.push({ tempId, block, index: idx, position });
+      });
+
+      // Construct connecting edges immediately based on parentIndex
+      const newEdges: Edge[] = [];
+      decomposed.forEach((block, idx) => {
+        if (block.parentIndex !== undefined && tempBlockMap[block.parentIndex]) {
+          const parentTempId = tempBlockMap[block.parentIndex].tempId;
+          const childTempId = tempBlockMap[idx].tempId;
+          newEdges.push({
+            id: `edge_${parentTempId}_${childTempId}`,
+            source: parentTempId,
+            target: childTempId,
+            type: "smoothstep",
+            animated: true,
+            label: block.edgeLabel,
+            style: { stroke: "#6366f1", strokeWidth: 2 },
+          });
+        }
+      });
+
+      setNodes(newNodes);
+      setEdges(newEdges);
+
+      // Fit view smoothly so all imported blocks and edges are neatly visible
+      setTimeout(() => {
+        reactFlowInstanceRef.current?.fitView({
+          padding: 0.2,
+          duration: 400,
+        });
+      }, 150);
+
+      // Async DB persist
+      try {
+        const idMapping = new Map<string, string>(); // tempId -> realId
+        for (const item of tempBlockMap) {
+          try {
+            const added = await addCanvasBlockAction(
+              {
+                type: item.block.type || "paragraph",
+                content: item.block.content,
+                order: item.index,
+                position: item.position,
+                title: item.block.title,
+              },
+              resolvedCanvasId
+            );
+            if (added?.id) {
+              idMapping.set(item.tempId, added.id);
+              setNodes((nds) =>
+                nds.map((n) =>
+                  n.id === item.tempId
+                    ? {
+                        ...n,
+                        id: added.id,
+                        data: { ...n.data, id: added.id },
+                      }
+                    : n
+                )
+              );
+            }
+          } catch (err) {
+            console.warn(`Could not save imported block ${item.index} to DB:`, err);
+          }
+        }
+
+        // Persist edges to DB
+        for (const edge of newEdges) {
+          const realSource = idMapping.get(edge.source);
+          const realTarget = idMapping.get(edge.target);
+          if (realSource && realTarget) {
+            try {
+              const savedEdge = await addEdgeAction({
+                source: realSource,
+                target: realTarget,
+                label: (edge.label as string) || undefined,
+              });
+              if (savedEdge?.id) {
+                setEdges((eds) =>
+                  eds.map((e) =>
+                    e.id === edge.id
+                      ? {
+                          ...e,
+                          id: savedEdge.id,
+                          source: realSource,
+                          target: realTarget,
+                        }
+                      : e
+                  )
+                );
+              }
+            } catch (edgeErr) {
+              console.warn("Could not save connecting edge to DB:", edgeErr);
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.error("Error saving imported canvas nodes to DB:", dbErr);
+      }
+
+      return true;
+    },
+    [
+      activeCanvasId,
+      searchParams,
+      setNodes,
+      setEdges,
+      setPageTitle,
+      handleUpdateBlock,
+      handleExpandWithAI,
+      handleRegenerateBlock,
+      handleDeleteBlock,
+      setEditingBlockId,
+    ]
+  );
+
+  const handleLoadLatestDashboardChat = async () => {
+    try {
+      const raw =
+        localStorage.getItem("museflow_canvas_import") ||
+        localStorage.getItem("museflow_latest_ai_chat");
+      if (!raw) {
+        toast.error("No recent AI chat draft found in storage.");
+        return;
+      }
+      const parsed = JSON.parse(raw);
+      let targetSessionId = activeCanvasId;
+      if (nodes.length > 0) {
+        const topicTitle = parsed.topic || parsed.title || "Imported Canvas";
+        const newSession = await createCanvasSessionAction(topicTitle);
+        if (newSession?.id) {
+          targetSessionId = newSession.id;
+          lastLoadedSessionIdRef.current = newSession.id;
+          setCurrentSessionId(newSession.id);
+          setActiveCanvasId(newSession.id);
+          loadCanvasSessions();
+          router.replace(`/dashboard/canvas?session=${newSession.id}`);
+        }
+      }
+      const success = await applyImportPayload(parsed, [], targetSessionId);
+      if (success) {
+        toast.success("Loaded draft from AI Chat into canvas!");
+      }
+    } catch (err) {
+      console.error("Failed to load latest chat:", err);
+      toast.error("Could not load dashboard chat");
+    }
+  };
+
+  const fetchBlocks = async (
+    sessionOrSilent?: string | boolean,
+    silentOption: boolean = false
+  ) => {
+    const overrideSessionId =
+      typeof sessionOrSilent === "string" ? sessionOrSilent : undefined;
+    const isSilent =
+      typeof sessionOrSilent === "boolean" ? sessionOrSilent : silentOption;
+
+    try {
+      if (!isSilent) setLoading(true);
+
+      let pendingImport: any = null;
+      try {
+        const canvasImport =
+          typeof window !== "undefined"
+            ? localStorage.getItem("museflow_canvas_import")
+            : null;
+        if (canvasImport) {
+          const parsed = JSON.parse(canvasImport);
+          const importToken =
+            parsed.id ||
+            `${parsed.importedAt || ""}_${(parsed.content || "").slice(0, 30)}`;
+          if (processedImportRef.current !== importToken) {
+            processedImportRef.current = importToken;
+            pendingImport = parsed;
+          }
+          localStorage.removeItem("museflow_canvas_import");
+        }
+      } catch (e) {
+        console.error("Error reading canvas import:", e);
+      }
+
+      let targetCanvasId =
+        overrideSessionId ||
+        currentSessionId ||
+        searchParams.get("session") ||
+        searchParams.get("id") ||
+        searchParams.get("canvasId") ||
+        pendingImport?.targetSessionId ||
+        undefined;
+      const isForcedNew =
+        !overrideSessionId &&
+        (searchParams.get("new") === "true" ||
+        (Boolean(importParam) && !targetCanvasId) ||
+        (Boolean(ideaIdParam) && !targetCanvasId));
+      const initialTitle = topicParam || pendingImport?.topic || "New Canvas";
+
+      let {
+        blocks: fetchedBlocks,
+        edges: fetchedEdges,
+        chatHistory: fetchedChatHistory,
+        id: actualCanvasId,
+        name: canvasSessionName,
+      } = await getCanvasDataAction(targetCanvasId, isForcedNew, initialTitle);
+
+      if ((pendingImport || Boolean(importParam)) && fetchedBlocks.length > 0 && !overrideSessionId) {
+        const importTitle =
+          pendingImport?.topic || topicParam || "Imported Canvas";
+        try {
+          const newSession = await createCanvasSessionAction(importTitle);
+          if (newSession?.id) {
+            actualCanvasId = newSession.id;
+            canvasSessionName = importTitle;
+            fetchedBlocks = [];
+            fetchedEdges = [];
+            fetchedChatHistory = [];
+          }
+        } catch (createErr) {
+          console.error("Failed to create isolated session for import:", createErr);
+        }
+      }
+
+      lastLoadedSessionIdRef.current = actualCanvasId;
+      setCurrentSessionId(actualCanvasId);
+      setActiveCanvasId(actualCanvasId);
+      const resolvedTitle =
+        topicParam || canvasSessionName || "Untitled Canvas";
+      setPageTitle(resolvedTitle);
+
+      if (!isSilent && fetchedChatHistory && fetchedChatHistory.length > 0) {
+        setChatMessages(
+          fetchedChatHistory.map((msg: any) => ({
+            id: msg.id,
+            role:
+              msg.role === "data"
+                ? "system"
+                : (msg.role as "user" | "assistant" | "system"),
+            parts: [{ type: "text", text: msg.content || "" }],
+            createdAt: new Date(msg.createdAt),
+          }))
+        );
+      } else if (
+        !isSilent &&
+        (!fetchedChatHistory || fetchedChatHistory.length === 0)
+      ) {
+        setChatMessages([]);
+      }
+
+      const needsLayout =
+        fetchedBlocks.length > 1 &&
+        fetchedBlocks.every((b) => b.position.x === 0 && b.position.y === 0);
+
+      const initialNodes: Node<BlockData>[] = fetchedBlocks.map(
+        (block: any, index: number) => ({
+          id: block.id,
+          type: "custom",
+          position: needsLayout
+            ? {
+                x: 80 + (index % 3) * 440,
+                y: 120 + Math.floor(index / 3) * 360,
+              }
+            : block.position,
+          dragHandle: ".drag-handle",
+          data: {
+            id: block.id,
+            type: block.type || "paragraph",
+            content: block.content,
+            title: block.title,
+            order: block.order,
+            onUpdate: handleUpdateBlock,
+            onExpand: handleExpandWithAI,
+            onRegenerate: handleRegenerateBlock,
+            onDelete: handleDeleteBlock,
+            isEditing: false,
+            isExpanding: false,
+            isRegenerating: false,
+            setEditingId: setEditingBlockId,
+          },
+        })
+      );
+
+      setNodes(initialNodes);
+      setEdges(
+        (fetchedEdges || []).map((e: any) => ({
+          ...e,
+          type: e.type || "smoothstep",
+          animated: e.animated ?? true,
+          style: e.style || { stroke: "#6366f1", strokeWidth: 2 },
+        }))
+      );
+
+      if (pendingImport) {
+        await applyImportPayload(pendingImport, [], actualCanvasId);
+      } else {
+        setTimeout(() => {
+          reactFlowInstanceRef.current?.fitView({
+            padding: 0.25,
+            duration: 400,
+          });
+        }, 100);
+      }
+
+      if (ideaIdParam && processedIdeaIdRef.current !== ideaIdParam) {
+        processedIdeaIdRef.current = ideaIdParam;
+        try {
+          const loadedChat = await getChatById(ideaIdParam);
+          if (
+            loadedChat &&
+            Array.isArray(loadedChat) &&
+            loadedChat.length > 0
+          ) {
+            const ideaContent = loadedChat
+              .map((m: any) => m.content)
+              .filter(Boolean)
+              .join("\n\n");
+            if (ideaContent) {
+              await applyImportPayload(
+                { content: ideaContent, topic: topicParam || "Saved Idea" },
+                [],
+                actualCanvasId
+              );
+            }
+          }
+        } catch (e) {
+          console.error("Error processing ideaIdParam:", e);
+        }
+      }
+
+      // If the URL had temporary query params (import, new, ideaId, or topic without session),
+      // cleanly replace URL so searchParams is synchronized without loop
+      if (isNewParam || importParam || ideaIdParam || (topicParam && !sessionParam)) {
+        router.replace(`/dashboard/canvas?session=${actualCanvasId}`);
+      }
+
+      loadCanvasSessions();
+    } catch (error) {
+      console.error("Error fetching canvas blocks:", error);
+      if (!isSilent) toast.error("Failed to load canvas");
+    } finally {
+      if (!isSilent) setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (sessionParam) {
+      if (lastLoadedSessionIdRef.current !== sessionParam) {
+        lastLoadedSessionIdRef.current = sessionParam;
+        setCurrentSessionId(sessionParam);
+        fetchBlocks(sessionParam);
+      }
+    } else if (isNewParam || importParam || topicParam || ideaIdParam) {
+      if (isInitializingRef.current) return;
+      isInitializingRef.current = true;
+      fetchBlocks().finally(() => {
+        isInitializingRef.current = false;
+      });
+    } else {
+      lastLoadedSessionIdRef.current = null;
+      setCurrentSessionId(null);
+      setLoading(false);
+    }
+  }, [sessionParam, isNewParam, importParam, topicParam, ideaIdParam]);
+
+  // Chat handlers
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64 = (event.target?.result as string).split(",")[1];
+        setSelectedFiles((prev) => [
+          ...prev,
+          { name: file.name, type: file.type, data: base64 },
+        ]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const text = chatInput.trim();
+    if (!text && selectedFiles.length === 0) return;
+
+    const userMsg = {
+      id: crypto.randomUUID(),
+      role: "user" as const,
+      content: text,
+      parts: [{ type: "text", text }],
+    };
+
+    setChatMessages((prev) => [...prev, userMsg]);
+    setChatInput("");
+    const filesToSend = [...selectedFiles];
+    setSelectedFiles([]);
+    setIsChatLoading(true);
+    setAgentStatus("Thinking...");
+
+    if (activeCanvasId) {
+      addChatMessageAction(userMsg, activeCanvasId).catch(console.error);
     }
 
-    return (
-        <div className="flex flex-col h-[calc(100vh-100px)] w-full">
-            {/* Header / Toolbar */}
-            <div className="flex flex-col gap-3 mb-4 px-4 sticky top-0 z-10 bg-background/80 backdrop-blur-sm pb-2 border-b">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                    <Input
-                        className="text-2xl font-bold bg-transparent border-none focus-visible:ring-0 w-full md:w-auto min-w-[300px]"
-                        type="text"
-                        value={pageTitle}
-                        onChange={(e) => setPageTitle(e.target.value)}
-                    />
-                    <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleClearCanvas} title="Clear all">
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={handleSaveCanvasToIdeas}>
-                            <Save className="mr-2 h-4 w-4" /> Save Interest
-                        </Button>
-                        <Button onClick={handleAddBlock} size="sm">
-                            <PlusCircle className="mr-2 h-4 w-4" /> Add Block
-                        </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm">
-                                    <Download className="mr-2 h-4 w-4" /> Export
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleExport('markdown')}>
-                                    <FileCode className="mr-2 h-4 w-4" /> Markdown
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleExport('text')}>
-                                    <FileText className="mr-2 h-4 w-4" /> Text
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </div>
-                {activeProfile && (
-                    <span className="text-xs text-muted-foreground">
-                        Active Profile: {activeProfile.profile_name}
-                    </span>
-                )}
-            </div>
+    try {
+      const currentCanvas = {
+        blocks: nodes.map((n) => ({
+          id: n.id,
+          type: n.data?.type || "paragraph",
+          content: n.data?.content || "",
+        })),
+        edges: edges.map((e) => ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          label: e.label,
+        })),
+      };
 
-            {/* React Flow Canvas */}
-            <div className="flex-1 w-full bg-slate-50 dark:bg-slate-900 overflow-hidden relative border rounded-lg shadow-inner">
-                <ReactFlow
-                    nodes={nodes}
-                    edges={edges}
-                    onNodesChange={onNodesChange}
-                    onEdgesChange={onEdgesChange}
-                    onConnect={onConnect}
-                    onNodeDragStop={onNodeDragStop}
-                    onNodesDelete={onNodesDelete}
-                    nodeTypes={nodeTypes as any}
-                    fitView
-                    className="bg-slate-50 dark:bg-slate-900"
-                >
-                    <Background />
-                    <Controls />
-                </ReactFlow>
-            </div>
-        </div>
+      const historyFormatted = chatMessages.map((m) => ({
+        role: m.role,
+        content: m.content || m.parts?.[0]?.text || "",
+      }));
+
+      const response = await generateCanvasChatResponseAction(
+        text,
+        historyFormatted,
+        filesToSend.map((f) => ({ data: f.data, mimeType: f.type })),
+        currentCanvas
+      );
+
+      let replyMessage = "";
+      let generatedBlocks: any[] = [];
+      let generatedEdges: any[] = [];
+
+      if (typeof response === "string") {
+        replyMessage = response;
+      } else if (response) {
+        replyMessage = response.message || (response as any).content || "";
+        generatedBlocks = response.blocks || [];
+        generatedEdges = response.edges || [];
+        if ((response as any).source === "research_agent") {
+          setModelProvider("research agent");
+        } else if ((response as any).source === "gemini") {
+          setModelProvider("gemini");
+        }
+      }
+
+      if (generatedBlocks && generatedBlocks.length > 0) {
+        setAgentStatus("Applying blocks to canvas...");
+        const idMap = new Map<string, string>();
+
+        for (let i = 0; i < generatedBlocks.length; i++) {
+          const blk = generatedBlocks[i];
+          const pos = blk.position || (blk.x !== undefined && blk.y !== undefined ? { x: blk.x, y: blk.y } : undefined);
+
+          if (blk.action === "delete" && blk.id) {
+            try {
+              await deleteCanvasBlockAction(blk.id);
+            } catch (delErr) {
+              console.warn("Failed to delete canvas block:", blk.id, delErr);
+            }
+          } else if (blk.action === "update" && blk.id) {
+            try {
+              await updateCanvasBlockAction(blk.id, {
+                type: blk.type,
+                content: blk.content,
+                position: pos,
+              });
+              idMap.set(blk.id, blk.id);
+            } catch (updErr) {
+              console.warn("Failed to update canvas block:", blk.id, updErr);
+            }
+          } else {
+            // Default: 'create'
+            try {
+              const added = await addCanvasBlockAction(
+                {
+                  type: blk.type || "paragraph",
+                  content: blk.content || "",
+                  order: nodes.length + i,
+                  position: pos,
+                },
+                activeCanvasId
+              );
+              if (added?.id) {
+                if (blk.id) {
+                  idMap.set(blk.id, added.id);
+                }
+                idMap.set(`node-${i + 1}`, added.id);
+                idMap.set(`node-${i}`, added.id);
+                idMap.set(String(i), added.id);
+              }
+            } catch (addErr) {
+              console.error("Failed to add canvas block:", addErr);
+            }
+          }
+        }
+
+        // Apply generated edges
+        if (generatedEdges && generatedEdges.length > 0) {
+          setAgentStatus("Connecting canvas nodes...");
+          for (const edge of generatedEdges) {
+            if (edge.action === "delete" && edge.id) {
+              try {
+                await deleteEdgeAction(edge.id);
+              } catch (delEdgeErr) {
+                console.warn("Failed to delete edge:", edge.id, delEdgeErr);
+              }
+            } else {
+              const realSource = idMap.get(edge.source) || edge.source;
+              const realTarget = idMap.get(edge.target) || edge.target;
+              if (realSource && realTarget && realSource !== realTarget) {
+                try {
+                  await addEdgeAction({
+                    source: realSource,
+                    target: realTarget,
+                    label: edge.label || undefined,
+                  });
+                } catch (edgeErr) {
+                  console.warn("Failed to create edge:", edge, edgeErr);
+                }
+              }
+            }
+          }
+        }
+
+        await fetchBlocks(true);
+      }
+
+      const assistantMsg = {
+        id: crypto.randomUUID(),
+        role: "assistant" as const,
+        content: replyMessage,
+        parts: [{ type: "text", text: replyMessage }],
+      };
+
+      setChatMessages((prev) => [...prev, assistantMsg]);
+
+      if (activeCanvasId) {
+        addChatMessageAction(assistantMsg, activeCanvasId).catch(console.error);
+      }
+    } catch (error: any) {
+      console.error("Canvas AI Error:", error);
+      toast.error("Failed to generate AI response");
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant" as const,
+          content:
+            "Sorry, I ran into an issue connecting to the AI model. Please try again.",
+          parts: [
+            {
+              type: "text",
+              text: "Sorry, I ran into an issue connecting to the AI model. Please try again.",
+            },
+          ],
+        },
+      ]);
+    } finally {
+      setIsChatLoading(false);
+      setAgentStatus(null);
+    }
+  };
+
+  const handleClearCanvas = async () => {
+    try {
+      setLoading(true);
+      await clearCanvasAction(activeCanvasId);
+      setNodes([]);
+      setEdges([]);
+      toast.success("Canvas cleared");
+    } catch (error) {
+      console.error("Error clearing canvas:", error);
+      toast.error("Failed to clear canvas");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClearChat = async () => {
+    setChatMessages([]);
+    try {
+      if (activeCanvasId) {
+        await updateCanvasChatHistoryAction([], activeCanvasId);
+      }
+      toast.success("Chat history cleared");
+    } catch (error) {
+      console.error("Failed to clear chat history:", error);
+      toast.error("Failed to clear chat history");
+    }
+  };
+
+  const handleSaveCanvasToIdeas = async () => {
+    const content = convertNodesToMarkdown(nodes, pageTitle);
+    if (!content.trim()) {
+      toast.error("Canvas is empty");
+      return;
+    }
+    try {
+      await saveToIdeasAction(content, pageTitle || "Untitled Canvas");
+      toast.success("Canvas saved to Ideas!");
+    } catch (error) {
+      console.error("Error saving canvas to ideas:", error);
+      toast.error("Failed to save canvas to ideas");
+    }
+  };
+
+  const handleExport = (format: "markdown" | "text") => {
+    exportCanvas(nodes, pageTitle, format);
+    toast.success(`Exported as ${format.toUpperCase()}`);
+  };
+
+  if (isHubView) {
+    return (
+      <CanvasHubView
+        canvasSessions={canvasSessions}
+        onCreateNew={handleCreateNew}
+        onSelectSession={handleSelectSession}
+        onSelectTemplate={handleSelectTemplate}
+        onDeleteSession={handleDeleteCanvasSession}
+        isCreating={isCreatingCanvas}
+      />
     );
+  }
+
+  if (loading) {
+    return <CanvasSkeleton />;
+  }
+
+  return (
+    <div
+      ref={canvasContainerRef}
+      className={`flex flex-col w-full h-full relative overflow-hidden bg-background ${
+        isFullscreen ? "h-screen p-4" : "h-[calc(100vh-100px)]"
+      }`}
+    >
+      {/* Top Header */}
+      <div className="flex flex-col gap-2 mb-3 px-2 sm:px-4 sticky top-0 z-10 bg-background/90 backdrop-blur-md pb-2.5 border-b w-full max-w-full overflow-hidden">
+        <CanvasHeader
+          pageTitle={pageTitle}
+          onTitleChange={handleTitleChange}
+          activeProfile={activeProfile}
+          canvasSessions={canvasSessions}
+          activeCanvasId={activeCanvasId}
+          onSwitchCanvas={handleSelectSession}
+          onCreateNewCanvas={handleCreateNew}
+          onBackToHub={handleBackToHub}
+          onExportToEditor={handleSendToEditor}
+          isExportingToEditor={isExportingToEditor}
+          onOpenChannelExport={() => setIsChannelExportOpen(true)}
+          onAddBlock={handleAddBlock}
+          onLoadLatestDashboardChat={handleLoadLatestDashboardChat}
+          onSaveCanvasToIdeas={handleSaveCanvasToIdeas}
+          onExport={handleExport}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+          onClearCanvas={handleClearCanvas}
+          canvasContainerRef={canvasContainerRef}
+        />
+      </div>
+
+      {/* Main Canvas & Chat Layout */}
+      <div className="flex-1 flex overflow-hidden gap-2">
+        <div className="flex-1 w-full bg-slate-50 dark:bg-slate-900 overflow-hidden relative border rounded-lg shadow-inner">
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onNodeDragStop={onNodeDragStop}
+            onNodesDelete={onNodesDelete}
+            nodeTypes={nodeTypes as any}
+            fitView
+            fitViewOptions={{ maxZoom: 0.7, padding: 0.1 }}
+            translateExtent={translateExtent}
+            nodeExtent={nodeExtent}
+            minZoom={minOverviewZoom * 0.9}
+            maxZoom={3.0}
+            onInit={(instance) => {
+              reactFlowInstanceRef.current = instance;
+            }}
+            preventScrolling={false}
+            className="bg-slate-100 dark:bg-slate-950"
+          >
+            <Background gap={24} size={1.5} />
+            <CanvasZoomToolbar minOverviewZoom={minOverviewZoom} />
+          </ReactFlow>
+        </div>
+
+        {/* AI Chat Drawer */}
+        <CanvasChatSidebar
+          isChatOpen={isChatOpen}
+          onClose={() => setIsChatOpen(false)}
+          onToggleOpen={() => setIsChatOpen(!isChatOpen)}
+          modelProvider={modelProvider}
+          agentStatus={agentStatus}
+          chatMessages={chatMessages}
+          chatInput={chatInput}
+          setChatInput={setChatInput}
+          isChatLoading={isChatLoading}
+          selectedFiles={selectedFiles}
+          onFileSelect={handleFileSelect}
+          onRemoveFile={removeFile}
+          onSendMessage={handleSendMessage}
+          onClearChat={handleClearChat}
+          isFullscreen={isFullscreen}
+          containerRef={canvasContainerRef}
+        />
+      </div>
+
+      <ChannelExportModal
+        isOpen={isChannelExportOpen}
+        onClose={() => setIsChannelExportOpen(false)}
+        title={pageTitle}
+        content={convertNodesToMarkdown(nodes, pageTitle)}
+      />
+    </div>
+  );
 }

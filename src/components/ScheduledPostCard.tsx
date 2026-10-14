@@ -12,6 +12,17 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ScheduledPost {
     id: string;
@@ -95,13 +106,40 @@ export function ScheduledPostCard({ post, onDelete, onEdit }: ScheduledPostCardP
                     >
                         Edit
                     </Button>
-                    <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => onDelete(post.id)}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-muted-foreground hover:text-destructive"
+                                title="Delete Post"
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="max-w-sm">
+                            <AlertDialogHeader>
+                                <div className="flex items-center gap-3 mb-1">
+                                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-destructive/10">
+                                        <Trash2 className="h-5 w-5 text-destructive" />
+                                    </div>
+                                    <AlertDialogTitle className="text-base">Delete Scheduled Post?</AlertDialogTitle>
+                                </div>
+                                <AlertDialogDescription className="text-sm leading-relaxed">
+                                    Are you sure you want to delete this scheduled post? This action cannot be undone.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter className="mt-2">
+                                <AlertDialogCancel className="h-9 text-sm">Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                    onClick={() => onDelete(post.id)}
+                                    className="h-9 text-sm bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                    Delete Post
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </div>
 

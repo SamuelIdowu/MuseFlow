@@ -25,13 +25,7 @@ export async function apiCall(
     const data = await response.json();
 
     if (!response.ok) {
-      let errorData;
-      try {
-        errorData = data;
-      } catch (e) {
-        // If data is not JSON or cannot be logged well
-        errorData = data;
-      }
+      const errorData = data;
       console.error(`${debugPrefix} - Request failed with status ${response.status}. Response body:`, JSON.stringify(errorData, null, 2));
       throw new Error(errorData?.error || JSON.stringify(errorData) || `API call failed with status ${response.status}`);
     }

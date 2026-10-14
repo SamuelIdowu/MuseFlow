@@ -1,17 +1,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { auth } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies();
-  const supabase = createRouteHandlerClient({ cookies: () => Promise.resolve(cookieStore) });
-  
   try {
-    // Get the user (more secure than session)
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { userId } = await auth();
 
-    if (!user || userError) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -72,13 +67,23 @@ function generateMarkdown(blocks: any[]): string {
   return md;
 }
 
+function sanitizeCsvCell(value: string): string {
+  if (!value) return '';
+  const trimmed = value.trimStart();
+  // Neutralize CSV formula execution triggers: =, +, -, @, \t, \r
+  if (/^[=+\-@\t\r]/.test(trimmed)) {
+    return `'${value.replace(/"/g, '""')}`;
+  }
+  return value.replace(/"/g, '""');
+}
+
 function generateCSV(blocks: any[]): string {
   // Create CSV content with type and content columns
   let csv = 'Type,Content\n';
   blocks.forEach(block => {
-    // Escape content for CSV
-    const escapedContent = block.content.replace(/"/g, '""');
-    csv += `"${block.type}","${escapedContent}"\n`;
+    const sanitizedType = sanitizeCsvCell(block.type || '');
+    const sanitizedContent = sanitizeCsvCell(block.content || '');
+    csv += `"${sanitizedType}","${sanitizedContent}"\n`;
   });
   return csv;
 }

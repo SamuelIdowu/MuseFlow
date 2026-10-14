@@ -39,8 +39,8 @@ export async function extractTextFromFileAction(formData: FormData): Promise<str
             // Try as text for other types or throw
             return parseText(buffer);
         }
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Error processing file:", error);
-        throw new Error(`Failed to process file: ${error.message}`);
+        throw new Error(`Failed to process file: ${error instanceof Error ? error.message : String(error)}`);
     }
 }

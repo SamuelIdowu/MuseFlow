@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { generateChatResponse } from '@/lib/geminiClient';
-import { auth, currentUser } from '@clerk/nextjs/server';
-import { createSupabaseServiceClient, ensureSupabaseUser } from '@/lib/supabaseServerClient';
+import { auth } from '@clerk/nextjs/server';
 
 
 export const maxDuration = 60;
@@ -65,8 +64,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('Error generating ideas:', error);
     return NextResponse.json({
-      error: error instanceof Error ? error.message : 'Internal server error',
-      details: error instanceof Error ? error.stack : error
+      error: error instanceof Error ? error.message : 'Internal server error'
     }, { status: 500 });
   }
 }

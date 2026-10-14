@@ -1,132 +1,161 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, type Part } from "@google/generative-ai";
 import { Profile } from "@/types/profile";
 import { CONTENT_TYPES } from "@/types/content";
-import { fetchUrlContent, extractUrls, isValidUrl } from "./urlUtils";
+import { fetchUrlContent, isValidUrl } from "./urlUtils";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+export function getGeminiApiKey(): string {
+  const envKey = process.env.GEMINI_API_KEY?.trim();
+  if (envKey && envKey.length > 10) {
+    return envKey;
+  }
+  return "";
+}
 
-const model = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash",
-});
+export function getGenerativeModel(modelName: string = "gemini-2.5-flash") {
+  const apiKey = getGeminiApiKey();
+  const genAI = new GoogleGenerativeAI(apiKey);
+  return genAI.getGenerativeModel({ model: modelName });
+}
+
+// Default export model for backward compatibility
+const model = getGenerativeModel("gemini-2.5-flash");
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number = 45000,
+  fallbackValue?: T
+): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeoutPromise = new Promise<T>((resolve, reject) => {
+    timer = setTimeout(() => {
+      if (fallbackValue !== undefined) {
+        resolve(fallbackValue);
+      } else {
+        reject(new Error(`AI generation timed out after ${ms}ms`));
+      }
+    }, ms);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timer) clearTimeout(timer);
+  });
+}
 
 async function buildProfileContext(profile?: Profile | null): Promise<string> {
   if (!profile) return "";
 
-  let context = `\n\nTarget Audience Profile:\n`;
-  context += `- Name: ${profile.profile_name}\n`;
-  if (profile.niche) context += `- Niche: ${profile.niche}\n`;
+  let context = `\n\n═══════════════════════════════════════════════════\nCREATOR BRAND VOICE & PERSONA CONTEXT:\n`;
+  context += `• Brand / Creator Name: ${profile.profile_name}\n`;
+  if (profile.niche) context += `• Core Niche / Industry: ${profile.niche}\n`;
 
   if (profile.tone_config) {
-    context += `- Tone Settings (1-10): Professionalism: ${profile.tone_config.professionalism}, Creativity: ${profile.tone_config.creativity}, Casualness: ${profile.tone_config.casualness}, Directness: ${profile.tone_config.directness}\n`;
+    const { professionalism = 5, creativity = 5, casualness = 5, directness = 5 } = profile.tone_config;
+    context += `• Tone Matrix (1-10 Scale):\n`;
+    context += `  - Professionalism [${professionalism}/10]: ${professionalism >= 7 ? 'Authoritative, enterprise-grade, polished' : professionalism <= 3 ? 'Unfiltered, raw, authentic' : 'Balanced, approachable'}\n`;
+    context += `  - Creativity [${creativity}/10]: ${creativity >= 7 ? 'Novel metaphors, unconventional hooks, bold storytelling' : 'Clear, structured, straightforward'}\n`;
+    context += `  - Casualness [${casualness}/10]: ${casualness >= 7 ? 'Conversational, colloquial, short sentences, friendly' : 'Formal, measured'}\n`;
+    context += `  - Directness [${directness}/10]: ${directness >= 7 ? 'Get straight to the point, zero fluff, high value density' : 'Elaborative, explorative'}\n`;
   }
 
   if (profile.samples && profile.samples.length > 0) {
     const processedSamples = await Promise.all(profile.samples.map(async (s) => {
       if (isValidUrl(s)) {
         const content = await fetchUrlContent(s);
-        return content ? `  "Style Sample from ${s}: ${content.substring(0, 2000)}..."` : `  "${s}"`;
+        return content ? `  - Style Reference from ${s}:\n    "${content.substring(0, 1500)}..."` : `  - "${s}"`;
       }
-      return `  "${s}"`;
+      return `  - "${s}"`;
     }));
-    context += `- Writing Style Samples:\n${processedSamples.join('\n')}\n`;
+    context += `• Creator's Writing Style Examples (mimic this cadence & rhythm):\n${processedSamples.join('\n')}\n`;
   }
 
-  context += `\nIMPORTANT: Ensure the generated content strictly adheres to this profile's niche, tone, and style.\n`;
+  context += `CRITICAL INSTRUCTION: Fully embody this persona. Avoid robotic corporate jargon (like 'In today's fast-paced digital landscape' or 'delve into'). Write with real human creator voice.\n═══════════════════════════════════════════════════\n`;
   return context;
 }
 
-export async function generateChatResponse(input: string, activeProfile?: Profile | null, history: any[] = [], contentTypeId?: string): Promise<string> {
-  // Check if API key is available
-  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
-    console.error("GEMINI_API_KEY is not set");
-    return `Here is some placeholder content for specific topic: "${input}". 
-    
-    1. Introduction to the topic.
-    2. Key concepts and importance.
-    3. Practical applications and examples.
-    4. Conclusion and next steps.
-    
-    This is a simulated response because the API key is missing.`;
+function getResearchAgentConfig() {
+  const agentUrl = process.env.RESEARCH_AGENT_URL || process.env.NEXT_PUBLIC_RESEARCH_AGENT_URL || 'http://127.0.0.1:8000';
+  const apiKey = process.env.RESEARCH_AGENT_API_KEY || '';
+  const clientId = process.env.RESEARCH_AGENT_CLIENT_ID || process.env.NEXT_PUBLIC_RESEARCH_AGENT_CLIENT_ID || '00000000-0000-0000-0000-000000000000';
+
+  return {
+    agentUrl: agentUrl.replace(/\/$/, ''),
+    apiKey,
+    clientId
+  };
+}
+
+export async function checkResearchAgentHealth(): Promise<boolean> {
+  try {
+    const { agentUrl } = getResearchAgentConfig();
+    const res = await fetch(`${agentUrl}/health`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(2000),
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
+}
+
+async function tryGenerateWithResearchAgent(input: string, profileId?: string, contentTypeId?: string): Promise<{ success: boolean; data?: string; error?: string }> {
+  const { agentUrl, apiKey, clientId: defaultClientId } = getResearchAgentConfig();
+  const timeoutMs = parseInt(process.env.RESEARCH_AGENT_TIMEOUT_MS || '180000', 10);
 
   try {
-    const profileContext = await buildProfileContext(activeProfile);
+    const clientId = profileId || defaultClientId;
 
-    // Check for URLs in input
-    const urls = extractUrls(input);
-    let urlContext = "";
-    if (urls.length > 0) {
-      const contents = await Promise.all(urls.map(async url => {
-        const content = await fetchUrlContent(url);
-        return content ? `\nContent from ${url}:\n${content}\n` : "";
-      }));
-      urlContext = contents.join("");
-    }
+    const brief = contentTypeId ? `[Format Requirement: ${contentTypeId}]\n\n${input}` : input;
 
-    // Format history for the prompt
-    let historyContext = "";
-    if (history && history.length > 0) {
-      historyContext = "\n\nChat History:\n";
-      history.forEach((msg, index) => {
-        const role = msg.role === 'user' ? 'User' : 'Assistant';
-        // Skip the current input if it's somehow already in history (shouldn't be, but good saftey)
-        if (msg.content === input && index === history.length - 1) return;
-        historyContext += `${role}: ${msg.content}\n`;
-      });
-      historyContext += "\n";
-    }
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-    // Look up content type if provided
-    let contentTypeInstruction = "";
-    if (contentTypeId) {
-      const typeDef = CONTENT_TYPES.find(t => t.id === contentTypeId);
-      if (typeDef) {
-        contentTypeInstruction = `\nOUTPUT FORMATTING REQUIREMENT:\nThe user explicitly requested a "${typeDef.label}" (${typeDef.category}).\nStructure the response strictly as a ${typeDef.label}.\n`;
-        // Add specific hints based on category
-        if (typeDef.category === 'Social Posts') {
-          contentTypeInstruction += "Include relevant hashtags and keep it concise/platform-appropriate.\n";
-        } else if (typeDef.category === 'Scripts') {
-          contentTypeInstruction += "Include scene/segment headers and spoken lines. Use a conversational tone.\n";
-        } else if (typeDef.category === 'Articles & Blogs') {
-          contentTypeInstruction += "Use clear headings, structured paragraphs, and an educational tone.\n";
-        } else if (typeDef.category === 'Copywriting') {
-          contentTypeInstruction += "Use persuasive language, strong hooks, and clear calls to action.\n";
-        } else if (typeDef.category === 'Technical & Professional') {
-          contentTypeInstruction += "Use formal language, objective tone, and precise terminology.\n";
-        }
+    const res = await fetch(`${agentUrl}/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(apiKey ? { 'X-Api-Key': apiKey } : {}),
+      },
+      body: JSON.stringify({
+        brief,
+        client_id: clientId,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeout);
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.draft && typeof data.draft === 'string') {
+        return { success: true, data: data.draft };
       }
+    } else {
+      const errBody = await res.text();
+      return { success: false, error: `Research Agent returned ${res.status}: ${errBody}` };
     }
-
-    const prompt = `You are a helpful AI creative assistant.
-    ${profileContext}
-    ${contentTypeInstruction}
-    ${historyContext}
-    User Input: "${input}"
-    ${urlContext ? `\nAdditional Context from URLs:\n${urlContext}` : ""}
-    
-    Task: Generate a comprehensive, engaging, and conversational response based on the user's input.
-    - If there is chat history, treat the User Input as a follow-up instruction to refine, expand, or modify the previous context.
-    - If the user asks for ideas, provide them in a fluid, well-structured format (not just a raw list).
-    - If the user asks to write something, write a high-quality draft.
-    - Use Markdown formatting (headings, bullet points, bold text) to make it readable.
-    - Ensure the tone matches the active profile settings.
-    
-    Return only the response text.`;
-
-    const result = await model.generateContent(prompt);
-    const response = result.response;
-
-    // Check if there's a response before trying to get text
-    if (!response) {
-      console.error("No response received from Gemini API");
-      return "I'm sorry, I couldn't generate a response at this time. Please try again.";
+    return { success: false, error: 'No draft returned from Research Agent' };
+  } catch (err: unknown) {
+    const errObj = err as { name?: string; message?: string } | undefined;
+    if (errObj?.name === 'AbortError' || errObj?.message?.toLowerCase().includes('abort')) {
+      return {
+        success: false,
+        error: `Research Agent request timed out after ${Math.round(timeoutMs / 1000)}s while generating content. Multi-step research and live web queries can take longer on deep topics.`,
+      };
     }
-
-    return response.text();
-  } catch (error) {
-    console.error("Error generating chat response with Gemini:", error);
-    return "I'm sorry, I encountered an error while generating the response. Please try again.";
+    return { success: false, error: `Could not connect to Research Agent at ${agentUrl} (${errObj?.message || String(err)})` };
   }
+}
+
+export async function generateChatResponse(input: string, activeProfile?: Profile | null, _history: unknown[] = [], contentTypeId?: string): Promise<string> {
+  void _history;
+  // Exclusively route to Research Agent (Fallback disabled)
+  const agentResult = await tryGenerateWithResearchAgent(input, activeProfile?.id, contentTypeId);
+  if (agentResult.success && agentResult.data) {
+    return agentResult.data;
+  }
+
+  // If agent returned error or is offline, report exact agent status
+  return `### Research Agent Generation\n\n${agentResult.error || "Agent is currently offline or did not return a response."}\n\n*Please ensure \`uvicorn src.main:app --port 8000\` is running in the \`research_agent\` project.*`;
 }
 
 export async function expandContentBlock(
@@ -135,12 +164,23 @@ export async function expandContentBlock(
   canvasTitle?: string,
   activeProfile?: Profile | null,
   contextBlocks?: { type: string; content: string }[],
-  contentTypeId?: string
+  contentTypeId?: string,
+  mode: 'expand' | 'regenerate' = 'expand'
 ): Promise<string> {
-  // Check if API key is available
-  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
-    console.error("GEMINI_API_KEY is not set for expandContentBlock");
-    return `${content} - This is an expanded version with additional detail and context to make the content more comprehensive and valuable for the reader.`;
+  const taskDescription = mode === 'expand' 
+    ? `Expand and enhance the following ${blockType} content significantly for "${canvasTitle || 'Canvas Post'}": "${content}"`
+    : `Regenerate and rewrite the following ${blockType} content with a fresh angle for "${canvasTitle || 'Canvas Post'}": "${content}"`;
+
+  // 1. Primary: Try Research Agent
+  const agentOutput = await tryGenerateWithResearchAgent(taskDescription, activeProfile?.id, contentTypeId);
+  if (agentOutput.success && agentOutput.data && agentOutput.data.trim().length > 0) {
+    return agentOutput.data;
+  }
+
+  // 2. Fallback: Native Gemini
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "" || process.env.GEMINI_API_KEY.includes("your_gemini_api_key")) {
+    console.warn("GEMINI_API_KEY is not set or invalid for expandContentBlock. Returning original content.");
+    return content;
   }
 
   try {
@@ -148,7 +188,7 @@ export async function expandContentBlock(
 
     // If content to expand is a URL, fetch it
     let contentToExpand = content;
-    if (isValidUrl(content)) {
+    if (isValidUrl(content) && mode === 'expand') {
       const fetched = await fetchUrlContent(content);
       if (fetched) {
         contentToExpand = fetched;
@@ -164,48 +204,54 @@ export async function expandContentBlock(
       const typeDef = CONTENT_TYPES.find(t => t.id === contentTypeId);
       if (typeDef) {
         contentTypeInstruction = `\nOUTPUT FORMATTING REQUIREMENT:\nThe user explicitly requested a "${typeDef.label}" (${typeDef.category}).\nStructure the response strictly as a ${typeDef.label}.\n`;
-        // Add specific hints based on category
-        if (typeDef.category === 'Social Posts') {
-          contentTypeInstruction += "Include relevant hashtags and keep it concise/platform-appropriate.\n";
-        } else if (typeDef.category === 'Scripts') {
-          contentTypeInstruction += "Include scene/segment headers and spoken lines. Use a conversational tone.\n";
-        } else if (typeDef.category === 'Articles & Blogs') {
-          contentTypeInstruction += "Use clear headings, structured paragraphs, and an educational tone.\n";
-        } else if (typeDef.category === 'Copywriting') {
-          contentTypeInstruction += "Use persuasive language, strong hooks, and clear calls to action.\n";
-        } else if (typeDef.category === 'Technical & Professional') {
-          contentTypeInstruction += "Use formal language, objective tone, and precise terminology.\n";
-        }
       }
     }
 
     if (contextBlocks && contextBlocks.length > 0) {
       contextPart += "\nExisting Content Blocks for Context:\n";
       contextBlocks.forEach((block, index) => {
-        // Skip the current block if it happens to be in the list (though caller should filter it)
+        // Skip the current block if it happens to be in the list
         if (block.content === content) return;
         contextPart += `${index + 1}. [${block.type.toUpperCase()}]: ${block.content.substring(0, 200)}${block.content.length > 200 ? "..." : ""}\n`;
       });
       contextPart += "\n";
     }
 
-    const prompt = `${contextPart}Task: Expand the following ${blockType} block: "${contentToExpand}".${profileContext}${contentTypeInstruction}
-    Instructions: Make it more detailed, engaging, and comprehensive while maintaining the original meaning. Ensure the tone fits the overall article title and aligns with the context of the other blocks provided above.
-    Return only the expanded content without additional commentary.`;
+    const taskText = mode === 'expand' 
+      ? `EXPAND and ENHANCE the following ${blockType} content. Your goal is to increase the depth, detail, and length of the content SIGNIFICANTLY (at least 2x the original length).`
+      : `REGENERATE and REWRITE the following ${blockType} content. Your goal is to provide a completely fresh linguistic take, using different vocabulary and sentence structures while maintaining the core message.`;
+
+    const prompt = `${contextPart}
+    Task: ${taskText}
+    
+    Original Content: "${contentToExpand}"
+    
+    ${profileContext}
+    ${contentTypeInstruction}
+    
+    Specific Instructions:
+    1. ${mode === 'expand' 
+        ? 'EXPANSION: Add specific facts, statistics, examples, or detailed explanations. If it is a list, add more relevant items. If it is a paragraph, add more supporting sentences.' 
+        : 'REGENERATION: Use a different tone or perspective. Change the phrasing entirely. Do not just swap a few words; rewrite the entire block from scratch.'}
+    2. Maintain the original meaning but improve the impact and value.
+    3. Ensure the tone aligns with the article title ("${canvasTitle || 'Untitled'}") and the surrounding context blocks.
+    4. CRITICAL: Return ONLY the ${mode === 'expand' ? 'expanded' : 'regenerated'} content. Do NOT include any meta-commentary, intros, or outros.
+    5. CRITICAL: Do NOT mention that you are an AI or describe your process.
+    
+    New Content:`;
 
     const result = await model.generateContent(prompt);
     const response = result.response;
 
     if (!response) {
-      console.error("No response received from Gemini API in expandContentBlock");
-      return `${content} - This is an expanded version with additional detail and context to make the content more comprehensive and valuable for the reader.`;
+      return content;
     }
 
-    return response.text();
+    const text = response.text().trim();
+    return text || content;
   } catch (error) {
-    console.error("Error expanding content block with Gemini:", error);
-    // Return fallback expansion in case of error
-    return `${content} - This is an expanded version with additional detail and context to make the content more comprehensive and valuable for the reader.`;
+    console.error("Error expanding/regenerating content block with Gemini:", error);
+    return content;
   }
 }
 
@@ -217,9 +263,17 @@ export async function generateContentBlock(
   userInstruction?: string,
   contentTypeId?: string
 ): Promise<string> {
-  // Check if API key is available
-  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
-    console.error("GEMINI_API_KEY is not set for generateContentBlock");
+  const brief = `Generate a compelling ${blockType} block for "${canvasTitle || 'Canvas Post'}". ${userInstruction || ''}`;
+
+  // 1. Primary: Try Research Agent
+  const agentOutput = await tryGenerateWithResearchAgent(brief, activeProfile?.id, contentTypeId);
+  if (agentOutput.success && agentOutput.data && agentOutput.data.trim().length > 0) {
+    return agentOutput.data;
+  }
+
+  // 2. Fallback: Native Gemini
+  if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "" || process.env.GEMINI_API_KEY.includes("your_gemini_api_key")) {
+    console.warn("GEMINI_API_KEY is not set or invalid for generateContentBlock");
     return `[Generated ${blockType} content for "${canvasTitle}"]`;
   }
 
@@ -258,9 +312,19 @@ export async function generateContentBlock(
       }
     }
 
-    const prompt = `${contextPart}${instructionPart}Task: Generate content for a ${blockType} block.${profileContext}${contentTypeInstruction}
-    Instructions: Write high-quality, engaging content that fits the overall article title and aligns with the context of the other blocks provided above.
-    Return only the generated content without additional commentary.`;
+    const prompt = `${contextPart}${instructionPart}
+    Task: Generate high-quality content for a ${blockType} block.
+    
+    ${profileContext}
+    ${contentTypeInstruction}
+    
+    Instructions:
+    1. Write engaging, professional, and valuable content that fits the overall article title ("${canvasTitle || 'Untitled'}").
+    2. Ensure it aligns with the context of the other blocks provided above.
+    3. If there is a "User Instruction", prioritize following it strictly.
+    4. CRITICAL: Return ONLY the generated content. Do NOT include any meta-commentary or descriptions of what you wrote.
+    
+    Generated Content:`;
 
     const result = await model.generateContent(prompt);
     const response = result.response;
@@ -353,6 +417,30 @@ export async function formatForChannel(
   }
 }
 
+export interface CampaignPostItem {
+  content: string;
+  type: string;
+}
+
+export interface ChatHistoryItem {
+  role: string;
+  content: string;
+}
+
+export interface CanvasContextBlock {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  content: string;
+}
+
+export interface CanvasContextEdge {
+  source: string;
+  target: string;
+  label?: string;
+}
+
 export async function generateCampaignContent(
   topic: string,
   activeProfile?: Profile | null,
@@ -361,10 +449,10 @@ export async function generateCampaignContent(
   tone: string = 'professional',
   userInstruction: string = '',
   context: string = ''
-): Promise<any[]> {
+): Promise<CampaignPostItem[]> {
   if (!process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY === "") {
     console.error("GEMINI_API_KEY is not set for generateCampaignContent");
-    return Array(count).fill({ content: `Simulated post about ${topic}` });
+    return Array(count).fill({ content: `Simulated post about ${topic}`, type: 'general' });
   }
 
   try {
@@ -405,9 +493,276 @@ export async function generateCampaignContent(
     // Clean up markdown code blocks if present
     const cleanText = text.replace(/```json/g, "").replace(/```/g, "").trim();
 
-    return JSON.parse(cleanText);
-  } catch (error) {
+    return JSON.parse(cleanText) as CampaignPostItem[];
+  } catch (error: unknown) {
     console.error("Error generating campaign content:", error);
     return [];
+  }
+}
+
+export async function generateCanvasBlocksFromChat(
+  input: string,
+  activeProfile?: Profile | null,
+  history: ChatHistoryItem[] = [],
+  files: { data: string; mimeType: string }[] = [],
+  currentCanvas?: { blocks: CanvasContextBlock[]; edges: CanvasContextEdge[] }
+): Promise<{ 
+  blocks: { id: string; type: string; content: string; title?: string; x?: number; y?: number; action?: 'create' | 'update' | 'delete' }[]; 
+  edges: { source: string; target: string; label?: string; action?: 'create' | 'delete' }[];
+  message: string;
+  source?: 'research_agent' | 'gemini';
+}> {
+  const apiKey = getGeminiApiKey();
+  if (!apiKey) {
+    return {
+      message: "API Key missing. Cannot generate blocks.",
+      blocks: [
+        { id: "node-1", type: "heading", content: "AI Content Generation", action: 'create' },
+        { id: "node-2", type: "paragraph", content: `This is a placeholder for: ${input}`, action: 'create' }
+      ],
+      edges: [
+        { source: "node-1", target: "node-2", action: 'create' },
+      ],
+      source: 'gemini'
+    };
+  }
+
+  try {
+    // 1. Primary: Run deep research & persona synthesis via Research Agent (RAG + Web Search)
+    let agentDraft = "";
+    let usedAgent = false;
+    try {
+      const agentRes = await tryGenerateWithResearchAgent(input, activeProfile?.id);
+      if (agentRes.success && agentRes.data && agentRes.data.trim().length > 0) {
+        agentDraft = agentRes.data.trim();
+        usedAgent = true;
+      }
+    } catch (agentErr) {
+      console.warn("[Canvas AI] Research Agent pass skipped/offline:", agentErr);
+    }
+
+    const agentContext = agentDraft 
+      ? `\n\n═══════════════════════════════════════════════════\nVERIFIED RESEARCH & GROUNDED CONTENT (from Research Agent):\n"${agentDraft}"\n═══════════════════════════════════════════════════\nInstruction: Use the structured sections, key insights, and verified facts from this research draft to populate the content blocks on the canvas.\n`
+      : "";
+
+    const profileContext = await buildProfileContext(activeProfile);
+    
+    // Format history
+    let historyContext = "";
+    if (history && history.length > 0) {
+      historyContext = "\n\nChat History:\n";
+      history.forEach((msg) => {
+        const role = msg.role === 'user' ? 'User' : 'Assistant';
+        historyContext += `${role}: ${msg.content}\n`;
+      });
+    }
+
+    let canvasContext = "";
+    if (currentCanvas && currentCanvas.blocks.length > 0) {
+      canvasContext = "\n\nCurrent Canvas State:\n";
+      currentCanvas.blocks.forEach(b => {
+        canvasContext += `- Block [ID: ${b.id}, Type: ${b.type}, Pos: (${Math.round(b.x)}, ${Math.round(b.y)})]: ${b.content.substring(0, 100)}${b.content.length > 100 ? '...' : ''}\n`;
+      });
+      if (currentCanvas.edges.length > 0) {
+        canvasContext += "Existing Connections:\n";
+        currentCanvas.edges.forEach(e => {
+          canvasContext += `- ${e.source} -> ${e.target}${e.label ? ` (${e.label})` : ''}\n`;
+        });
+      }
+    }
+
+    const prompt = `You are MuseFlow's Principal AI Content Architect & Creative Director.
+Your mission is to transform user requests—even short, casual, or typo-laden prompts—into rich, publication-ready, visually stunning connected canvases.
+    ${profileContext}
+    ${historyContext}
+    ${canvasContext}
+    ${agentContext}
+    
+    User Request: "${input}"
+    
+    CORE DIRECTIVES FOR AUTONOMOUS QUALITY:
+
+    1. AUTONOMOUS INTENT & ENTITY RESOLUTION:
+       - If the user's prompt is short, casual, or contains typos (e.g., "create ana article for me on lamin yamal recent interview, connect the nodes"), autonomously resolve entity names (e.g. "Lamine Yamal"), infer the core themes, and expand it into a high-level creative vision.
+       - Do not output lazy 1-sentence chips or ask for clarification. Immediately generate a comprehensive, highly articulated canvas structure.
+
+    2. EDITORIAL EXCELLENCE & BLOCK TYPES:
+       - Available Block Types: "hook", "heading", "paragraph", "quote", "problem", "solution", "call-to-action", "list".
+       - Each narrative card should contain substantive, engaging, publication-grade copy (full thoughts, real anecdotes, crisp storytelling).
+       - NEVER output conversational filler inside block content (e.g. NEVER write "Alright, here is...", "Yamal article coming up...", "Node 1:", "Heading:", "Connecting nodes...").
+       - Put all conversational replies and friendly explanations exclusively in the "message" field.
+
+    3. CANVAS STRUCTURE & GRAPH TOPOLOGY:
+       - When asked to create an article, breakdown, or connected story, build a cohesive Left-to-Right narrative flow or hub-and-spoke tree:
+         * Anchor / Hero Hook (type: "hook" or "paragraph"): The provocative central thesis or opening scene. Position around (x: 80, y: 380).
+         * Thematic Pillars (3 to 4 nodes, type: "heading", "paragraph", or "quote"): Core story angles or interview themes. Position in column 2 around (x: 580, y: 120), (x: 580, y: 460), (x: 580, y: 800).
+         * Synthesis / Climax / Takeaway (type: "paragraph" or "solution"): The concluding impact or forward outlook. Position in column 3 around (x: 1080, y: 460).
+       - CONNECT THE NODES: Provide rich, descriptive "edges" linking the anchor to the pillars, and pillars to synthesis.
+         * Each edge must have: "source" (source node id), "target" (target node id), and "label" (a brief 1-3 word relationship title like "Roots", "Catalyst", "Humility", "Postcode 304", "Future Outlook").
+       - Assign sequential IDs to new blocks like "node-1", "node-2", "node-3", etc., and ensure "edges" reference these exact IDs.
+
+    4. CANVAS HYGIENE & CLEANUP:
+       - Check the "Current Canvas State". If the canvas currently contains generic onboarding cards, empty placeholders, or assistant capabilities (e.g. "what are we cooking up", "draft an article for you", "search your knowledge base", "look up recent web trends"), mark them with "action": "delete" so the canvas starts clean.
+       - If the user is refining or adding to an existing topic, keep and connect to relevant existing blocks.
+
+    5. JSON FORMAT REQUIREMENTS:
+       Return ONLY a valid JSON object matching:
+       {
+         "blocks": [
+           { "id": "node-1", "type": "hook", "content": "Full substantive content...", "x": 80, "y": 380, "action": "create" }
+         ],
+         "edges": [
+           { "source": "node-1", "target": "node-2", "label": "Origins & Street Roots", "action": "create" }
+         ],
+         "message": "A concise, engaging assistant reply explaining the structured canvas you created."
+       }
+
+    Return ONLY raw JSON, no markdown wrapper.`;
+
+    const parts: (string | Part)[] = [{ text: prompt }];
+    
+    // Add files
+    if (files && files.length > 0) {
+      const SUPPORTED_MIME_TYPES = [
+        'image/png', 'image/jpeg', 'image/webp', 'image/heic', 'image/heif',
+        'application/pdf', 'text/plain', 'text/csv', 'text/markdown',
+        'audio/wav', 'audio/mp3', 'audio/mpeg', 'audio/aac', 'audio/ogg', 'audio/flac',
+        'video/mp4', 'video/mpeg', 'video/mov', 'video/avi', 'video/webm'
+      ];
+
+      files.forEach(file => {
+        let mimeType = file.mimeType;
+        
+        // Handle empty or generic MIME types
+        if (!mimeType || mimeType === 'application/octet-stream') {
+          // If we have a data URL, try to extract from there
+          if (file.data.startsWith('data:')) {
+            const match = file.data.match(/^data:([^;]+);base64,/);
+            if (match) mimeType = match[1];
+          }
+        }
+
+        if (SUPPORTED_MIME_TYPES.includes(mimeType)) {
+          parts.push({
+            inlineData: {
+              data: file.data.includes(',') ? file.data.split(',')[1] : file.data,
+              mimeType: mimeType
+            }
+          });
+        } else {
+          console.warn(`[Gemini] Skipping unsupported MIME type: ${mimeType}`);
+        }
+      });
+    }
+
+    // Try primary model (gemini-2.5-flash), fallback to gemini-2.0-flash
+    const modelsToTry = ["gemini-2.5-flash", "gemini-2.0-flash"];
+    let response: { promptFeedback?: { blockReason?: string }; text: () => string } | null = null;
+    let lastError: unknown = null;
+
+    for (const modelName of modelsToTry) {
+      try {
+        const activeModel = getGenerativeModel(modelName);
+        const result = await withTimeout(activeModel.generateContent(parts), 45000);
+        if (result?.response) {
+          response = result.response;
+          break;
+        }
+      } catch (err: unknown) {
+        console.warn(`[Gemini Canvas] Generation failed with ${modelName}:`, (err as Error)?.message || err);
+        lastError = err;
+      }
+    }
+
+    if (!response) {
+      throw lastError || new Error("No response from Gemini API models");
+    }
+
+    // Check if the response was blocked by safety filters
+    if (response.promptFeedback?.blockReason) {
+      return {
+        message: `I'm sorry, I couldn't generate a response because it was blocked: ${response.promptFeedback.blockReason}`,
+        blocks: [],
+        edges: []
+      };
+    }
+
+    const text = response.text().trim();
+    if (!text) {
+      throw new Error("Empty response from Gemini API");
+    }
+
+    let parsed: { blocks?: { id: string; type: string; content: string; title?: string; x?: number; y?: number; action?: 'create' | 'update' | 'delete' }[]; edges?: { source: string; target: string; label?: string; action?: 'create' | 'delete' }[]; message?: string } | null = null;
+    const cleanText = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+    try {
+      parsed = JSON.parse(cleanText);
+    } catch {
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch {}
+      }
+    }
+
+    if (parsed && (parsed.blocks || parsed.edges || parsed.message)) {
+      return {
+        blocks: Array.isArray(parsed.blocks) ? parsed.blocks : [],
+        edges: Array.isArray(parsed.edges) ? parsed.edges : [],
+        message: parsed.message || (usedAgent ? "Generated canvas blocks grounded in Research Agent intelligence." : "Here is your generated canvas structure."),
+        source: usedAgent ? 'research_agent' : 'gemini'
+      };
+    }
+
+    // Fallback if parsing didn't return standard format
+    return {
+      message: text,
+      blocks: [
+        { id: crypto.randomUUID(), type: "paragraph", content: text, action: 'create' }
+      ],
+      edges: [],
+      source: usedAgent ? 'research_agent' : 'gemini'
+    };
+  } catch (error: unknown) {
+    console.error("Error in generateCanvasBlocksFromChat:", error);
+    
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    if (errorMessage.includes("API_KEY_INVALID") || errorMessage.includes("API key not valid")) {
+      return {
+        message: "Your Google Gemini API key in `.env.local` is invalid or expired. Please update it in `.env.local` or configure BYOK in **Brand Profiles → Model & BYOK Settings**.",
+        blocks: [],
+        edges: []
+      };
+    }
+
+    if (errorMessage.includes("timed out") || errorMessage.includes("timeout")) {
+      return {
+        message: "The AI request timed out. Please try again with a more specific prompt.",
+        blocks: [],
+        edges: []
+      };
+    }
+
+    if (errorMessage.includes("429") || errorMessage.includes("quota") || errorMessage.includes("Resource has been exhausted")) {
+      return {
+        message: "The Gemini AI service is currently rate-limited. Please wait a moment and try again.",
+        blocks: [],
+        edges: []
+      };
+    }
+
+    if (errorMessage.includes("400") || errorMessage.includes("Bad Request")) {
+      return {
+        message: "The AI request failed. Please check your API key configuration or reduce payload size.",
+        blocks: [],
+        edges: []
+      };
+    }
+
+    return {
+      message: `I encountered an issue generating the blocks (${errorMessage}). Please try again.`,
+      blocks: [],
+      edges: []
+    };
   }
 }

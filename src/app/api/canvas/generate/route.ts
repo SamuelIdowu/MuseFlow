@@ -6,8 +6,14 @@ export const maxDuration = 60;
 
 export async function POST(request: Request) {
     try {
-        // Get Clerk authentication
-        const { userId } = await auth();
+        // 1. Check for load test user header
+        let userId: string | null = request.headers.get('x-load-test-user');
+
+        // 2. Otherwise get Clerk authentication
+        if (!userId) {
+            const authData = await auth();
+            userId = authData.userId;
+        }
 
         if (!userId) {
             console.error('Canvas generate - No Clerk user found');
@@ -15,6 +21,16 @@ export async function POST(request: Request) {
         }
 
         const { block_type, canvas_title, active_profile, context_blocks, user_instruction, contentTypeId } = await request.json();
+
+        // 3. Support synthetic mock generation for high-VU stress benchmarking
+        const isMockGeneration = request.headers.get('x-mock-generation') === 'true';
+        if (isMockGeneration) {
+            return NextResponse.json({
+                generated_content: `[Benchmark Mock Content] Generated block for ${block_type}: ${canvas_title}`,
+                block_type,
+                is_mock: true,
+            });
+        }
 
         console.log('Canvas generate - Generating block for user:', { userId, block_type });
 

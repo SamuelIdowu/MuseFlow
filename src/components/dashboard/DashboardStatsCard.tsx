@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { RotateCw } from 'lucide-react';
 import { getDashboardStats } from '@/lib/dashboardServerActions';
 
@@ -85,31 +86,31 @@ export function DashboardStatsCard() {
       </CardHeader>
       <CardContent>
         {loading ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-muted rounded-lg p-4 text-center">
-                <div className="h-8 bg-muted-foreground/20 rounded mb-2 animate-pulse"></div>
-                <div className="h-4 bg-muted-foreground/10 rounded animate-pulse"></div>
+              <div key={i} className="bg-muted rounded-lg p-3 text-center space-y-2">
+                <Skeleton className="h-6 w-full mx-auto" />
+                <Skeleton className="h-3 w-3/4 mx-auto" />
               </div>
             ))}
           </div>
         ) : stats ? (
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-muted rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold">{stats.ideasCount}</p>
-              <p className="text-sm text-muted-foreground">Ideas Generated</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-muted rounded-lg p-3 text-center">
+              <p className="text-xl font-bold font-space-grotesk">{stats.ideasCount}</p>
+              <p className="text-[13px] text-muted-foreground">Ideas Generated</p>
             </div>
-            <div className="bg-muted rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold">{stats.contentCount}</p>
-              <p className="text-sm text-muted-foreground">Content Pieces</p>
+            <div className="bg-muted rounded-lg p-3 text-center">
+              <p className="text-xl font-bold font-space-grotesk">{stats.contentCount}</p>
+              <p className="text-[13px] text-muted-foreground">Content Pieces</p>
             </div>
-            <div className="bg-muted rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold">{stats.scheduledCount}</p>
-              <p className="text-sm text-muted-foreground">Scheduled Posts</p>
+            <div className="bg-muted rounded-lg p-3 text-center">
+              <p className="text-xl font-bold font-space-grotesk">{stats.scheduledCount}</p>
+              <p className="text-[13px] text-muted-foreground">Scheduled Posts</p>
             </div>
-            <div className="bg-muted rounded-lg p-4 text-center">
-              <p className="text-2xl font-bold">{stats.profileCount}</p>
-              <p className="text-sm text-muted-foreground">Profiles</p>
+            <div className="bg-muted rounded-lg p-3 text-center">
+              <p className="text-xl font-bold font-space-grotesk">{stats.profileCount}</p>
+              <p className="text-[13px] text-muted-foreground">Profiles</p>
             </div>
           </div>
         ) : (

@@ -1,20 +1,11 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { Webhook } from 'svix';
-import { createClient } from '@supabase/supabase-js';
+import { db } from '@/db';
+import { users } from '@/db/schema/users';
+import { eq } from 'drizzle-orm';
 
 export async function POST(request: Request) {
-  // Initialize Supabase client inside the function to avoid build-time errors
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseServiceRoleKey = process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    console.error('Missing Supabase configuration');
-    return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
-  }
-
-  const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
-
   try {
     const headersList = await headers();
     const clerkSecret = headersList.get('svix-id') &&
@@ -60,7 +51,7 @@ export async function POST(request: Request) {
 
       // Handle user creation
       if (type === 'user.created') {
-        const { id: clerk_id, email_addresses, first_name, last_name, username } = data;
+        const { id: clerk_id, email_addresses } = data;
 
         // Get primary email
         const primaryEmail = email_addresses?.find((email: { id: string; email_address: string }) => email.id === data.primary_email_address_id);
@@ -71,32 +62,18 @@ export async function POST(request: Request) {
           return NextResponse.json({ error: 'No email provided' }, { status: 400 });
         }
 
-        // Check if user already exists
-        const { data: existingUser } = await supabase
-          .from('users')
-          .select('id')
-          .eq('clerk_id', clerk_id)
-          .single();
+        await db
+          .insert(users)
+          .values({
+            clerkId: clerk_id,
+            email,
+          })
+          .onConflictDoUpdate({
+            target: users.clerkId,
+            set: { email },
+          });
 
-        if (!existingUser) {
-          // Create user in Supabase
-          const { error: createError } = await supabase
-            .from('users')
-            .insert([
-              {
-                clerk_id,
-                email,
-              },
-            ]);
-
-          if (createError) {
-            console.error('Error creating user in Supabase:', createError);
-            return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
-          }
-
-          console.log('User created successfully:', { clerk_id, email });
-        }
-
+        console.log('User synced successfully to Neon:', { clerk_id, email });
         return NextResponse.json({ message: 'User synced successfully' });
       }
 
@@ -104,17 +81,11 @@ export async function POST(request: Request) {
       if (type === 'user.deleted') {
         const { id: clerk_id } = data;
 
-        const { error } = await supabase
-          .from('users')
-          .delete()
-          .eq('clerk_id', clerk_id);
+        await db
+          .delete(users)
+          .where(eq(users.clerkId, clerk_id));
 
-        if (error) {
-          console.error('Error deleting user from Supabase:', error);
-          return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 });
-        }
-
-        console.log('User deleted successfully:', clerk_id);
+        console.log('User deleted successfully from Neon:', clerk_id);
         return NextResponse.json({ message: 'User deleted successfully' });
       }
 
@@ -126,17 +97,12 @@ export async function POST(request: Request) {
         const email = primaryEmail?.email_address || email_addresses?.[0]?.email_address;
 
         if (email) {
-          const { error } = await supabase
-            .from('users')
-            .update({ email })
-            .eq('clerk_id', clerk_id);
+          await db
+            .update(users)
+            .set({ email })
+            .where(eq(users.clerkId, clerk_id));
 
-          if (error) {
-            console.error('Error updating user in Supabase:', error);
-            return NextResponse.json({ error: 'Failed to update user' }, { status: 500 });
-          }
-
-          console.log('User updated successfully:', clerk_id);
+          console.log('User updated successfully in Neon:', clerk_id);
         }
 
         return NextResponse.json({ message: 'User updated successfully' });

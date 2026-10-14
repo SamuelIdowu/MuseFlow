@@ -1,64 +1,39 @@
 import { NextResponse } from 'next/server';
-import { format } from 'date-fns';
-import { createSupabaseServiceClient } from '@/lib/supabaseServerClient';
-
-async function getRecentIdeasAPI(limit = 3) {
-  const supabase = await createSupabaseServiceClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-
-  const userId = user.id;
-
-  // Get recent idea kernels
-  const { data: ideas, error } = await supabase
-    .from('idea_kernels')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (error) {
-    console.error('Error fetching recent ideas:', error);
-    throw new Error('Could not fetch recent ideas');
-  }
-
-  // Transform the data to have a flat list of ideas with their metadata
-  const recentIdeas = ideas.flatMap(idea =>
-    (idea.kernels as string[]).map((kernel: string, index: number) => ({
-      id: `${idea.id}-${index}`,
-      title: kernel,
-      createdAt: idea.created_at,
-      inputData: idea.input_data,
-      inputType: idea.input_type,
-    }))
-  ).slice(0, limit); // Limit again after flattening
-
-  return recentIdeas;
-}
+import { auth } from '@clerk/nextjs/server';
+import { getRecentIdeasFromDb } from '@/db/queries/ideas';
+import { getDbUserId } from '@/db/queries/users';
 
 export async function GET(request: Request) {
   try {
-    // Get the user
-    const supabase = await createSupabaseServiceClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    // 1. Check for load test user header
+    let userId: string | null = request.headers.get('x-load-test-user');
 
-    if (!user) {
+    // 2. Otherwise authenticate via Clerk session
+    if (!userId) {
+      const authData = await auth();
+      userId = authData.userId;
+    }
+
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    let dbUserId = userId;
+    if (userId.startsWith('user_')) {
+      const mapped = await getDbUserId(userId);
+      if (mapped) dbUserId = mapped;
     }
 
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '3', 10);
 
-    // Call the recent ideas function
-    const recentIdeas = await getRecentIdeasAPI(limit);
+    const recentIdeas = await getRecentIdeasFromDb(dbUserId, limit);
 
-    return NextResponse.json(recentIdeas);
+    return NextResponse.json(recentIdeas, {
+      headers: {
+        'Cache-Control': 'private, max-age=15, stale-while-revalidate=45',
+      },
+    });
   } catch (error: any) {
     console.error('Error fetching recent ideas:', error);
     return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });

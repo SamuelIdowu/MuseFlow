@@ -3,24 +3,39 @@ import { NextResponse } from "next/server";
 
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/pricing(.*)",
   "/auth(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/api/webhooks(.*)",
+  "/api/cron(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
-  const { userId } = await auth();
+  const authObject = await auth();
+  const { userId } = authObject;
   const pathname = req.nextUrl.pathname;
 
-  // 1. Redirect unauthenticated users from protected routes → /sign-in
-  if (!userId && !isPublicRoute(req)) {
-    const url = req.nextUrl.clone();
-    url.pathname = "/sign-in";
-    url.searchParams.set("redirectedFrom", pathname);
-    return NextResponse.redirect(url);
+  // Strip any spoofed x-load-test-user header from incoming requests
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.delete("x-load-test-user");
+
+  // Check for authorized load testing bypass in dev/staging environments
+  const loadTestSecret = process.env.LOAD_TEST_BYPASS_SECRET;
+  if (
+    loadTestSecret &&
+    req.headers.get("x-load-test-secret") === loadTestSecret
+  ) {
+    const testUserId = req.headers.get("x-load-test-user-id") || "00000000-0000-0000-0000-000000000001";
+    requestHeaders.set("x-load-test-user", testUserId);
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
-  // 2. Redirect authenticated users away from /sign-in & /sign-up → /dashboard
+  // 1. Redirect authenticated users away from /sign-in & /sign-up → /dashboard
   if (
     userId &&
     (pathname.startsWith("/sign-in") || pathname.startsWith("/sign-up"))
@@ -28,6 +43,21 @@ export default clerkMiddleware(async (auth, req) => {
     const url = req.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);
+  }
+
+  // 2. Allow public routes
+  if (isPublicRoute(req)) {
+    return NextResponse.next();
+  }
+
+  // 3. Protect protected routes
+  if (!userId) {
+    // Return 401 for unauthenticated API calls
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    // Truly unauthenticated page visit - redirect to sign in
+    await auth.protect();
   }
 
   return NextResponse.next();

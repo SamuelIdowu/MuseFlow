@@ -1,10 +1,10 @@
 import { auth } from "@clerk/nextjs/server";
-import { ensureSupabaseUser } from "@/lib/supabaseServerClient";
+import { ensureDbUser } from "@/db/queries/users";
 import { clerkClient } from "@clerk/nextjs/server";
 
 /**
- * API route to ensure a user exists in Supabase
- * This is called from client components to sync Clerk users with Supabase
+ * API route to ensure a user exists in database (Neon)
+ * This is called from client components to sync Clerk users with database
  */
 export async function POST() {
     const { userId } = await auth();
@@ -34,22 +34,23 @@ export async function POST() {
         const email = user.emailAddresses[0].emailAddress;
         console.log('[API /user/ensure] Email:', email);
 
-        // Ensure user exists in Supabase
-        const supabaseUserId = await ensureSupabaseUser(userId, email);
+        // Ensure user exists in Neon
+        const dbUserId = await ensureDbUser(userId, email);
 
-        if (!supabaseUserId) {
-            console.error('[API /user/ensure] ensureSupabaseUser returned null');
+        if (!dbUserId) {
+            console.error('[API /user/ensure] ensureDbUser returned null');
             return Response.json(
-                { error: "Failed to create/fetch Supabase user" },
+                { error: "Failed to create/fetch database user" },
                 { status: 500 }
             );
         }
 
-        console.log('[API /user/ensure] Success! Supabase userId:', supabaseUserId);
+        console.log('[API /user/ensure] Success! Neon userId:', dbUserId);
 
         return Response.json({
             success: true,
-            supabaseUserId
+            supabaseUserId: dbUserId,
+            userId: dbUserId
         });
     } catch (error) {
         console.error("[API /user/ensure] Error:", error);

@@ -3,14 +3,23 @@
 
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckCircle, Edit, Trash2 } from "lucide-react";
+import { CheckCircle, Edit, Trash2, Cpu, MoreHorizontal } from "lucide-react";
 import { Profile, ToneConfig } from "@/types/profile";
+import { Badge } from "@/components/ui/badge";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ProfileCardProps {
     profile: Profile;
     onEdit: (profile: Profile) => void;
     onDelete: (profileId: string) => void;
     onSetActive: (profileId: string) => void;
+    onConfigureBYOK?: (profile: Profile) => void;
 }
 
 // Extract tone keywords from tone_config
@@ -37,45 +46,88 @@ function getToneKeywords(toneConfig: ToneConfig | null): string[] {
     return keywords.length > 0 ? keywords : ["Standard"];
 }
 
-export function ProfileCard({ profile, onEdit, onDelete, onSetActive }: ProfileCardProps) {
+export function ProfileCard({ profile, onEdit, onDelete, onSetActive, onConfigureBYOK }: ProfileCardProps) {
     const isActive = profile.is_active;
     const toneKeywords = getToneKeywords(profile.tone_config);
 
     return (
         <Card
-            className={`flex flex-col gap-4 p-4 relative transition-all duration-200 ${isActive
-                ? "ring-2 ring-primary bg-primary/5 border-primary"
-                : "border-border bg-card hover:border-primary/30"
+            className={`flex flex-col justify-between p-5 relative transition-all duration-200 rounded-xl shadow-xs ${isActive
+                ? "ring-2 ring-primary/60 bg-primary/5 border-primary/40 shadow-sm"
+                : "border-border bg-card hover:border-border/80 hover:shadow-sm"
                 }`}
         >
-            {isActive && (
-                <div className="absolute top-4 right-4 flex items-center gap-2 bg-primary/20 text-primary text-xs font-semibold px-2.5 py-1 rounded-full">
-                    <CheckCircle className="h-4 w-4" fill="currentColor" />
-                    <span>Active</span>
-                </div>
-            )}
+            <CardHeader className="p-0 space-y-0 pb-3">
+                <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-foreground text-base sm:text-lg font-bold leading-snug font-space-grotesk truncate">
+                                {profile.profile_name}
+                            </p>
+                            {isActive && (
+                                <Badge className="bg-primary/15 text-primary border-primary/30 text-[10px] font-semibold gap-1 py-0.5 px-2 hover:bg-primary/20">
+                                    <CheckCircle className="h-3 w-3" />
+                                    <span>Active</span>
+                                </Badge>
+                            )}
+                        </div>
+                        <p className="text-muted-foreground text-xs font-normal mt-0.5 truncate">
+                            {profile.niche ? `Niche: ${profile.niche}` : "General Creator"}
+                        </p>
+                    </div>
 
-            <CardHeader className="p-0 space-y-0">
-                <div className="flex flex-col">
-                    <p className="text-foreground text-lg font-semibold leading-normal">
-                        {profile.profile_name}
-                    </p>
-                    <p className="text-muted-foreground text-sm font-normal leading-normal">
-                        {profile.niche ? `Niche: ${profile.niche}` : "No niche specified"}
-                    </p>
+                    {/* Overflow Actions Menu */}
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-muted shrink-0 -mt-1 -mr-1"
+                                title="Profile options"
+                            >
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-52 text-xs font-medium">
+                            {onConfigureBYOK && (
+                                <DropdownMenuItem
+                                    onClick={() => onConfigureBYOK(profile)}
+                                    className="cursor-pointer flex items-center gap-2"
+                                >
+                                    <Cpu className="h-3.5 w-3.5 text-indigo-500" />
+                                    <span>Model & BYOK Settings</span>
+                                </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem
+                                onClick={() => onEdit(profile)}
+                                className="cursor-pointer flex items-center gap-2"
+                            >
+                                <Edit className="h-3.5 w-3.5 text-sky-500" />
+                                <span>Edit Profile</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                onClick={() => onDelete(profile.id)}
+                                className="cursor-pointer flex items-center gap-2 text-destructive focus:text-destructive focus:bg-destructive/10"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span>Delete Profile</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </CardHeader>
 
             <CardContent className="p-0 flex-1 flex flex-col gap-4">
                 <div>
-                    <h3 className="text-muted-foreground text-xs font-semibold uppercase tracking-wider mb-2">
+                    <h3 className="text-muted-foreground text-[11px] font-semibold uppercase tracking-wider mb-2">
                         Tone & Keywords
                     </h3>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-1.5">
                         {toneKeywords.map((keyword, index) => (
                             <span
                                 key={index}
-                                className="bg-muted text-muted-foreground text-xs font-medium px-2.5 py-1 rounded-full border border-border"
+                                className="bg-muted/80 text-foreground text-[11px] font-medium px-2.5 py-0.5 rounded-md border border-border/80"
                             >
                                 {keyword}
                             </span>
@@ -83,41 +135,26 @@ export function ProfileCard({ profile, onEdit, onDelete, onSetActive }: ProfileC
                     </div>
                 </div>
 
-                <div
-                    className={`flex mt-auto pt-4 border-t ${isActive
-                        ? "border-primary/20"
-                        : "border-border"
-                        }`}
-                >
-                    {!isActive && (
+                {/* Footer Action / Status */}
+                <div className="mt-auto pt-3.5 border-t border-border/70 flex items-center justify-between">
+                    {isActive ? (
+                        <div className="flex items-center text-xs font-medium text-muted-foreground">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500 mr-2 shadow-2xs" />
+                            <span>Currently generating in this persona</span>
+                        </div>
+                    ) : (
                         <Button
-                            className="w-full mb-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200"
+                            variant="outline"
+                            size="sm"
+                            className="w-full h-8 text-xs font-medium border-border hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-colors"
                             onClick={() => onSetActive(profile.id)}
                         >
-                            Set as Active
+                            Set as Active Voice
                         </Button>
                     )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="outline"
-                        className="flex-1 flex items-center justify-center gap-2 transition-all duration-200"
-                        onClick={() => onEdit(profile)}
-                    >
-                        <Edit className="h-4 w-4" />
-                        <span>Edit</span>
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="flex-1 flex items-center justify-center gap-2 text-destructive hover:bg-destructive/10 transition-all duration-200"
-                        onClick={() => onDelete(profile.id)}
-                    >
-                        <Trash2 className="h-4 w-4" />
-                        <span>Delete</span>
-                    </Button>
                 </div>
             </CardContent>
         </Card>
     );
 }
+

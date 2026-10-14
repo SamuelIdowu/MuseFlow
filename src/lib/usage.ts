@@ -1,6 +1,4 @@
-
-import { createSupabaseServiceClient } from './supabaseServerClient';
-import { FEATURES } from './featureFlags';
+import { FEATURES, getPlanTierOverride } from './featureFlags';
 
 export type UsageMetric = 'ai_generations' | 'brand_profiles' | 'saved_campaigns' | 'canvas_sessions';
 
@@ -25,72 +23,45 @@ export const PLAN_LIMITS = {
     },
 };
 
-export async function getUsage(userId: string, metric: UsageMetric) {
-    const supabase = createSupabaseServiceClient();
+import {
+    getUsageFromDb,
+    incrementUsageInDb,
+    getUserSubscriptionPlanFromDb,
+} from '@/db/queries/billing';
+
+export async function getUsage(userId: string, metric: UsageMetric): Promise<number> {
     const now = new Date();
+    const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // For monthly limits, we usually want to check the current billing period
-    // But for simplicity in this MVP, we'll check the current calendar month
-    // Ideally this should sync with the subscription period from the subscriptions table
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
-
-    const { data, error } = await supabase
-        .from('usage_tracking')
-        .select('count')
-        .eq('user_id', userId)
-        .eq('metric', metric)
-        .eq('period_start', startOfMonth)
-        .single();
-
-    if (error && error.code !== 'PGRST116') {
-        console.error('Error fetching usage:', error);
+    try {
+        return await getUsageFromDb(userId, metric, startOfMonthDate);
+    } catch (err) {
+        console.error('[getUsage] Neon error:', err);
         return 0;
     }
-
-    return data?.count || 0;
 }
 
 export async function checkUsageLimit(userId: string, metric: UsageMetric): Promise<boolean> {
-    // FEATURE FLAG: When payments are disabled, bypass all usage limits
-    if (!FEATURES.PAYMENTS_ENABLED) {
+    const override = getPlanTierOverride();
+
+    // FEATURE FLAG: When payments are disabled AND no override is active AND limits are not enforced, bypass all usage limits
+    if (!override && !FEATURES.PAYMENTS_ENABLED && !FEATURES.ENFORCE_PLAN_LIMITS) {
         return true; // Allow unlimited usage
     }
 
-    const supabase = createSupabaseServiceClient();
-
-    // 1. Get user's subscription plan
-    // We check the subscriptions table first, then fall back to users table if needed
-    // For now, let's assume we check the users table which should be synced or the subscriptions table
-
-    // Let's query the subscriptions table for an active subscription
-    const { data: subscription } = await supabase
-        .from('subscriptions')
-        .select('price_id, status')
-        .eq('user_id', userId)
-        .in('status', ['active', 'trialing'])
-        .single();
-
     let plan: 'free' | 'pro' | 'business' = 'free';
 
-    if (subscription) {
-        // Map price IDs to plans (bucket them)
-        // This is a simplified mapping. Real implementation might query products.
-        // Ideally we store the plan name in metadata or infer from price ID if we have a constant map
-        // For now, let's fetch the user's role from the users table as a fallback or source of truth
-        const { data: user } = await supabase
-            .from('users')
-            .select('subscription_plan')
-            .eq('id', userId)
-            .single();
-
-        if (user?.subscription_plan) {
-            // @ts-ignore
-            plan = user.subscription_plan;
+    if (override) {
+        plan = override === 'studio' ? 'business' : override;
+    } else {
+        try {
+            plan = await getUserSubscriptionPlanFromDb(userId);
+        } catch (err) {
+            console.error('[checkUsageLimit] Neon error:', err);
         }
     }
 
-    const limit = PLAN_LIMITS[plan][metric];
+    const limit = PLAN_LIMITS[plan]?.[metric] ?? PLAN_LIMITS.free[metric];
 
     if (limit === Infinity) return true;
 
@@ -100,37 +71,13 @@ export async function checkUsageLimit(userId: string, metric: UsageMetric): Prom
 }
 
 export async function incrementUsage(userId: string, metric: UsageMetric): Promise<void> {
-    const supabase = createSupabaseServiceClient();
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString();
+    const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-    // Upsert usage record
-    // We use raw SQL or careful upsert handling
-
-    // First try to select
-    const { data: existing } = await supabase
-        .from('usage_tracking')
-        .select('id, count')
-        .eq('user_id', userId)
-        .eq('metric', metric)
-        .eq('period_start', startOfMonth)
-        .single();
-
-    if (existing) {
-        await supabase
-            .from('usage_tracking')
-            .update({ count: existing.count + 1 })
-            .eq('id', existing.id);
-    } else {
-        await supabase
-            .from('usage_tracking')
-            .insert({
-                user_id: userId,
-                metric,
-                count: 1,
-                period_start: startOfMonth,
-                period_end: endOfMonth,
-            });
+    try {
+        await incrementUsageInDb(userId, metric, startOfMonthDate, endOfMonthDate);
+    } catch (err) {
+        console.error('[incrementUsage] Neon error:', err);
     }
 }

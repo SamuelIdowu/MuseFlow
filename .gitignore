@@ -38,10 +38,18 @@
 next-env.d.ts
 
 #Docs
-/docs
+/docs/
+/.agents/
 
 # PWA local files
 public/sw.js
 public/sw.js.map
 public/workbox-*.js
 public/workbox-*.js.map
+
+# Supabase CLI temp
+supabase/.temp/
+
+# Playwright
+test-results/
+playwright-report/
